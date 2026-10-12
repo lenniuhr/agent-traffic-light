@@ -61,6 +61,7 @@ $flipMs        = 180    # colour change and slide when a row changes state
 $blinkMs       = 600    # one beat of the three-beat permission alarm
 $breatheMs     = 2000   # permission settles into this after the beats
 $dotBreatheMs  = 2400   # the only motion on a calm card
+$soundSettleMs = 1200   # a stop must outlast this before its sound plays, so a title that flickers between tools stays silent
 
 # ---------------------------------------------------------------------------
 # Glyph vocabulary. Written as code points on purpose: PowerShell 5.1 reads a
@@ -534,6 +535,74 @@ function Sync-SessionExtras {
 $script:unityCommandLines = @{}
 $script:unityCpuSamples = @{}
 $script:unityEditors = @()
+
+# ---------------------------------------------------------------------------
+# Settings, chosen from the card's menu and its rows' right-click menus, kept in
+# state/settings.json. Read once at start and written on every change.
+#
+# ShowUnityEditors is off by default: most days nobody needs the editors on the
+# card, and a card that is always full stops being looked at.
+#
+# Sounds maps a terminal window handle to the sound that window's session plays
+# when it needs you. Keyed by window like the row order, so a sound survives a
+# /clear, a new session in the same window and a restart of the card, and it is
+# dropped when the window closes.
+# ---------------------------------------------------------------------------
+$settingsFile = Join-Path $stateDir 'settings.json'
+$script:settings = @{ ShowUnityEditors = $false; Sounds = @{} }
+
+function Read-Settings {
+    try {
+        $saved = Get-Content $settingsFile -Raw -ErrorAction Stop | ConvertFrom-Json
+        if ($null -ne $saved.ShowUnityEditors) { $script:settings.ShowUnityEditors = [bool]$saved.ShowUnityEditors }
+        if ($null -ne $saved.Sounds) {
+            foreach ($entry in $saved.Sounds.PSObject.Properties) {
+                $script:settings.Sounds[[string]$entry.Name] = [string]$entry.Value
+            }
+        }
+    } catch { }
+}
+
+function Save-Settings {
+    try {
+        [pscustomobject]@{
+            ShowUnityEditors = $script:settings.ShowUnityEditors
+            Sounds           = [pscustomobject]$script:settings.Sounds
+        } | ConvertTo-Json -Depth 4 | Set-Content -Path $settingsFile -Encoding UTF8
+    } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+}
+
+Read-Settings
+
+# The Windows sounds a session can pick, shortest and most distinct first. A
+# fixed list rather than the whole Media folder: that folder also holds alarms
+# and ringtones that play for half a minute. Names missing on a machine are
+# dropped, since Windows versions ship different sets.
+$soundFolder = Join-Path $env:WINDIR 'Media'
+$soundChoices = @(
+    'Windows Notify System Generic', 'Windows Notify Messaging', 'Windows Notify Email',
+    'Windows Notify Calendar', 'Windows Proximity Notification', 'Windows Message Nudge',
+    'chimes', 'chord', 'ding', 'notify', 'tada'
+) | Where-Object { Test-Path (Join-Path $soundFolder "$_.wav") }
+
+# Players are kept per sound, because creating one loads the file from disk.
+$script:soundPlayers = @{}
+
+function Invoke-Sound {
+    param([string]$Name)
+    if (-not $Name) { return }
+    $path = Join-Path $soundFolder "$Name.wav"
+    if (-not (Test-Path $path)) { return }
+    try {
+        if (-not $script:soundPlayers.ContainsKey($Name)) {
+            $player = New-Object System.Media.SoundPlayer $path
+            $player.Load()
+            $script:soundPlayers[$Name] = $player
+        }
+        # Play, not PlaySync: it returns at once and never holds up the poll.
+        $script:soundPlayers[$Name].Play()
+    } catch { Write-ErrorLog -Where 'sound' -Problem $_ }
+}
 $listSep = ' ' + [char]0x00B7 + ' '   # code point: the file is read as ANSI
 
 function Get-UnityProjectPath {
@@ -755,6 +824,7 @@ $warnText  = $window.FindName('WarnText')
 $workClock     = $window.FindName('WorkClock')
 $workClockText = $window.FindName('WorkClockText')
 $workClockSub  = $window.FindName('WorkClockSub')
+$menuButton    = $window.FindName('MenuButton')
 
 $brush = @{
     Working      = $window.FindResource('BrushWorking')
@@ -877,6 +947,10 @@ function New-Row {
         TimerText = $element.FindName('Timer')
         ModelText = $element.FindName('Model')
         CtxFill   = $element.FindName('CtxFill')
+        SoundMark = $element.FindName('SoundMark')
+        # When the row stopped working, plus the settle time; the poll plays the
+        # row's sound once it is due and the row is still not working.
+        SoundDueAt = $null
         State     = ''
         Label     = ''
         Since     = Get-Date
@@ -901,6 +975,15 @@ function New-Row {
     }
 
     $element.Tag = $Handle
+    if ($script:settings.Sounds.ContainsKey([string][int64]$Handle)) { $rec.SoundMark.Visibility = 'Visible' }
+
+    # Right click picks the sound this session plays when it needs you. Per row,
+    # so several sessions can each have their own and be told apart by ear.
+    $element.Add_MouseRightButtonUp({
+        param($sender, $e)
+        try { Show-RowMenu -Element $sender } catch { Write-ErrorLog -Where 'rowmenu' -Problem $_ }
+        $e.Handled = $true
+    })
 
     # Press on a row is ambiguous: it starts either a click that focuses the
     # session, or a drag that moves the row within its group. Deciding once the
@@ -1029,6 +1112,18 @@ function Set-RowState {
     if ($Rec.State -eq $State) { return }
 
     $now = Get-Date
+
+    # The sound is armed by a working session stopping, and only by that. The
+    # title is the main agent's own: it keeps its working glyph while subagents
+    # run and return, so their endings never reach here, which is exactly what
+    # the old Notification-hook chime could not tell apart. Waiting turning into
+    # Blocked is the same stop seen twice and stays silent.
+    if ($State -eq 'Working') {
+        $Rec.SoundDueAt = $null
+    } elseif ($Rec.State -eq 'Working') {
+        $Rec.SoundDueAt = $now.AddMilliseconds($soundSettleMs)
+    }
+
     if ($State -eq 'Working') {
         $Rec.WorkSince = Get-WholeSecond -At $now
         $Rec.FinishedAt = $null
@@ -1075,6 +1170,70 @@ function Set-RowState {
             $Rec.Dot.Visibility       = 'Collapsed'
             Start-Alarm -Rec $Rec
         }
+    }
+    # The note takes the timer's colour, which each state already picks to read
+    # on its own fill.
+    $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
+}
+
+# The right-click menu of an agent row: which sound, if any, its session plays
+# when it needs you. Picking a sound plays it once, so the choice is heard.
+function Show-RowMenu {
+    param($Element)
+    $key = [string][int64]$Element.Tag
+    $current = ''
+    if ($script:settings.Sounds.ContainsKey($key)) { $current = $script:settings.Sounds[$key] }
+
+    $menu = New-Object System.Windows.Controls.ContextMenu
+    $title = New-Object System.Windows.Controls.MenuItem
+    $title.Header = 'Sound when this session needs you'
+    $title.IsEnabled = $false
+    [void]$menu.Items.Add($title)
+    [void]$menu.Items.Add((New-Object System.Windows.Controls.Separator))
+
+    foreach ($choice in @('') + @($soundChoices)) {
+        $item = New-Object System.Windows.Controls.MenuItem
+        $item.Header = $(if ($choice) { $choice } else { 'Off' })
+        $item.IsChecked = ($choice -eq $current)
+        # The key and the sound ride on the item, because a handler scriptblock
+        # does not capture this loop's variables.
+        $item.Tag = @{ Key = $key; Sound = $choice }
+        $item.Add_Click({
+            param($sender, $e)
+            try { Set-RowSound -Key $sender.Tag.Key -Sound $sender.Tag.Sound } catch { Write-ErrorLog -Where 'rowmenu' -Problem $_ }
+        })
+        [void]$menu.Items.Add($item)
+    }
+
+    $menu.PlacementTarget = $Element
+    $menu.IsOpen = $true
+}
+
+function Set-RowSound {
+    param([string]$Key, [string]$Sound)
+    if ($Sound) {
+        $script:settings.Sounds[$Key] = $Sound
+        Invoke-Sound -Name $Sound
+    } else {
+        $script:settings.Sounds.Remove($Key)
+    }
+    Save-Settings
+    if ($rows.ContainsKey($Key)) {
+        $rows[$Key].SoundMark.Visibility = $(if ($Sound) { 'Visible' } else { 'Collapsed' })
+    }
+}
+
+# Plays each row's sound once it is due. Run on every poll, after the states are
+# applied, so a row that went back to work inside the settle time stays silent.
+function Invoke-DueSounds {
+    param($Ordered)
+    $now = Get-Date
+    foreach ($rec in $Ordered) {
+        if ($null -eq $rec.SoundDueAt -or $now -lt $rec.SoundDueAt) { continue }
+        $rec.SoundDueAt = $null
+        if ($rec.State -eq 'Working') { continue }
+        $key = [string][int64]$rec.Handle
+        if ($script:settings.Sounds.ContainsKey($key)) { Invoke-Sound -Name $script:settings.Sounds[$key] }
     }
 }
 
@@ -1562,6 +1721,13 @@ function Update-Card {
             # Window is gone. Drop it now rather than waiting for the sweep, so
             # a closed session never lingers on the card.
             $script:knownHandles.Remove($h)
+            # Its sound goes with it. Only here, where the window is known to be
+            # closed: a row that merely drops off for one poll keeps its sound.
+            $soundKey = [string][int64]$h
+            if ($script:settings.Sounds.ContainsKey($soundKey)) {
+                $script:settings.Sounds.Remove($soundKey)
+                Save-Settings
+            }
             continue
         }
         $parsed = Read-SessionTitle -Title $title
@@ -1619,6 +1785,7 @@ function Update-Card {
     foreach ($rec in $ordered) {
         Set-RowState -Rec $rec -State $rec.PendingState -Label $rec.PendingLabel
     }
+    Invoke-DueSounds -Ordered $ordered
 
     Set-DotPulse -On (@($ordered | Where-Object { $_.State -eq 'Working' }).Count -gt 0)
     Update-Layout
@@ -1823,11 +1990,45 @@ function Sweep-Windows {
     }
     Sync-SessionMap -ShellToWindow $scan.ShellToWindow
     Sync-SessionExtras
-    # Caught on its own, so a Unity hiccup can never stop the agent rows updating.
+    Update-UnityRows
+}
+
+# Caught on its own, so a Unity hiccup can never stop the agent rows updating.
+# With the group switched off nothing is collected at all, so the switch also
+# takes the cost away, not only the rows.
+function Update-UnityRows {
     try {
-        $script:unityEditors = @(Get-UnityEditors)
+        if ($script:settings.ShowUnityEditors) {
+            $script:unityEditors = @(Get-UnityEditors)
+        } else {
+            $script:unityEditors = @()
+        }
         Sync-UnityRows
     } catch { Write-ErrorLog -Where 'unity' -Problem $_ }
+}
+
+# The card's own menu, behind the three bars left of the session clock.
+function Show-SettingsMenu {
+    $menu = New-Object System.Windows.Controls.ContextMenu
+
+    $unityItem = New-Object System.Windows.Controls.MenuItem
+    $unityItem.Header = 'Show Unity editors'
+    $unityItem.IsCheckable = $true
+    $unityItem.IsChecked = [bool]$script:settings.ShowUnityEditors
+    $unityItem.Add_Click({
+        param($sender, $e)
+        try {
+            $script:settings.ShowUnityEditors = [bool]$sender.IsChecked
+            Save-Settings
+            Update-UnityRows
+            Update-Layout
+        } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+    })
+    [void]$menu.Items.Add($unityItem)
+
+    $menu.PlacementTarget = $menuButton
+    $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
+    $menu.IsOpen = $true
 }
 
 # ---------------------------------------------------------------------------
@@ -1913,6 +2114,18 @@ $window.FindName('Card').Add_MouseLeftButtonDown({
     $script:pressRow = $null
     $window.DragMove()
     Save-Position
+})
+
+# The menu button sits on that draggable edge, so its press is taken before it
+# can bubble up and start a window drag instead of opening the menu.
+$menuButton.Add_MouseLeftButtonDown({
+    param($sender, $e)
+    $e.Handled = $true
+})
+$menuButton.Add_MouseLeftButtonUp({
+    param($sender, $e)
+    try { Show-SettingsMenu } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+    $e.Handled = $true
 })
 
 # A press on a row that travels far enough stops being a click and becomes a

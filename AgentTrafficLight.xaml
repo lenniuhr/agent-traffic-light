@@ -122,9 +122,23 @@
                margin lines the timer up with the row timers below. -->
           <Border x:Name="WorkClock" Grid.Row="0" Height="32" Margin="14,10,16,0">
             <Grid>
+              <!-- The settings menu. Three bars rather than a gear, because it
+                   opens a menu and that is the sign people read as one. The
+                   transparent background makes the whole box clickable, not only
+                   the strokes of the glyph. -->
+              <TextBlock x:Name="MenuButton"
+                         Text="&#x2630;"
+                         HorizontalAlignment="Left"
+                         VerticalAlignment="Center"
+                         Padding="0,0,6,0"
+                         FontSize="16"
+                         Background="Transparent"
+                         Cursor="Hand"
+                         ToolTip="Settings"
+                         Foreground="{DynamicResource BrushTextDim}" />
               <StackPanel HorizontalAlignment="Left"
                           VerticalAlignment="Bottom"
-                          Margin="0,0,0,4">
+                          Margin="24,0,0,4">
                 <TextBlock Text="VIBING SESSION"
                            FontFamily="Bahnschrift"
                            FontWeight="SemiBold"

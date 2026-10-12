@@ -11,6 +11,7 @@
       <ColumnDefinition Width="18" />
       <ColumnDefinition Width="22" />
       <ColumnDefinition Width="*" />
+      <ColumnDefinition Width="Auto" />
       <ColumnDefinition Width="58" />
     </Grid.ColumnDefinitions>
 
@@ -75,8 +76,21 @@
          time it stopped as "at 14:05", in italics, so the two are never read
          as the same kind of number. The column is wide enough for the "at". -->
 
-    <TextBlock x:Name="Timer"
+    <!-- A note when this session plays a sound on needing you, set from the row's
+         right-click menu. Its own column so a long label is trimmed before it
+         instead of running underneath it. -->
+    <TextBlock x:Name="SoundMark"
                Grid.Column="3"
+               VerticalAlignment="Center"
+               Margin="6,0,0,0"
+               FontFamily="Segoe UI Symbol"
+               FontSize="12"
+               Foreground="{DynamicResource BrushTextDim}"
+               Visibility="Collapsed"
+               Text="&#x266A;" />
+
+    <TextBlock x:Name="Timer"
+               Grid.Column="4"
                VerticalAlignment="Center"
                HorizontalAlignment="Right"
                Margin="0,0,10,0"
@@ -93,14 +107,14 @@
     <!-- Full row width again. It was shortened to dodge the model text, and with
          the model moved into the stripe there is nothing left to dodge. -->
     <Border x:Name="CtxTrack"
-            Grid.ColumnSpan="4"
+            Grid.ColumnSpan="5"
             Height="2"
             VerticalAlignment="Bottom"
             Margin="20,0,10,4"
             CornerRadius="1"
             Background="{DynamicResource BrushCtxTrack}" />
     <Border x:Name="CtxFill"
-            Grid.ColumnSpan="4"
+            Grid.ColumnSpan="5"
             Height="2"
             Width="0"
             HorizontalAlignment="Left"

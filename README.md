@@ -20,12 +20,20 @@ One row per session, grouped by the folder the session runs in:
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
 
-Below the sessions, a Unity group lists every running Unity editor, one row per project: the
+Right-click a session's row to pick a sound it plays when it needs you, or Off. A note on the row
+shows that it has one. The sound plays when that session's own agent stops working, so subagents
+finishing inside it never trigger it, and different sessions can have different sounds. The choice
+belongs to the terminal window and goes away when the window closes.
+
+The three bars left of the session clock open the card's settings, saved in `state\settings.json`.
+
+With "Show Unity editors" switched on there, a Unity group below the sessions lists every running
+Unity editor, one row per project: the
 project folder, whether it runs headless (sand stripe) or with a window (grey stripe), its Plastic
 branch, and its memory and CPU with its asset import workers included. It is there mainly for
 headless editors, which have no window or taskbar button to tell you they are still running.
-Clicking an editor with a window brings it to the front. The card stays visible while any editor
-runs.
+Clicking an editor with a window brings it to the front. While the group is on, the card stays
+visible as long as any editor runs.
 
 Clicking a row brings that session's window to the front. Dragging a row reorders it within its
 group, and the order is remembered. Drag the card by its empty edge to move it.
