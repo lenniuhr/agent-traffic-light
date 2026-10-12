@@ -213,6 +213,123 @@ public class TlNative {
         if (!ok) { Flash(hWnd); }
         return ok;
     }
+
+    // Double-click maximize. The window is put back later exactly where it was,
+    // so a snapshot of it is taken first: its placement, which holds the
+    // display, the restore position and size, and whether it is normal,
+    // minimized or maximized; and the rectangle it really covers. The two
+    // differ for a window snapped to a screen edge, whose placement still holds
+    // the size it had before the snap.
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT { public int X; public int Y; }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int Left; public int Top; public int Right; public int Bottom; }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WINDOWPLACEMENT {
+        public uint length; public uint flags; public uint showCmd;
+        public POINT ptMinPosition; public POINT ptMaxPosition; public RECT rcNormalPosition;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MONITORINFO { public uint cbSize; public RECT rcMonitor; public RECT rcWork; public uint dwFlags; }
+    [DllImport("user32.dll")] public static extern bool GetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT wp);
+    [DllImport("user32.dll")] public static extern bool SetWindowPlacement(IntPtr hWnd, ref WINDOWPLACEMENT wp);
+    [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rc);
+    [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+    [DllImport("user32.dll")] public static extern bool IsZoomed(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern IntPtr MonitorFromWindow(IntPtr hWnd, uint flags);
+    [DllImport("user32.dll")] public static extern IntPtr MonitorFromPoint(POINT pt, uint flags);
+    [DllImport("user32.dll")] public static extern bool GetMonitorInfo(IntPtr hMonitor, ref MONITORINFO mi);
+
+    public class WindowSpot {
+        public WINDOWPLACEMENT Placement;
+        public RECT Bounds;
+    }
+
+    // Where a window is right now, or null if it has closed.
+    public static WindowSpot GetSpot(IntPtr hWnd) {
+        if (!IsWindow(hWnd)) { return null; }
+        WindowSpot spot = new WindowSpot();
+        spot.Placement.length = (uint)Marshal.SizeOf(typeof(WINDOWPLACEMENT));
+        if (!GetWindowPlacement(hWnd, ref spot.Placement)) { return null; }
+        GetWindowRect(hWnd, out spot.Bounds);
+        return spot;
+    }
+
+    // 0,0 is on the primary display by definition. MONITOR_DEFAULTTOPRIMARY.
+    static IntPtr PrimaryMonitor() { return MonitorFromPoint(new POINT(), 1); }
+
+    // True while a window is still maximized on the primary display, the way a
+    // double-click left it. Anything else means it was moved by hand since.
+    public static bool IsMaximizedOnPrimary(IntPtr hWnd) {
+        return IsWindow(hWnd) && IsZoomed(hWnd) && MonitorFromWindow(hWnd, 2) == PrimaryMonitor();
+    }
+
+    // Maximizing fills whichever display the window is on, so a window on
+    // another display is first brought onto the primary one in its normal
+    // state, centred at its own size. A placement with SW_SHOWNORMAL does that
+    // from maximized or minimized too. Returns false if the window has closed.
+    public static bool MaximizeOnPrimary(IntPtr hWnd) {
+        if (!IsWindow(hWnd)) { return false; }
+        IntPtr primary = PrimaryMonitor();
+        if (MonitorFromWindow(hWnd, 2) != primary) { // MONITOR_DEFAULTTONEAREST
+            MONITORINFO mi = new MONITORINFO();
+            mi.cbSize = (uint)Marshal.SizeOf(typeof(MONITORINFO));
+            WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+            wp.length = (uint)Marshal.SizeOf(typeof(WINDOWPLACEMENT));
+            if (GetMonitorInfo(primary, ref mi) && GetWindowPlacement(hWnd, ref wp)) {
+                int workW = mi.rcWork.Right - mi.rcWork.Left;
+                int workH = mi.rcWork.Bottom - mi.rcWork.Top;
+                int w = Math.Min(wp.rcNormalPosition.Right - wp.rcNormalPosition.Left, workW);
+                int h = Math.Min(wp.rcNormalPosition.Bottom - wp.rcNormalPosition.Top, workH);
+                // Placements are in workspace coordinates, in which the
+                // primary display's work area starts at 0,0.
+                wp.rcNormalPosition.Left = (workW - w) / 2;
+                wp.rcNormalPosition.Top = (workH - h) / 2;
+                wp.rcNormalPosition.Right = wp.rcNormalPosition.Left + w;
+                wp.rcNormalPosition.Bottom = wp.rcNormalPosition.Top + h;
+                wp.flags = 0;
+                wp.showCmd = 1; // SW_SHOWNORMAL
+                SetWindowPlacement(hWnd, ref wp);
+            }
+        }
+        ShowWindow(hWnd, 3); // SW_MAXIMIZE
+        Focus(hWnd);
+        return true;
+    }
+
+    // Puts a window back exactly where a snapshot found it. Through its normal
+    // state on its own display first, then maximized or minimized from there,
+    // because maximizing a window already maximized on another display leaves
+    // it where it is. A window maximized where it already was is not touched,
+    // so it does not flicker through its normal size. Returns false if the
+    // window has closed.
+    public static bool RestoreSpot(IntPtr hWnd, WindowSpot spot) {
+        if (spot == null || !IsWindow(hWnd)) { return false; }
+        WINDOWPLACEMENT wp = spot.Placement;
+        bool minimized = wp.showCmd == 2; // SW_SHOWMINIMIZED, as GetWindowPlacement reports it
+        bool maximized = wp.showCmd == 3 || (minimized && (wp.flags & 2) != 0); // WPF_RESTORETOMAXIMIZED
+
+        WINDOWPLACEMENT now = new WINDOWPLACEMENT();
+        now.length = (uint)Marshal.SizeOf(typeof(WINDOWPLACEMENT));
+        GetWindowPlacement(hWnd, ref now);
+        RECT a = now.rcNormalPosition, b = wp.rcNormalPosition;
+        bool untouched = IsZoomed(hWnd) && a.Left == b.Left && a.Top == b.Top && a.Right == b.Right && a.Bottom == b.Bottom;
+
+        if (!(maximized && untouched)) {
+            wp.flags = 0;
+            wp.showCmd = 4; // SW_SHOWNOACTIVATE: restored without taking the focus
+            SetWindowPlacement(hWnd, ref wp);
+            if (maximized) {
+                ShowWindow(hWnd, 3); // SW_MAXIMIZE, on the display it is now back on
+            } else if (!minimized) {
+                RECT r = spot.Bounds;
+                SetWindowPos(hWnd, IntPtr.Zero, r.Left, r.Top, r.Right - r.Left, r.Bottom - r.Top, 0x0014); // SWP_NOZORDER | SWP_NOACTIVATE
+            }
+        }
+        // SW_MINIMIZE hands the focus on, as minimizing by hand does.
+        if (minimized) { ShowWindow(hWnd, 6); }
+        return true;
+    }
 }
 "@
 
@@ -1004,21 +1121,34 @@ function New-Row {
         # later grabs the row where the press landed, without a jump.
         $script:pressCanvasY = $e.GetPosition($rowCanvas).Y
         $script:pressRow = $sender
+        # The second press of a double-click. The first press notes where the
+        # window is, before its own click's focus can restore a minimized one,
+        # so a double-click remembers the window as it really was.
+        $script:pressDouble = ($e.ClickCount -eq 2)
+        if ($e.ClickCount -eq 1) {
+            try {
+                $script:pressSpot = @{ Handle = [IntPtr]$sender.Tag; Spot = [TlNative]::GetSpot([IntPtr]$sender.Tag) }
+            } catch { Write-ErrorLog -Where 'maximize' -Problem $_ }
+        }
         $e.Handled = $true
     })
 
     # Release either drops a dragged row or, if the pointer never went far
-    # enough to start a drag, is a click that focuses the session's window.
+    # enough to start a drag, is a click that focuses the session's window, or
+    # the end of a double-click that maximizes it or puts it back.
     # Focus is best effort by design: if Windows refuses the foreground change
     # the native helper flashes the taskbar button instead.
     $element.Add_MouseLeftButtonUp({
         param($sender, $e)
         if ($null -ne $script:drag) {
             try { Complete-RowDrag -Commit $true } catch { Write-ErrorLog -Where 'drop' -Problem $_ }
+        } elseif ($script:pressRow -eq $sender -and $script:pressDouble) {
+            try { Switch-RowMaximized -Handle ([IntPtr]$sender.Tag) } catch { Write-ErrorLog -Where 'maximize' -Problem $_ }
         } elseif ($script:pressRow -eq $sender) {
             [TlNative]::Focus([IntPtr]$sender.Tag) | Out-Null
         }
         $script:pressRow = $null
+        $script:pressDouble = $false
         $e.Handled = $true
     })
 
@@ -1287,6 +1417,36 @@ function Set-RowSound {
     Save-Settings
     if ($rows.ContainsKey($Key)) {
         $rows[$Key].SoundMark.Visibility = $(if ($Sound) { 'Visible' } else { 'Collapsed' })
+    }
+}
+
+# Double-clicking a row maximizes its session's window on the primary display,
+# and double-clicking it again puts the window back exactly where it was. Only
+# one window is maximized this way at a time, so maximizing another first puts
+# the previous one back. A window that has closed, or was moved by hand since,
+# is left where it is, and the double-click simply maximizes.
+#
+# The window and its snapshot, @{ Handle; Spot }, or null. Kept only for as long
+# as the card runs.
+$script:maximized = $null
+
+function Switch-RowMaximized {
+    param([IntPtr]$Handle)
+    $previous = $script:maximized
+    $script:maximized = $null
+    if ($null -ne $previous -and [TlNative]::IsMaximizedOnPrimary($previous.Handle)) {
+        [TlNative]::RestoreSpot($previous.Handle, $previous.Spot) | Out-Null
+        if ($previous.Handle -eq $Handle) { return }
+    }
+
+    # Taken by the double-click's first press. Taken now only if that press
+    # was on another row, which a row sliding between the two clicks can do.
+    $spot = $null
+    if ($null -ne $script:pressSpot -and $script:pressSpot.Handle -eq $Handle) { $spot = $script:pressSpot.Spot }
+    if ($null -eq $spot) { $spot = [TlNative]::GetSpot($Handle) }
+    if ($null -eq $spot) { return }
+    if ([TlNative]::MaximizeOnPrimary($Handle)) {
+        $script:maximized = @{ Handle = $Handle; Spot = $spot }
     }
 }
 
@@ -2335,6 +2495,8 @@ $window.Add_SourceInitialized({
 
 $script:pressRow = $null
 $script:pressPoint = $null
+$script:pressDouble = $false
+$script:pressSpot = $null
 
 # The card moves only from where there is no row: its empty edge, the gaps
 # between rows and the group headings. Rows handle their own press, so it never

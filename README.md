@@ -49,8 +49,13 @@ headless editors, which have no window or taskbar button to tell you they are st
 Clicking an editor with a window brings it to the front. While the group is on, the card stays
 visible as long as any editor runs.
 
-Clicking a row brings that session's window to the front. Dragging a row reorders it within its
-group, and the order is remembered. Drag the card by its empty edge to move it.
+Clicking a row brings that session's window to the front. Double-clicking it maximizes the window
+on the primary display, and double-clicking it again puts the window back exactly where it was:
+same display, position, size, and normal, minimized or maximized. Only one window is maximized this
+way at a time, so double-clicking another row first puts the previous window back. A window moved
+by hand in between is left where it is, and the next double-click maximizes it afresh. Dragging a
+row reorders it within its group, and the order is remembered. Drag the card by its empty edge to
+move it.
 
 The tray icon takes the colour of the most urgent row. Left click hides or shows the card; right
 click quits. The card hides itself when no session is open.
