@@ -119,6 +119,11 @@
       </Setter>
     </Style>
 
+    <!-- An item with items of its own is a submenu header: it shows an arrow and
+         opens its items beside the menu on hover, in a popup drawn like the menu.
+         The popup must be called PART_Popup for the menu to manage it. The offsets
+         line its first item up with the header and clear the menu's own edge;
+         without room on the right, WPF opens it to the left. -->
     <Style x:Key="CardMenuItem" TargetType="MenuItem">
       <Setter Property="OverridesDefaultStyle" Value="True" />
       <Setter Property="Foreground" Value="#E8EBEF" />
@@ -126,32 +131,72 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="MenuItem">
-            <Border x:Name="ItemBg" Background="Transparent" CornerRadius="5" Padding="6,6,14,6">
-              <Grid>
-                <Grid.ColumnDefinitions>
-                  <ColumnDefinition Width="22" />
-                  <ColumnDefinition Width="*" />
-                </Grid.ColumnDefinitions>
-                <!-- The tick is the working blue, the one accent the card uses. -->
-                <TextBlock x:Name="Tick"
-                           Text="&#x2713;"
-                           Visibility="Hidden"
-                           HorizontalAlignment="Center"
-                           VerticalAlignment="Center"
-                           FontFamily="Segoe UI Symbol"
-                           FontSize="12"
-                           Foreground="#4C9BE8" />
-                <ContentPresenter Grid.Column="1"
-                                  ContentSource="Header"
-                                  RecognizesAccessKey="True"
-                                  VerticalAlignment="Center" />
-              </Grid>
-            </Border>
+            <Grid>
+              <Border x:Name="ItemBg" Background="Transparent" CornerRadius="5" Padding="6,6,14,6">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="22" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <!-- The tick is the working blue, the one accent the card uses. -->
+                  <TextBlock x:Name="Tick"
+                             Text="&#x2713;"
+                             Visibility="Hidden"
+                             HorizontalAlignment="Center"
+                             VerticalAlignment="Center"
+                             FontFamily="Segoe UI Symbol"
+                             FontSize="12"
+                             Foreground="#4C9BE8" />
+                  <ContentPresenter Grid.Column="1"
+                                    ContentSource="Header"
+                                    RecognizesAccessKey="True"
+                                    VerticalAlignment="Center" />
+                  <TextBlock x:Name="Arrow"
+                             Grid.Column="2"
+                             Text="&#x203A;"
+                             Visibility="Collapsed"
+                             Margin="16,0,0,0"
+                             VerticalAlignment="Center"
+                             FontSize="15"
+                             Foreground="#8B94A1" />
+                </Grid>
+              </Border>
+              <Popup x:Name="PART_Popup"
+                     Placement="Right"
+                     HorizontalOffset="6"
+                     VerticalOffset="-5"
+                     AllowsTransparency="True"
+                     Focusable="False"
+                     PopupAnimation="None"
+                     IsOpen="{Binding IsSubmenuOpen, RelativeSource={RelativeSource TemplatedParent}}">
+                <Border Margin="0,0,10,10"
+                        Padding="4"
+                        MinWidth="200"
+                        Background="#1E222A"
+                        BorderBrush="#2E333D"
+                        BorderThickness="1"
+                        CornerRadius="8">
+                  <Border.Effect>
+                    <DropShadowEffect Color="#000000" BlurRadius="14" ShadowDepth="3" Opacity="0.45" Direction="270" />
+                  </Border.Effect>
+                  <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+                </Border>
+              </Popup>
+            </Grid>
             <ControlTemplate.Triggers>
+              <Trigger Property="HasItems" Value="True">
+                <Setter TargetName="Arrow" Property="Visibility" Value="Visible" />
+              </Trigger>
               <Trigger Property="IsChecked" Value="True">
                 <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
               </Trigger>
               <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="ItemBg" Property="Background" Value="#2A303A" />
+              </Trigger>
+              <!-- Kept lit while its submenu is open, so it is clear which item the
+                   submenu belongs to once the pointer has moved into it. -->
+              <Trigger Property="IsSubmenuOpen" Value="True">
                 <Setter TargetName="ItemBg" Property="Background" Value="#2A303A" />
               </Trigger>
               <!-- A disabled item is the menu's caption, not a dead option. -->

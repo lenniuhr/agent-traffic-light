@@ -9,16 +9,31 @@ Terminal. The name is generic on purpose, so other agents can be added later.
 
 ## What it shows
 
-One row per session, grouped by the folder the session runs in:
+One row per session, grouped under the repository the session is really working in:
 
 | Row | Meaning |
 | --- | --- |
 | Dark row, turning ring | Working. The time on the right counts up. |
-| Green row, blue dot | Finished and waiting for you. The time on the right is when it stopped. |
-| Amber row, blue dot, pulsing | Blocked on you: a permission prompt or a question. |
+| Green row | Finished and waiting for you. The time on the right is when it stopped. |
+| Amber row, pulsing | Blocked on you: a permission prompt or a question. |
 | Dark row, dimmed label, no ring, no dot | Watching: only the Marshal session, between rounds, with nothing for you. The time on the right is when its last round ended. |
 
-The blue dot always means the same thing: this session wants something from you.
+The blue dot means this session wants something from you that you have not opened yet. It shows
+on a green or amber row until that session's terminal window comes to the front, whether by
+clicking the row, Alt+Tab or the taskbar, or because it already was in front when the session
+stopped. Opening clears only the dot; the row keeps its colour. The dot comes back when the
+session finishes again or asks something new, so the rows with a dot are the ones still to
+handle. After the card itself restarts, every waiting session shows its dot again until opened.
+
+The repository comes from transcripts, so it needs no hook and nothing from the agent, and it works
+for sessions that were already open: the session's own, and those of the helper agents it starts,
+which is where a session that delegates its work does it. Every file read or written, every folder
+a shell command names, and the shell's folder once that has moved count as votes for the
+repository (a folder with `.git`, or `.plastic` for a Plastic workspace) they lie in. The card
+keeps a running list of each session's votes, adding what every transcript has gained since the
+last look; the repository with the most of the last 48 votes wins, and a tie keeps the current
+one. A session that has touched no repository yet sits under the folder its terminal was opened
+in. Marshal always stays under its own folder.
 
 Marshal is a long-running coordinator session that runs a round every 15 minutes and idles in
 between, so by its title alone it would sit green with a blue dot all day. The card finds its row by
@@ -34,10 +49,14 @@ a Watching row, but it still counts as a session, so the card does not hide.
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
 
-Right-click a session's row to pick a sound it plays when it needs you, or Off. A note on the row
-shows that it has one. The sound plays when that session's own agent stops working, so subagents
-finishing inside it never trigger it, and different sessions can have different sounds. The choice
-belongs to the terminal window and goes away when the window closes.
+Right-click a session's row for its menu: Bring to front, Maximize window (or Put window back), and
+Sound, which opens a list of sounds on hover, with Off and a tick on the current one. A note on the
+row shows that it has a sound. Once picked, the sound plays every time that session starts needing
+you, its row turning Waiting or Blocked, once per time rather than over and over while it waits, and
+it stays on until you pick Off, across restarts of the card. It follows that session's own agent,
+so subagents finishing inside it never trigger it, and different sessions can have different
+sounds. A Marshal round in between does not count as a new need, so an open question sounds once,
+not every round. The choice belongs to the terminal window and goes away when the window closes.
 
 The three bars left of the session clock open the card's settings, saved in `state\settings.json`.
 

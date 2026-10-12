@@ -524,9 +524,214 @@ function Sync-SessionMap {
     $script:liveSessionCount = $live
 }
 
+# The repository a path lies in, as its root folder, or '' for none. A
+# repository is a folder holding .git, or .plastic for a Plastic workspace,
+# which is what the Unity projects are; the nearest one wins, so a git repo
+# nested in another counts as itself. A git worktree counts as the repository
+# it was made from. Folders are looked up once and remembered, because the same
+# few come up in every transcript.
+$script:repoRootCache = @{}
+
+function Get-RepoRoot {
+    param([string]$Path)
+    try {
+        $dir = ($Path -replace '/', '\').Trim().TrimEnd('\')
+        if ($dir -notmatch '^[A-Za-z]:\\') { return '' }
+        # The path may name a file, a pattern or a folder made later, so start
+        # from the deepest part of it that exists.
+        while ($dir.Length -gt 3 -and -not [System.IO.Directory]::Exists($dir)) {
+            $dir = [System.IO.Path]::GetDirectoryName($dir)
+        }
+        $visited = New-Object System.Collections.ArrayList
+        $root = ''
+        while ($dir -and $dir.Length -gt 3) {
+            if ($script:repoRootCache.ContainsKey($dir)) { $root = $script:repoRootCache[$dir]; break }
+            [void]$visited.Add($dir)
+            $git = Join-Path $dir '.git'
+            if ([System.IO.Directory]::Exists((Join-Path $dir '.plastic')) -or [System.IO.Directory]::Exists($git)) {
+                $root = $dir
+            } elseif ([System.IO.File]::Exists($git)) {
+                $root = $dir
+                $made = [regex]::Match([System.IO.File]::ReadAllText($git), 'gitdir:\s*(.+?)[\\/]\.git[\\/]worktrees[\\/]')
+                if ($made.Success) { $root = $made.Groups[1].Value.Trim() -replace '/', '\' }
+            }
+            if ($root) {
+                # The name as it is on disk, not as a command happened to type it:
+                # Git Bash writes /d/draxon/..., and the heading should not change
+                # case with whoever typed it.
+                $parent = [System.IO.Path]::GetDirectoryName($root)
+                $real = @([System.IO.Directory]::GetDirectories($parent, (Split-Path -Leaf $root)))
+                if ($real.Count -eq 1) { $root = $real[0] }
+                break
+            }
+            $dir = [System.IO.Path]::GetDirectoryName($dir)
+        }
+        foreach ($v in $visited) { $script:repoRootCache[$v] = $root }
+        return $root
+    } catch { return '' }
+}
+
+# One JSON string value, as the transcript holds it, back to plain text.
+# Regex.Unescape knows every escape JSON uses, and does it in .NET: the same
+# thing done with a PowerShell callback per escape cost 40 ms per transcript.
+function ConvertFrom-JsonText {
+    param([string]$Raw)
+    if ($Raw.IndexOf('\') -lt 0) { return $Raw }
+    try { return [regex]::Unescape($Raw) } catch { return $Raw }
+}
+
+# The repository a session is really working in, which is often not the folder
+# its terminal was opened in: every terminal may start in one project while
+# its agent works in another. Read from transcripts, so it needs no hook and
+# nothing from the agent, and works on sessions that were already open: the
+# session's own, and those of the helper agents it starts, which Claude keeps
+# in a subagents folder beside it. A session that hands its work to helpers
+# writes little but messages itself; its helpers are the ones touching files.
+# In each transcript these are votes:
+#   - the files its tools read and write (file_path, notebook_path, path),
+#   - the folders named in its shell commands, as D:\..., D:/... or /d/...,
+#   - the shell's own folder (cwd) whenever it has moved off the launch folder.
+# Each one that lies in a repository counts. Paths outside any repository, such
+# as temp files, the Unity editor or ~/.claude, do not.
+#
+# The votes are a running list per session, newest last, fed every sweep with
+# the lines each file has gained since. Judging only the end of the session's
+# own transcript went wrong: a session busy talking to its helpers had no votes
+# there at all and kept whatever an early look at the launch folder's rules
+# had said. When a session is first seen, each of its files changed in the
+# last two hours is read from the end back until it gives enough votes, oldest
+# file first, so the list starts out as it would have grown.
+#
+# Of the last 48 votes the repository with the most wins; on a tie the current
+# one stays, so a row does not flap between two groups, and otherwise the latest
+# of the leaders wins. '' means no votes yet, which leaves the row on its launch
+# folder.
+$workVotes = 48
+$workLookbackHours = 2
+$script:workState = @{}
+
+# The repositories one stretch of transcript votes for, in order.
+function Get-WorkVotes {
+    param([string]$Text, [string]$Launch)
+    $votes = New-Object System.Collections.ArrayList
+    foreach ($m in [regex]::Matches($Text, '"(file_path|notebook_path|path|cwd|command)":"((?:[^"\\]|\\.)*)"')) {
+        $kind = $m.Groups[1].Value
+        $value = ConvertFrom-JsonText -Raw $m.Groups[2].Value
+        $paths = @()
+        if ($kind -eq 'command') {
+            foreach ($p in [regex]::Matches($value, '(?i)(?<![\w])[a-z]:[\\/][^\s"''`<>|;&*?]*')) { $paths += $p.Value }
+            foreach ($p in [regex]::Matches($value, '(?i)(?<![\w/.~-])/([a-z])/[^\s"''`<>|;&*?]*')) {
+                $paths += $p.Groups[1].Value + ':' + $p.Value.Substring(2)
+            }
+        } elseif ($kind -eq 'cwd') {
+            if (($value -replace '/', '\').TrimEnd('\') -eq $Launch) { continue }
+            $paths = @($value)
+        } else {
+            $paths = @($value)
+        }
+        foreach ($p in $paths) {
+            $root = Get-RepoRoot -Path $p
+            if ($root) { [void]$votes.Add($root) }
+        }
+    }
+    return ,$votes
+}
+
+# A transcript from byte Start to its last complete line, as @{ Text; Next },
+# Next being the offset just past that line. A record being written right now
+# is left for the next sweep. FileShare must allow writing: its session is
+# appending to it.
+function Read-TranscriptLines {
+    param([string]$Path, [long]$Start)
+    $stream = [System.IO.File]::Open($Path, [System.IO.FileMode]::Open,
+                                     [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+    try {
+        $length = $stream.Length
+        if ($Start -ge $length) { return @{ Text = ''; Next = $Start } }
+        [void]$stream.Seek($Start, [System.IO.SeekOrigin]::Begin)
+        $buffer = New-Object byte[] ($length - $Start)
+        $read = $stream.Read($buffer, 0, $buffer.Length)
+        if ($read -le 0) { return @{ Text = ''; Next = $Start } }
+        $end = [Array]::LastIndexOf($buffer, [byte]10, $read - 1)
+        if ($end -lt 0) { return @{ Text = ''; Next = $Start } }
+        return @{ Text = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $end + 1); Next = $Start + $end + 1 }
+    } finally { $stream.Dispose() }
+}
+
+# Brings one session's votes up to date and returns the repository it is
+# working in, as a root folder, or ''.
+function Update-WorkRepo {
+    param([string]$SessionId, [string]$MainPath, [string]$LaunchCwd)
+    $launch = ($LaunchCwd -replace '/', '\').TrimEnd('\')
+    $state = $script:workState[$SessionId]
+    $first = ($null -eq $state)
+    if ($first) {
+        $state = @{ Votes = New-Object System.Collections.ArrayList; Offsets = @{}; Root = '' }
+        $script:workState[$SessionId] = $state
+    }
+
+    $files = New-Object System.Collections.ArrayList
+    $main = New-Object System.IO.FileInfo $MainPath
+    if ($main.Exists) { [void]$files.Add($main) }
+    $helpers = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($MainPath),
+                                         [System.IO.Path]::GetFileNameWithoutExtension($MainPath), 'subagents')
+    if ([System.IO.Directory]::Exists($helpers)) {
+        foreach ($f in (New-Object System.IO.DirectoryInfo $helpers).GetFiles('*.jsonl')) { [void]$files.Add($f) }
+    }
+    $since = [DateTime]::UtcNow.AddHours(-$workLookbackHours)
+
+    if ($first) {
+        # First sight of the session: what it did lately, newest file first,
+        # each read from the end back in growing steps, until there are enough
+        # votes. Older votes go in front, so the list reads as it would have
+        # grown. Everything is marked read up to its end either way.
+        foreach ($f in @($files | Sort-Object LastWriteTimeUtc -Descending)) {
+            $state.Offsets[$f.FullName] = $f.Length
+            $need = $workVotes - $state.Votes.Count
+            if ($need -le 0 -or $f.LastWriteTimeUtc -lt $since) { continue }
+            $take = [Math]::Min([long]$transcriptTail, $f.Length)
+            while ($true) {
+                $chunk = Read-TranscriptLines -Path $f.FullName -Start ($f.Length - $take)
+                $votes = Get-WorkVotes -Text $chunk.Text -Launch $launch
+                if ($votes.Count -ge $need -or $take -ge $f.Length -or $take -ge $transcriptTailMax) { break }
+                $take = [Math]::Min([Math]::Min($take * 4, [long]$transcriptTailMax), $f.Length)
+            }
+            if ($votes.Count -gt 0) { $state.Votes.InsertRange(0, $votes) }
+            $state.Offsets[$f.FullName] = $chunk.Next
+        }
+        $files = @()
+    }
+
+    foreach ($f in $files) {
+        $offset = $state.Offsets[$f.FullName]
+        # A helper started since is read from its beginning.
+        if ($null -eq $offset) { $offset = [long]0 }
+        if ($f.Length -lt $offset) { $offset = [long]0 }
+        if ($f.Length -eq $offset) { continue }
+        $offset = [Math]::Max($offset, $f.Length - $transcriptTailMax)
+        $chunk = Read-TranscriptLines -Path $f.FullName -Start $offset
+        $votes = Get-WorkVotes -Text $chunk.Text -Launch $launch
+        if ($votes.Count -gt 0) { $state.Votes.AddRange($votes) }
+        $state.Offsets[$f.FullName] = $chunk.Next
+    }
+
+    if ($state.Votes.Count -gt $workVotes) { $state.Votes.RemoveRange(0, $state.Votes.Count - $workVotes) }
+    if ($state.Votes.Count -eq 0) { return $state.Root }
+    $counts = @{}
+    foreach ($r in $state.Votes) { $counts[$r] = 1 + [int]$counts[$r] }
+    $top = ($counts.Values | Measure-Object -Maximum).Maximum
+    if (-not ($state.Root -and $counts[$state.Root] -eq $top)) {
+        for ($i = $state.Votes.Count - 1; $i -ge 0; $i--) {
+            if ($counts[$state.Votes[$i]] -eq $top) { $state.Root = $state.Votes[$i]; break }
+        }
+    }
+    return $state.Root
+}
+
 # Model and context come from the session's own transcript, which is the only
 # place either is recorded. These files reach several megabytes over a day, so
-# only the tail is read, and only when the file has actually changed.
+# only the tail is read, and only when the file has actually changed. The
+# repository the session works in comes from Update-WorkRepo.
 function Sync-SessionExtras {
     foreach ($key in @($script:sessionByHwnd.Keys)) {
         $info = $script:sessionByHwnd[$key]
@@ -626,6 +831,26 @@ function Sync-SessionExtras {
 
         $info.Model = $cached.Model
         $info.Prompt = $cached.Prompt
+
+        # Every sweep, not only when the session's own transcript changed: its
+        # helpers write to files of their own. Marshal stays on its own folder.
+        # It coordinates rather than works in a repository, and it writes its
+        # report into the card's own folder every round, which would otherwise
+        # file it under this repository.
+        $info.WorkRepo = ''
+        if (-not (Test-MarshalRow -Cwd $info.Cwd -Label '')) {
+            try {
+                $root = Update-WorkRepo -SessionId $info.SessionId -MainPath $path -LaunchCwd $info.Cwd
+                if ($root) { $info.WorkRepo = Split-Path -Leaf $root }
+            } catch { Write-ErrorLog -Where 'workspace' -Problem $_ }
+        }
+    }
+
+    # Sessions that have ended take their votes with them.
+    $liveIds = @{}
+    foreach ($i in $script:sessionByHwnd.Values) { $liveIds[[string]$i.SessionId] = $true }
+    foreach ($id in @($script:workState.Keys)) {
+        if (-not $liveIds.ContainsKey($id)) { $script:workState.Remove($id) }
     }
 }
 
@@ -1067,9 +1292,6 @@ function New-Row {
         CtxFill   = $element.FindName('CtxFill')
         SoundMark = $element.FindName('SoundMark')
         Spinner   = $element.FindName('Spinner')
-        # When the row stopped working, plus the settle time; the poll plays the
-        # row's sound once it is due and the row is still not working.
-        SoundDueAt = $null
         State     = ''
         Label     = ''
         # The line under the label. Only the Marshal row ever has one.
@@ -1102,8 +1324,9 @@ function New-Row {
     $rec.Spinner.RenderTransform = $script:spinTurn
     if ($script:settings.Sounds.ContainsKey([string][int64]$Handle)) { $rec.SoundMark.Visibility = 'Visible' }
 
-    # Right click picks the sound this session plays when it needs you. Per row,
-    # so several sessions can each have their own and be told apart by ear.
+    # Right click opens the row's menu: bring to front, maximize, and the sound
+    # this session plays when it needs you. The sound is per row, so several
+    # sessions can each have their own and be told apart by ear.
     $element.Add_MouseRightButtonUp({
         param($sender, $e)
         try { Show-RowMenu -Element $sender } catch { Write-ErrorLog -Where 'rowmenu' -Problem $_ }
@@ -1258,24 +1481,8 @@ function Set-RowState {
 
     $now = Get-Date
 
-    # The sound is armed by a working session stopping, and only by that. The
-    # title is the main agent's own: it keeps its working glyph while subagents
-    # run and return, so their endings never reach here, which is exactly what
-    # the old Notification-hook chime could not tell apart. Waiting turning into
-    # Blocked is the same stop seen twice and stays silent.
-    #
-    # Marshal is the one exception. Its row is Watching between rounds, and a
-    # question that reaches it there, without a round in between, is new news
-    # rather than the same stop seen twice, so it gets the sound too. A round
-    # that ends in Watching arms the sound like any stop, and Invoke-DueSounds
-    # drops it, because a Marshal with nothing for you must stay silent.
-    if ($State -eq 'Working') {
-        $Rec.SoundDueAt = $null
-    } elseif ($Rec.State -eq 'Working') {
-        $Rec.SoundDueAt = $now.AddMilliseconds($soundSettleMs)
-    } elseif ($State -eq 'Blocked' -and $Rec.State -eq 'Watching') {
-        $Rec.SoundDueAt = $now.AddMilliseconds($soundSettleMs)
-    }
+    # The row's sound and its blue dot are not decided here but in Update-Needs,
+    # after every row is applied, so that they survive the row being rebuilt.
 
     if ($State -eq 'Working') {
         $Rec.WorkSince = Get-WholeSecond -At $now
@@ -1304,7 +1511,6 @@ function Set-RowState {
             # The only thing that moves on a calm card. Every ring turns with
             # the one shared rotation, so all of them are in step.
             $Rec.Spinner.Visibility   = 'Visible'
-            $Rec.Dot.Visibility       = 'Collapsed'
             $Rec.Bg.Opacity           = 1.0
         }
         'Waiting' {
@@ -1314,7 +1520,6 @@ function Set-RowState {
             $Rec.Spinner.Visibility   = 'Collapsed'
             # Still, not breathing. A filled row is already loud; pulsing every
             # finished session would make the alarm state indistinguishable.
-            $Rec.Dot.Visibility       = 'Visible'
             $Rec.Bg.Opacity           = 1.0
         }
         'Blocked' {
@@ -1322,7 +1527,6 @@ function Set-RowState {
             $Rec.LabelText.Foreground = $brush.TextOnBlock
             $Rec.TimerText.Foreground = $brush.TimerOnBlock
             $Rec.Spinner.Visibility   = 'Collapsed'
-            $Rec.Dot.Visibility       = 'Visible'
             Start-Alarm -Rec $Rec
         }
         # Marshal between rounds, with nothing for you. It is idle in exactly
@@ -1337,7 +1541,6 @@ function Set-RowState {
             $Rec.LabelText.Foreground = $brush.TextDim
             $Rec.TimerText.Foreground = $brush.TextDim
             $Rec.Spinner.Visibility   = 'Collapsed'
-            $Rec.Dot.Visibility       = 'Collapsed'
             $Rec.Bg.Opacity           = 1.0
         }
     }
@@ -1375,35 +1578,72 @@ function New-CardMenuSeparator {
     return $separator
 }
 
-# The right-click menu of an agent row: which sound, if any, its session plays
-# when it needs you. Picking a sound plays it once, so the choice is heard.
+# One clickable entry in a menu or a submenu, added to Parent and returned. The
+# action is called with Arg, which rides on the item because a handler
+# scriptblock does not capture the variables around it. Where names the action
+# in the error log.
+function Add-CardMenuAction {
+    param($Parent, [string]$Header, [scriptblock]$Action, $Arg = $null, [string]$Where = 'menu')
+    $item = New-CardMenuItem -Header $Header
+    $item.Tag = @{ Action = $Action; Arg = $Arg; Where = $Where }
+    $item.Add_Click({
+        param($sender, $e)
+        try { & $sender.Tag.Action $sender.Tag.Arg } catch { Write-ErrorLog -Where $sender.Tag.Where -Problem $_ }
+    })
+    [void]$Parent.Items.Add($item)
+    return $item
+}
+
+# The right-click menu of an agent row: a short list of actions on its session,
+# with Sound opening a submenu on hover. Each top-level entry is one
+# Add-CardMenuAction, or one submenu built like New-RowSoundMenu, so another
+# action is one more entry here.
 function Show-RowMenu {
     param($Element)
-    $key = [string][int64]$Element.Tag
-    $current = ''
-    if ($script:settings.Sounds.ContainsKey($key)) { $current = $script:settings.Sounds[$key] }
-
+    $handle = [IntPtr]$Element.Tag
     $menu = New-CardMenu
-    $title = New-CardMenuItem -Header 'Sound when this session needs you'
-    $title.IsEnabled = $false
-    [void]$menu.Items.Add($title)
-    [void]$menu.Items.Add((New-CardMenuSeparator))
 
-    foreach ($choice in @('') + @($soundChoices)) {
-        $item = New-CardMenuItem -Header $(if ($choice) { $choice } else { 'Off' })
-        $item.IsChecked = ($choice -eq $current)
-        # The key and the sound ride on the item, because a handler scriptblock
-        # does not capture this loop's variables.
-        $item.Tag = @{ Key = $key; Sound = $choice }
-        $item.Add_Click({
-            param($sender, $e)
-            try { Set-RowSound -Key $sender.Tag.Key -Sound $sender.Tag.Sound } catch { Write-ErrorLog -Where 'rowmenu' -Problem $_ }
-        })
-        [void]$menu.Items.Add($item)
-    }
+    Add-CardMenuAction -Parent $menu -Header 'Bring to front' -Arg $handle -Where 'rowmenu' -Action {
+        param($Handle)
+        [TlNative]::Focus($Handle) | Out-Null
+    } | Out-Null
+
+    # The same as a double-click on the row, so it says which way it will go.
+    $isMaximized = ($null -ne $script:maximized -and $script:maximized.Handle -eq $handle -and
+                    [TlNative]::IsMaximizedOnPrimary($handle))
+    $maxHeader = $(if ($isMaximized) { 'Put window back' } else { 'Maximize window' })
+    Add-CardMenuAction -Parent $menu -Header $maxHeader -Arg $handle -Where 'maximize' -Action {
+        param($Handle)
+        # No double-click led here, so the window is noted as it is now rather
+        # than as some earlier press on the row found it.
+        $script:pressSpot = $null
+        Switch-RowMaximized -Handle $Handle
+    } | Out-Null
+
+    [void]$menu.Items.Add((New-CardMenuSeparator))
+    [void]$menu.Items.Add((New-RowSoundMenu -Key ([string][int64]$handle)))
 
     $menu.PlacementTarget = $Element
     $menu.IsOpen = $true
+}
+
+# The Sound entry of a row's menu: Off and every sound, with a tick on the one
+# chosen now. Picking a sound plays it once, so the choice is heard.
+function New-RowSoundMenu {
+    param([string]$Key)
+    $current = ''
+    if ($script:settings.Sounds.ContainsKey($Key)) { $current = $script:settings.Sounds[$Key] }
+
+    $sound = New-CardMenuItem -Header 'Sound'
+    foreach ($choice in @('') + @($soundChoices)) {
+        $item = Add-CardMenuAction -Parent $sound -Header $(if ($choice) { $choice } else { 'Off' }) `
+                                   -Arg @{ Key = $Key; Sound = $choice } -Where 'rowmenu' -Action {
+            param($Pick)
+            Set-RowSound -Key $Pick.Key -Sound $Pick.Sound
+        }
+        $item.IsChecked = ($choice -eq $current)
+    }
+    return $sound
 }
 
 function Set-RowSound {
@@ -1450,20 +1690,73 @@ function Switch-RowMaximized {
     }
 }
 
-# Plays each row's sound once it is due. Run on every poll, after the states are
-# applied, so a row that went back to work inside the settle time stays silent.
-function Invoke-DueSounds {
+# What a session wanting you shows and sounds like, run on every poll after the
+# states are applied: the row's sound, and its blue dot.
+#
+# The sound plays every time a session starts needing you: the row turns
+# Waiting or Blocked from anything else. Once per need, however long the need
+# lasts, and playing never uses the choice up; it stays until Off is picked.
+# The title is the main agent's own: it keeps its working glyph while subagents
+# run and return, so their endings never count, which is exactly what the old
+# Notification-hook chime could not tell apart. Waiting turning into Blocked, or
+# back, is the same need seen twice and stays silent. Marshal Watching between
+# rounds does not need you, so a question reaching it there is a new need. A
+# Marshal round, though, neither starts a need nor ends one: a question still
+# open when the round ends is the same need, not a new one every round. A need
+# must outlast the settle time before its sound plays, so a title that flickers
+# between tools stays silent.
+#
+# The dot marks a need you have not opened yet, so the dots left are the
+# sessions still to handle. Opening is the session's terminal window coming to
+# the front by any route: a click on the row, Alt+Tab, the taskbar, or simply
+# being in front already when the session stops. That clears the dot and only
+# the dot; the row keeps its colour. It comes back with the next need: the
+# session finishing again, or asking something new, which includes a finished
+# session turning Blocked on a question. Each need gets a number, and the dot
+# shows while the number last opened is behind it.
+#
+# All of this is kept here by window handle rather than on the row. A row drops
+# off the card for a poll whenever something else writes its window's title,
+# and the row built when it comes back starts with no state, so a stop landing
+# in between used to go unheard. A window this run of the card has not seen yet
+# only sets the baseline: starting the card does not sound every session
+# already waiting, but does show their dots, since the card cannot know which
+# of them were handled before it started.
+$script:needWatch = @{}
+
+function Update-Needs {
     param($Ordered)
     $now = Get-Date
+    $front = [int64][TlNative]::GetForegroundWindow()
     foreach ($rec in $Ordered) {
-        if ($null -eq $rec.SoundDueAt -or $now -lt $rec.SoundDueAt) { continue }
-        $rec.SoundDueAt = $null
-        if ($rec.State -eq 'Working') { continue }
-        # A Marshal round that found nothing for you. Its stop armed the sound
-        # like any other, and this is where it is let go.
-        if ($rec.State -eq 'Watching') { continue }
         $key = [string][int64]$rec.Handle
-        if ($script:settings.Sounds.ContainsKey($key)) { Invoke-Sound -Name $script:settings.Sounds[$key] }
+        $needs = ($rec.State -eq 'Waiting' -or $rec.State -eq 'Blocked')
+        $watch = $script:needWatch[$key]
+        if ($null -eq $watch) {
+            $watch = @{ Needs = $needs; State = $rec.State; DueAt = $null; Need = 1; Opened = 0 }
+            $script:needWatch[$key] = $watch
+        } else {
+            if ($rec.State -eq 'Working' -and (Test-MarshalRow -Cwd $rec.Cwd -Label $rec.Label)) { $needs = $watch.Needs }
+            $isNew = ($needs -and -not $watch.Needs)
+
+            if (-not $needs) {
+                $watch.DueAt = $null
+            } elseif ($isNew) {
+                $watch.DueAt = $now.AddMilliseconds($soundSettleMs)
+            }
+            if ($isNew -or ($rec.State -eq 'Blocked' -and $watch.State -eq 'Waiting')) { $watch.Need++ }
+            $watch.Needs = $needs
+            $watch.State = $rec.State
+
+            if ($null -ne $watch.DueAt -and $now -ge $watch.DueAt) {
+                $watch.DueAt = $null
+                if ($script:settings.Sounds.ContainsKey($key)) { Invoke-Sound -Name $script:settings.Sounds[$key] }
+            }
+        }
+
+        if ([int64]$rec.Handle -eq $front) { $watch.Opened = $watch.Need }
+        $dot = $(if ($needs -and $rec.State -ne 'Working' -and $watch.Opened -ne $watch.Need) { 'Visible' } else { 'Collapsed' })
+        if ($rec.Dot.Visibility -ne $dot) { $rec.Dot.Visibility = $dot }
     }
 }
 
@@ -2093,6 +2386,7 @@ function Update-Card {
             # Its sound goes with it. Only here, where the window is known to be
             # closed: a row that merely drops off for one poll keeps its sound.
             $soundKey = [string][int64]$h
+            $script:needWatch.Remove($soundKey)
             if ($script:settings.Sounds.ContainsKey($soundKey)) {
                 $script:settings.Sounds.Remove($soundKey)
                 Save-Settings
@@ -2125,7 +2419,9 @@ function Update-Card {
     $ordered = @($rows.Values)
 
     # Attach the workspace to every row before anything else looks at it. The
-    # map is rebuilt on the slow timer, so this is a dictionary lookup.
+    # map is rebuilt on the slow timer, so this is a dictionary lookup. The
+    # workspace is the repository the agent is really working in, read from its
+    # transcript, and the folder its terminal opened in until that is known.
     foreach ($rec in $ordered) {
         $key = [string][int64]$rec.Handle
         if ($script:sessionByHwnd.ContainsKey($key)) {
@@ -2133,6 +2429,7 @@ function Update-Card {
             $rec.SessionId = $info.SessionId
             $rec.Cwd       = $info.Cwd
             $rec.Workspace = $info.Workspace
+            if ($info.ContainsKey('WorkRepo') -and $info.WorkRepo) { $rec.Workspace = $info.WorkRepo }
             $rec.StartedAt = $info.StartedAt
             $rec.SessionStatus   = $info.Status
             $rec.StatusUpdatedAt = $info.StatusUpdatedAt
@@ -2168,7 +2465,7 @@ function Update-Card {
     foreach ($rec in $ordered) {
         Set-RowState -Rec $rec -State $rec.PendingState -Label $rec.PendingLabel -Detail $rec.PendingDetail
     }
-    Invoke-DueSounds -Ordered $ordered
+    Update-Needs -Ordered $ordered
 
     Set-Spin -On (@($ordered | Where-Object { $_.State -eq 'Working' }).Count -gt 0)
     Update-Layout

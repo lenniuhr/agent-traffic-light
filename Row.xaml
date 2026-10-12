@@ -47,9 +47,10 @@
       </TextBlock>
     </Border>
 
-    <!-- The dot means this session wants something from you: it shows on a
-         finished or blocked row and nowhere else. A dot read as "busy" was the
-         wrong way round, since a busy session is the one that needs nothing. -->
+    <!-- The dot means this session wants something from you that you have not
+         opened yet: it shows on a finished or blocked row until its terminal
+         window comes to the front, and nowhere else. A dot read as "busy" was
+         the wrong way round, since a busy session is the one that needs nothing. -->
     <Ellipse x:Name="Dot"
              Grid.Column="1"
              Width="9" Height="9"
