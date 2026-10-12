@@ -47,15 +47,35 @@
       </TextBlock>
     </Border>
 
-    <!-- The dot only carries the working state. Once a row needs attention the
-         whole row is filled, and a dot on top of that fill would be noise. -->
+    <!-- The dot means this session wants something from you: it shows on a
+         finished or blocked row and nowhere else. A dot read as "busy" was the
+         wrong way round, since a busy session is the one that needs nothing. -->
     <Ellipse x:Name="Dot"
              Grid.Column="1"
              Width="9" Height="9"
              HorizontalAlignment="Left"
              VerticalAlignment="Center"
              Margin="4,0,0,0"
+             Visibility="Collapsed"
              Fill="{DynamicResource BrushWorking}" />
+
+    <!-- A working session gets a turning ring instead: three quarters of a
+         circle, the usual sign for "busy, leave it", in the plain text colour so
+         it never competes with the blue dot. The script turns every ring with
+         one shared rotation, so they all move in step. -->
+    <Path x:Name="Spinner"
+          Grid.Column="1"
+          Width="10" Height="10"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Center"
+          Margin="3,0,0,0"
+          RenderTransformOrigin="0.5,0.5"
+          Stroke="{DynamicResource BrushTextDim}"
+          StrokeThickness="1.6"
+          StrokeStartLineCap="Round"
+          StrokeEndLineCap="Round"
+          Visibility="Collapsed"
+          Data="M 5,1 A 4,4 0 1 1 1,5" />
 
     <!-- Sentence case, never caps: word shape is what you actually read at a
          glance, and caps destroys it. Ellipsis at the end because these labels

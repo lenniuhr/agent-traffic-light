@@ -13,9 +13,11 @@ One row per session, grouped by the folder the session runs in:
 
 | Row | Meaning |
 | --- | --- |
-| Dark row, breathing blue dot | Working. The time on the right counts up. |
-| Green row | Finished and waiting for you. The time on the right is when it stopped. |
-| Amber row, pulsing | Blocked on you: a permission prompt or a question. |
+| Dark row, turning ring | Working. The time on the right counts up. |
+| Green row, blue dot | Finished and waiting for you. The time on the right is when it stopped. |
+| Amber row, blue dot, pulsing | Blocked on you: a permission prompt or a question. |
+
+The blue dot always means the same thing: this session wants something from you.
 
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
@@ -27,8 +29,8 @@ belongs to the terminal window and goes away when the window closes.
 
 The three bars left of the session clock open the card's settings, saved in `state\settings.json`.
 
-With "Show Unity editors" switched on there, a Unity group below the sessions lists every running
-Unity editor, one row per project: the
+With "Show Unity editors" on, which is the default, a Unity group below the sessions lists every
+running Unity editor, one row per project: the
 project folder, whether it runs headless (sand stripe) or with a window (grey stripe), its Plastic
 branch, and its memory and CPU with its asset import workers included. It is there mainly for
 headless editors, which have no window or taskbar button to tell you they are still running.

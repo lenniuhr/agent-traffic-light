@@ -60,7 +60,7 @@ $shadowMargin  = 12
 $flipMs        = 180    # colour change and slide when a row changes state
 $blinkMs       = 600    # one beat of the three-beat permission alarm
 $breatheMs     = 2000   # permission settles into this after the beats
-$dotBreatheMs  = 2400   # the only motion on a calm card
+$spinTurnMs    = 1400   # one turn of the working ring, the only motion on a calm card
 $soundSettleMs = 1200   # a stop must outlast this before its sound plays, so a title that flickers between tools stays silent
 
 # ---------------------------------------------------------------------------
@@ -540,8 +540,8 @@ $script:unityEditors = @()
 # Settings, chosen from the card's menu and its rows' right-click menus, kept in
 # state/settings.json. Read once at start and written on every change.
 #
-# ShowUnityEditors is off by default: most days nobody needs the editors on the
-# card, and a card that is always full stops being looked at.
+# ShowUnityEditors is on by default, and the menu switch is there for the days
+# the editors only crowd the card. A machine without Unity shows nothing either way.
 #
 # Sounds maps a terminal window handle to the sound that window's session plays
 # when it needs you. Keyed by window like the row order, so a sound survives a
@@ -549,7 +549,7 @@ $script:unityEditors = @()
 # dropped when the window closes.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
-$script:settings = @{ ShowUnityEditors = $false; Sounds = @{} }
+$script:settings = @{ ShowUnityEditors = $true; Sounds = @{} }
 
 function Read-Settings {
     try {
@@ -849,19 +849,18 @@ $brush = @{
     )
 }
 
-# One brush shared by every working dot, breathing on one clock. Each dot used
-# to start its own animation the moment its row began working, so no two were
-# ever in step; painting them all with one brush means they cannot drift apart.
-# It only runs while some row is working, so a card of finished sessions still
-# costs nothing to draw.
-$script:dotPulse = $brush.Working.Clone()
-$script:dotBreathe = New-Object System.Windows.Media.Animation.DoubleAnimation
-$script:dotBreathe.From = 0.5
-$script:dotBreathe.To = 1.0
-$script:dotBreathe.Duration = [System.Windows.Duration][TimeSpan]::FromMilliseconds($dotBreatheMs)
-$script:dotBreathe.AutoReverse = $true
-$script:dotBreathe.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
-$script:pulseRunning = $false
+# One rotation shared by every working row's ring, turning on one clock. Each
+# indicator used to start its own animation the moment its row began working,
+# so no two were ever in step; one shared transform means they cannot drift
+# apart. It only runs while some row is working, so a card of finished sessions
+# still costs nothing to draw.
+$script:spinTurn = New-Object System.Windows.Media.RotateTransform
+$script:spinAnimation = New-Object System.Windows.Media.Animation.DoubleAnimation
+$script:spinAnimation.From = 0.0
+$script:spinAnimation.To = 360.0
+$script:spinAnimation.Duration = [System.Windows.Duration][TimeSpan]::FromMilliseconds($spinTurnMs)
+$script:spinAnimation.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
+$script:spinRunning = $false
 
 # Lift for a row being dragged, so it reads as picked up and above the others.
 $script:liftShadow = New-Object System.Windows.Media.Effects.DropShadowEffect
@@ -948,6 +947,7 @@ function New-Row {
         ModelText = $element.FindName('Model')
         CtxFill   = $element.FindName('CtxFill')
         SoundMark = $element.FindName('SoundMark')
+        Spinner   = $element.FindName('Spinner')
         # When the row stopped working, plus the settle time; the poll plays the
         # row's sound once it is due and the row is still not working.
         SoundDueAt = $null
@@ -975,6 +975,7 @@ function New-Row {
     }
 
     $element.Tag = $Handle
+    $rec.Spinner.RenderTransform = $script:spinTurn
     if ($script:settings.Sounds.ContainsKey([string][int64]$Handle)) { $rec.SoundMark.Visibility = 'Visible' }
 
     # Right click picks the sound this session plays when it needs you. Per row,
@@ -1148,32 +1149,57 @@ function Set-RowState {
             $Rec.Bg.Background        = $brush.RowBase
             $Rec.LabelText.Foreground = $brush.Text
             $Rec.TimerText.Foreground = $brush.TextDim
-            $Rec.Dot.Visibility       = 'Visible'
-            # The only thing that moves on a calm card. Every dot paints with
-            # the one shared breathing brush, so all of them are in step.
-            $Rec.Dot.Fill             = $script:dotPulse
+            # The only thing that moves on a calm card. Every ring turns with
+            # the one shared rotation, so all of them are in step.
+            $Rec.Spinner.Visibility   = 'Visible'
+            $Rec.Dot.Visibility       = 'Collapsed'
             $Rec.Bg.Opacity           = 1.0
         }
         'Waiting' {
             Start-FillAnimation -Rec $Rec -To $brush.Waiting.Color
             $Rec.LabelText.Foreground = $brush.TextOnWait
             $Rec.TimerText.Foreground = $brush.TimerOnWait
-            $Rec.Dot.Visibility       = 'Collapsed'
-            $Rec.Bg.Opacity           = 1.0
-            # Deliberately still. A filled row is already loud; pulsing every
+            $Rec.Spinner.Visibility   = 'Collapsed'
+            # Still, not breathing. A filled row is already loud; pulsing every
             # finished session would make the alarm state indistinguishable.
+            $Rec.Dot.Visibility       = 'Visible'
+            $Rec.Bg.Opacity           = 1.0
         }
         'Blocked' {
             Start-FillAnimation -Rec $Rec -To $brush.Blocked.Color
             $Rec.LabelText.Foreground = $brush.TextOnBlock
             $Rec.TimerText.Foreground = $brush.TimerOnBlock
-            $Rec.Dot.Visibility       = 'Collapsed'
+            $Rec.Spinner.Visibility   = 'Collapsed'
+            $Rec.Dot.Visibility       = 'Visible'
             Start-Alarm -Rec $Rec
         }
     }
     # The note takes the timer's colour, which each state already picks to read
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
+}
+
+# Menus built in code take the card's dark styles from the window's resources
+# explicitly: a context menu opens in a popup of its own, outside the window's
+# tree, so the styles would not reach it by lookup.
+function New-CardMenu {
+    $menu = New-Object System.Windows.Controls.ContextMenu
+    $menu.Style = $window.FindResource('CardMenu')
+    return $menu
+}
+
+function New-CardMenuItem {
+    param([string]$Header)
+    $item = New-Object System.Windows.Controls.MenuItem
+    $item.Style = $window.FindResource('CardMenuItem')
+    $item.Header = $Header
+    return $item
+}
+
+function New-CardMenuSeparator {
+    $separator = New-Object System.Windows.Controls.Separator
+    $separator.Style = $window.FindResource('CardMenuSeparator')
+    return $separator
 }
 
 # The right-click menu of an agent row: which sound, if any, its session plays
@@ -1184,16 +1210,14 @@ function Show-RowMenu {
     $current = ''
     if ($script:settings.Sounds.ContainsKey($key)) { $current = $script:settings.Sounds[$key] }
 
-    $menu = New-Object System.Windows.Controls.ContextMenu
-    $title = New-Object System.Windows.Controls.MenuItem
-    $title.Header = 'Sound when this session needs you'
+    $menu = New-CardMenu
+    $title = New-CardMenuItem -Header 'Sound when this session needs you'
     $title.IsEnabled = $false
     [void]$menu.Items.Add($title)
-    [void]$menu.Items.Add((New-Object System.Windows.Controls.Separator))
+    [void]$menu.Items.Add((New-CardMenuSeparator))
 
     foreach ($choice in @('') + @($soundChoices)) {
-        $item = New-Object System.Windows.Controls.MenuItem
-        $item.Header = $(if ($choice) { $choice } else { 'Off' })
+        $item = New-CardMenuItem -Header $(if ($choice) { $choice } else { 'Off' })
         $item.IsChecked = ($choice -eq $current)
         # The key and the sound ride on the item, because a handler scriptblock
         # does not capture this loop's variables.
@@ -1476,14 +1500,14 @@ Read-WorkClock
 $script:workTickAt = Get-Date
 $script:workSavedAt = Get-Date
 
-function Set-DotPulse {
+function Set-Spin {
     param([bool]$On)
-    if ($On -eq $script:pulseRunning) { return }
-    $script:pulseRunning = $On
+    if ($On -eq $script:spinRunning) { return }
+    $script:spinRunning = $On
     if ($On) {
-        $script:dotPulse.BeginAnimation([System.Windows.Media.Brush]::OpacityProperty, $script:dotBreathe)
+        $script:spinTurn.BeginAnimation([System.Windows.Media.RotateTransform]::AngleProperty, $script:spinAnimation)
     } else {
-        $script:dotPulse.BeginAnimation([System.Windows.Media.Brush]::OpacityProperty, $null)
+        $script:spinTurn.BeginAnimation([System.Windows.Media.RotateTransform]::AngleProperty, $null)
     }
 }
 
@@ -1787,7 +1811,7 @@ function Update-Card {
     }
     Invoke-DueSounds -Ordered $ordered
 
-    Set-DotPulse -On (@($ordered | Where-Object { $_.State -eq 'Working' }).Count -gt 0)
+    Set-Spin -On (@($ordered | Where-Object { $_.State -eq 'Working' }).Count -gt 0)
     Update-Layout
     Update-Timers
 
@@ -2009,10 +2033,9 @@ function Update-UnityRows {
 
 # The card's own menu, behind the three bars left of the session clock.
 function Show-SettingsMenu {
-    $menu = New-Object System.Windows.Controls.ContextMenu
+    $menu = New-CardMenu
 
-    $unityItem = New-Object System.Windows.Controls.MenuItem
-    $unityItem.Header = 'Show Unity editors'
+    $unityItem = New-CardMenuItem -Header 'Show Unity editors'
     $unityItem.IsCheckable = $true
     $unityItem.IsChecked = [bool]$script:settings.ShowUnityEditors
     $unityItem.Add_Click({

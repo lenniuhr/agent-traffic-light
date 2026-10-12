@@ -86,6 +86,96 @@
          hue above already means a workspace or a state, and an editor row must
          not read as either. An editor with a window keeps the neutral stripe. -->
     <SolidColorBrush x:Key="BrushHeadless"    Color="#D9C38C" />
+
+    <!-- The card's menus: the settings menu and a row's right-click menu. Without
+         these they draw in the system's light classic style, which sits badly
+         against the dark card. A menu opens in a popup outside this window, so
+         dynamic lookups of the brushes above would not reach it: the colours are
+         written out here, each one matching a brush above. -->
+    <Style x:Key="CardMenu" TargetType="ContextMenu">
+      <Setter Property="OverridesDefaultStyle" Value="True" />
+      <Setter Property="SnapsToDevicePixels" Value="True" />
+      <Setter Property="FontFamily" Value="Segoe UI" />
+      <Setter Property="FontSize" Value="13" />
+      <Setter Property="Foreground" Value="#E8EBEF" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ContextMenu">
+            <!-- The margin is the shadow's room, as on the card itself. -->
+            <Border Margin="0,0,10,10"
+                    Padding="4"
+                    MinWidth="200"
+                    Background="#1E222A"
+                    BorderBrush="#2E333D"
+                    BorderThickness="1"
+                    CornerRadius="8">
+              <Border.Effect>
+                <DropShadowEffect Color="#000000" BlurRadius="14" ShadowDepth="3" Opacity="0.45" Direction="270" />
+              </Border.Effect>
+              <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
+            </Border>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="CardMenuItem" TargetType="MenuItem">
+      <Setter Property="OverridesDefaultStyle" Value="True" />
+      <Setter Property="Foreground" Value="#E8EBEF" />
+      <Setter Property="Cursor" Value="Hand" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="MenuItem">
+            <Border x:Name="ItemBg" Background="Transparent" CornerRadius="5" Padding="6,6,14,6">
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="22" />
+                  <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <!-- The tick is the working blue, the one accent the card uses. -->
+                <TextBlock x:Name="Tick"
+                           Text="&#x2713;"
+                           Visibility="Hidden"
+                           HorizontalAlignment="Center"
+                           VerticalAlignment="Center"
+                           FontFamily="Segoe UI Symbol"
+                           FontSize="12"
+                           Foreground="#4C9BE8" />
+                <ContentPresenter Grid.Column="1"
+                                  ContentSource="Header"
+                                  RecognizesAccessKey="True"
+                                  VerticalAlignment="Center" />
+              </Grid>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
+              </Trigger>
+              <Trigger Property="IsHighlighted" Value="True">
+                <Setter TargetName="ItemBg" Property="Background" Value="#2A303A" />
+              </Trigger>
+              <!-- A disabled item is the menu's caption, not a dead option. -->
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Foreground" Value="#8B94A1" />
+                <Setter Property="FontSize" Value="11" />
+                <Setter Property="Cursor" Value="Arrow" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+
+    <Style x:Key="CardMenuSeparator" TargetType="Separator">
+      <Setter Property="OverridesDefaultStyle" Value="True" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Separator">
+            <Border Height="1" Margin="8,4,8,4" Background="#24FFFFFF" />
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
 
   <!-- The outer margin is the drop shadow's room to breathe. Without it the
