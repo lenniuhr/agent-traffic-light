@@ -23,6 +23,7 @@ Write-Host ""
 foreach ($needed in @($script,
                       (Join-Path $toolDir 'AgentTrafficLight.xaml'),
                       (Join-Path $toolDir 'Row.xaml'),
+                      (Join-Path $toolDir 'UnityRow.xaml'),
                       (Join-Path $toolDir 'Header.xaml'),
                       (Join-Path $hooksDir 'notify.ps1'),
                       (Join-Path $hooksDir 'clear.ps1'))) {

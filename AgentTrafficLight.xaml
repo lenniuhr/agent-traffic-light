@@ -81,6 +81,11 @@
     <SolidColorBrush x:Key="BrushWs1"         Color="#E48FB8" />
     <SolidColorBrush x:Key="BrushWs2"         Color="#5FC8D8" />
     <SolidColorBrush x:Key="BrushWs3"         Color="#B8B4C8" />
+
+    <!-- Stripe of a Unity editor that runs headless. A warm sand, because every
+         hue above already means a workspace or a state, and an editor row must
+         not read as either. An editor with a window keeps the neutral stripe. -->
+    <SolidColorBrush x:Key="BrushHeadless"    Color="#D9C38C" />
   </Window.Resources>
 
   <!-- The outer margin is the drop shadow's room to breathe. Without it the

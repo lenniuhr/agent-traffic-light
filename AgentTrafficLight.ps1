@@ -510,6 +510,143 @@ function Sync-SessionExtras {
     }
 }
 
+# ---------------------------------------------------------------------------
+# Unity editors
+# ---------------------------------------------------------------------------
+
+# Every Unity editor on this machine, one entry per project, for the Unity
+# group at the bottom of the card. It exists for headless editors: an editor
+# started with -batchmode has no window and no taskbar button, so without this
+# the only way to know one is still running, and what it costs, is Task Manager.
+#
+# The process list is the source of truth. Unity's own pipeline descriptor in
+# Library/Pipeline only refreshes its heartbeat when someone calls the editor,
+# so it cannot say whether one is alive, and it holds the editor's bearer token,
+# which the card has no business reading.
+#
+# An editor imports through child processes named AssetImportWorkerN, separate
+# Unity.exe processes with the same -projectPath. They are added to their
+# editor's memory and CPU, because during an import they hold most of both and
+# an editor shown without them looks idle while the machine is saturated.
+#
+# The command line is read once per process and never shown or logged: a
+# Unity Hub launch carries a live access token in it.
+$script:unityCommandLines = @{}
+$script:unityCpuSamples = @{}
+$script:unityEditors = @()
+$listSep = ' ' + [char]0x00B7 + ' '   # code point: the file is read as ANSI
+
+function Get-UnityProjectPath {
+    param([string]$CommandLine)
+    # The Hub passes -projectpath unquoted, import workers pass "-projectPath"
+    # "D:/..." quoted. Both end at the next argument.
+    $match = [regex]::Match($CommandLine, '-projectpath"?\s+"?([^"]+?)"?(\s+-|\s*$)', 'IgnoreCase')
+    if (-not $match.Success) { return $null }
+    return ($match.Groups[1].Value.Trim() -replace '/', '\').TrimEnd('\')
+}
+
+# Plastic writes the loaded branch into the workspace selector, which is far
+# cheaper than asking cm. A git or unversioned project simply has no branch.
+function Get-ProjectBranch {
+    param([string]$ProjectPath)
+    $selector = Join-Path $ProjectPath '.plastic\plastic.selector'
+    if (-not (Test-Path $selector)) { return '' }
+    $match = Select-String -Path $selector -Pattern '(?:smart)?branch\s+"([^"]+)"' | Select-Object -First 1
+    if ($match) { return $match.Matches[0].Groups[1].Value }
+    return ''
+}
+
+# Runs on the slow timer. Get-Process costs a few milliseconds; the command line
+# needs a WMI query of about 20 ms, which is why it is asked once per process
+# and remembered for as long as that process lives.
+function Get-UnityEditors {
+    $now = Get-Date
+    $logicalProcessors = [Environment]::ProcessorCount
+    $processes = @(Get-Process -Name 'Unity' -ErrorAction SilentlyContinue)
+
+    $alive = @{}
+    $byProject = @{}
+    foreach ($process in $processes) {
+        $processId = [int]$process.Id
+        $alive[$processId] = $true
+        if (-not $script:unityCommandLines.ContainsKey($processId)) {
+            $commandLine = ''
+            try {
+                $cim = Get-CimInstance Win32_Process -Filter "ProcessId=$processId" -ErrorAction Stop
+                if ($cim -and $cim.CommandLine) { $commandLine = [string]$cim.CommandLine }
+            } catch { }
+            $script:unityCommandLines[$processId] = $commandLine
+        }
+        $commandLine = $script:unityCommandLines[$processId]
+
+        # The Hub's own unity.exe runs as "unity.exe serve" without a project.
+        $projectPath = Get-UnityProjectPath $commandLine
+        if (-not $projectPath) { continue }
+
+        $key = $projectPath.ToLowerInvariant()
+        if (-not $byProject.ContainsKey($key)) {
+            $byProject[$key] = @{
+                ProjectPath = $projectPath
+                EditorId    = 0
+                Window      = [IntPtr]::Zero
+                Headless    = $false
+                Workers     = 0
+                Memory      = [int64]0
+                Cpu         = 0.0
+            }
+        }
+        $entry = $byProject[$key]
+
+        try { $entry.Memory += [int64]$process.WorkingSet64 } catch { }
+
+        if ($commandLine -match 'AssetImportWorker') {
+            $entry.Workers += 1
+        } else {
+            $entry.EditorId = $processId
+            $entry.Headless = $commandLine -match '(?i)-batchmode'
+            try { $entry.Window = $process.MainWindowHandle } catch { }
+        }
+
+        # A rate over the sweep, not a lifetime average, so a finished import
+        # stops reading busy within one sweep.
+        try {
+            $cpuTicks = $process.TotalProcessorTime.Ticks
+            $previous = $script:unityCpuSamples[$processId]
+            if ($previous) {
+                $wallTicks = ($now - $previous.At).Ticks
+                if ($wallTicks -gt 0) {
+                    $entry.Cpu += 100.0 * ($cpuTicks - $previous.CpuTicks) / $wallTicks / $logicalProcessors
+                }
+            }
+            $script:unityCpuSamples[$processId] = @{ At = $now; CpuTicks = $cpuTicks }
+        } catch { }
+    }
+
+    # Forget ended processes, so neither table grows for the life of the card.
+    foreach ($table in @($script:unityCommandLines, $script:unityCpuSamples)) {
+        foreach ($processId in @($table.Keys)) {
+            if (-not $alive.ContainsKey($processId)) { $table.Remove($processId) }
+        }
+    }
+
+    $editors = @()
+    foreach ($entry in $byProject.Values) {
+        # Import workers without an editor are an editor that is shutting down.
+        if ($entry.EditorId -eq 0) { continue }
+        $editors += @{
+            Id          = $entry.EditorId
+            Project     = Split-Path $entry.ProjectPath -Leaf
+            Branch      = Get-ProjectBranch $entry.ProjectPath
+            Headless    = $entry.Headless
+            Window      = $entry.Window
+            Workers     = $entry.Workers
+            MemoryGB    = $entry.Memory / 1GB
+            CpuPercent  = [Math]::Max(0.0, $entry.Cpu)
+        }
+    }
+    return $editors
+}
+
 # Headers are pooled rather than created and destroyed, because a workspace
 # appearing and disappearing is common and rebuilding elements on a 400 ms
 # timer would churn the visual tree for nothing.
@@ -567,6 +704,11 @@ if ($Probe) {
         Write-Host ("{0}  pass {1}  sweep {2:0.0} ms  windows={3}  live sessions={4}" -f `
             (Get-Date -Format 'HH:mm:ss'), $pass, $sw.Elapsed.TotalMilliseconds, $found.Count, $script:liveSessionCount)
         $found | ForEach-Object { Write-Host $_ }
+        foreach ($editor in @(Get-UnityEditors)) {
+            Write-Host ('  unity      {0,-8} {1,-28} {2,5:0.0} GB {3,5:0.0} % cpu  {4} importers  {5}' -f `
+                $(if ($editor.Headless) { 'headless' } else { 'editor' }), $editor.Project,
+                $editor.MemoryGB, $editor.CpuPercent, $editor.Workers, $editor.Branch)
+        }
         if ($Passes -gt 0 -and $pass -ge $Passes) { break }
         Start-Sleep -Milliseconds 1000
     }
@@ -628,6 +770,7 @@ $brush = @{
     WsNeutral    = $window.FindResource('BrushWsNeutral')
     CtxFill      = $window.FindResource('BrushCtxFill')
     CtxHigh      = $window.FindResource('BrushCtxHigh')
+    Headless     = $window.FindResource('BrushHeadless')
     Ws           = @(
         $window.FindResource('BrushWs0'),
         $window.FindResource('BrushWs1'),
@@ -800,6 +943,80 @@ function New-Row {
 
     $rowCanvas.Children.Add($element) | Out-Null
     return $rec
+}
+
+# Unity editor rows, keyed by the editor's process id. Kept apart from $rows on
+# purpose: they have no session state, no tray colour and no drag order, and
+# every function that walks $rows would otherwise have to learn to skip them.
+$script:unityRows = @{}
+
+# Creates, updates and removes the Unity rows from the last sweep's editors.
+# Runs on the slow timer, right after the sweep that collected them.
+function Sync-UnityRows {
+    $seen = @{}
+    foreach ($editor in @($script:unityEditors)) {
+        $key = [string]$editor.Id
+        $seen[$key] = $true
+        if (-not $script:unityRows.ContainsKey($key)) {
+            $element = Import-Xaml 'UnityRow.xaml'
+            $rec = @{
+                Element = $element
+                Stripe  = $element.FindName('Stripe')
+                Label   = $element.FindName('Label')
+                Detail  = $element.FindName('Detail')
+                Memory  = $element.FindName('Memory')
+                Cpu     = $element.FindName('Cpu')
+                Window  = [IntPtr]::Zero
+                SortKey = ''
+            }
+
+            # A click brings an editor with a window to the front, like an agent
+            # row. A headless row has no window to bring, so its press is left to
+            # bubble up and drag the card, as the card's empty edge does.
+            $element.Add_MouseLeftButtonDown({
+                param($sender, $e)
+                if ([IntPtr]$sender.Tag -ne [IntPtr]::Zero) { $e.Handled = $true }
+            })
+            $element.Add_MouseLeftButtonUp({
+                param($sender, $e)
+                if ([IntPtr]$sender.Tag -ne [IntPtr]::Zero) {
+                    [TlNative]::Focus([IntPtr]$sender.Tag) | Out-Null
+                    $e.Handled = $true
+                }
+            })
+
+            $rowCanvas.Children.Add($element) | Out-Null
+            $script:unityRows[$key] = $rec
+        }
+
+        $rec = $script:unityRows[$key]
+        $rec.Window = $editor.Window
+        $rec.Element.Tag = $editor.Window
+        if ($editor.Window -ne [IntPtr]::Zero) {
+            $rec.Element.Cursor = [System.Windows.Input.Cursors]::Hand
+        } else {
+            $rec.Element.Cursor = [System.Windows.Input.Cursors]::Arrow
+        }
+        # Headless first, then by project, so the editors with no window to find
+        # are the ones at the top of the group.
+        $rec.SortKey = '{0}|{1}' -f $(if ($editor.Headless) { '0' } else { '1' }), $editor.Project
+        if ($editor.Headless) { $rec.Stripe.Background = $brush.Headless } else { $rec.Stripe.Background = $brush.WsNeutral }
+
+        $rec.Label.Text = $editor.Project
+        $detail = $(if ($editor.Headless) { 'headless' } else { 'editor' })
+        if ($editor.Branch) { $detail += $listSep + $editor.Branch }
+        if ($editor.Workers -gt 0) { $detail += $listSep + ('{0} importing' -f $editor.Workers) }
+        $rec.Detail.Text = $detail
+        $rec.Memory.Text = '{0:0.0} GB' -f $editor.MemoryGB
+        $rec.Cpu.Text = '{0:0.0} % cpu' -f $editor.CpuPercent
+    }
+
+    foreach ($key in @($script:unityRows.Keys)) {
+        if (-not $seen.ContainsKey($key)) {
+            $rowCanvas.Children.Remove($script:unityRows[$key].Element)
+            $script:unityRows.Remove($key)
+        }
+    }
 }
 
 function Set-RowState {
@@ -1412,8 +1629,10 @@ function Update-Card {
     # as $null without complaint, and the tray sat on blue whatever happened.
     Set-TrayState -Rows $ordered
 
-    # The card carries nothing, so it gets out of the way until it does again.
-    if (@($ordered).Count -eq 0) {
+    # The card carries nothing, so it gets out of the way until it does again. A
+    # running Unity editor counts as something: a headless one is invisible
+    # everywhere else, and keeping it in sight is what its rows are for.
+    if (@($ordered).Count -eq 0 -and $script:unityRows.Count -eq 0) {
         if ($window.IsVisible -and -not $script:manualShow) {
             $window.Hide()
             $script:autoHidden = $true
@@ -1538,6 +1757,27 @@ function Update-Layout {
         $trailingGroupGap = $showThisGroup
     }
 
+    # Unity editors go below every agent group, under a heading of their own, so
+    # they never mix with the rows the drag, the tray and the timers work on.
+    $unityList = @($script:unityRows.Values | Sort-Object { $_.SortKey })
+    if ($unityList.Count -gt 0) {
+        # An unresolved agent group at the bottom adds no gap of its own.
+        if (@($ordered).Count -gt 0 -and -not $trailingGroupGap) { $y += $groupGap }
+        $header = Get-Header -Index $headerIndex
+        $headerIndex++
+        $header.Label.Text = 'Unity'
+        $header.Swatch.Fill = $brush.WsNeutral
+        $header.Element.Visibility = 'Visible'
+        [System.Windows.Controls.Canvas]::SetTop($header.Element, $y)
+        $y += $headerHeight
+        foreach ($unityRow in $unityList) {
+            [System.Windows.Controls.Canvas]::SetTop($unityRow.Element, $y)
+            $y += $unityRow.Element.Height + $rowGap
+        }
+        $y += $groupGap
+        $trailingGroupGap = $true
+    }
+
     # Any header left over from a workspace that has closed.
     for ($i = $headerIndex; $i -lt $script:headerPool.Count; $i++) {
         $script:headerPool[$i].Element.Visibility = 'Collapsed'
@@ -1559,7 +1799,7 @@ function Update-Layout {
     # left behind rather than recomputing from counts, which would have to know
     # about headers and group spacing all over again.
     $contentHeight = $y
-    if ($count -gt 0) {
+    if ($count -gt 0 -or $unityList.Count -gt 0) {
         $contentHeight -= $rowGap
         # Only if the final group actually added one; an unresolved group at the
         # bottom does not.
@@ -1583,6 +1823,11 @@ function Sweep-Windows {
     }
     Sync-SessionMap -ShellToWindow $scan.ShellToWindow
     Sync-SessionExtras
+    # Caught on its own, so a Unity hiccup can never stop the agent rows updating.
+    try {
+        $script:unityEditors = @(Get-UnityEditors)
+        Sync-UnityRows
+    } catch { Write-ErrorLog -Where 'unity' -Problem $_ }
 }
 
 # ---------------------------------------------------------------------------
