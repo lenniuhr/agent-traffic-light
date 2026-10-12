@@ -62,6 +62,7 @@ $blinkMs       = 600    # one beat of the three-beat permission alarm
 $breatheMs     = 2000   # permission settles into this after the beats
 $spinTurnMs    = 1400   # one turn of the working ring, the only motion on a calm card
 $soundSettleMs = 1200   # a stop must outlast this before its sound plays, so a title that flickers between tools stays silent
+$marshalStaleMin = 40   # Marshal rounds every 15 minutes, so a report this old means two missed rounds and a Marshal that has stopped
 
 # ---------------------------------------------------------------------------
 # Glyph vocabulary. Written as code points on purpose: PowerShell 5.1 reads a
@@ -943,6 +944,7 @@ function New-Row {
         Dot       = $element.FindName('Dot')
         Stripe    = $element.FindName('Stripe')
         LabelText = $element.FindName('Label')
+        DetailText = $element.FindName('Detail')
         TimerText = $element.FindName('Timer')
         ModelText = $element.FindName('Model')
         CtxFill   = $element.FindName('CtxFill')
@@ -953,6 +955,8 @@ function New-Row {
         SoundDueAt = $null
         State     = ''
         Label     = ''
+        # The line under the label. Only the Marshal row ever has one.
+        Detail    = ''
         Since     = Get-Date
         # WorkSince ticks while the session works, cut to the whole second so
         # every running timer on the card turns over at the same moment.
@@ -961,6 +965,9 @@ function New-Row {
         # time it finished says how old the session is, which people do want.
         WorkSince = $null
         FinishedAt = $null
+        # When Marshal's last round ended, from its own report. Null on every
+        # other row, which leaves their timers exactly as they were.
+        RoundAt   = $null
         SessionStatus   = ''
         StatusUpdatedAt = [double]0
         Top       = -1.0
@@ -1104,11 +1111,18 @@ function Sync-UnityRows {
 }
 
 function Set-RowState {
-    param($Rec, [string]$State, [string]$Label)
+    param($Rec, [string]$State, [string]$Label, [string]$Detail = '')
 
     if ($Rec.Label -ne $Label) {
         $Rec.LabelText.Text = $Label
         $Rec.Label = $Label
+    }
+    # Before the early return below, like the label: Marshal's question can
+    # change between rounds while its row stays Blocked throughout.
+    if ($Rec.Detail -ne $Detail) {
+        $Rec.DetailText.Text = $Detail
+        $Rec.DetailText.Visibility = $(if ($Detail) { 'Visible' } else { 'Collapsed' })
+        $Rec.Detail = $Detail
     }
     if ($Rec.State -eq $State) { return }
 
@@ -1119,9 +1133,17 @@ function Set-RowState {
     # run and return, so their endings never reach here, which is exactly what
     # the old Notification-hook chime could not tell apart. Waiting turning into
     # Blocked is the same stop seen twice and stays silent.
+    #
+    # Marshal is the one exception. Its row is Watching between rounds, and a
+    # question that reaches it there, without a round in between, is new news
+    # rather than the same stop seen twice, so it gets the sound too. A round
+    # that ends in Watching arms the sound like any stop, and Invoke-DueSounds
+    # drops it, because a Marshal with nothing for you must stay silent.
     if ($State -eq 'Working') {
         $Rec.SoundDueAt = $null
     } elseif ($Rec.State -eq 'Working') {
+        $Rec.SoundDueAt = $now.AddMilliseconds($soundSettleMs)
+    } elseif ($State -eq 'Blocked' -and $Rec.State -eq 'Watching') {
         $Rec.SoundDueAt = $now.AddMilliseconds($soundSettleMs)
     }
 
@@ -1173,10 +1195,31 @@ function Set-RowState {
             $Rec.Dot.Visibility       = 'Visible'
             Start-Alarm -Rec $Rec
         }
+        # Marshal between rounds, with nothing for you. It is idle in exactly
+        # the way a finished session is, but it will start again by itself in
+        # a few minutes, so the green fill and the blue dot would claim your
+        # attention almost all day for nothing. It goes back to the plain dark
+        # row instead, with no ring, because nothing is running, and no dot,
+        # because nothing is wanted. The label is dimmed so the row sits a step
+        # quieter than a working one; the time on the right is its last round.
+        'Watching' {
+            Start-FillAnimation -Rec $Rec -To $brush.RowBase.Color
+            $Rec.LabelText.Foreground = $brush.TextDim
+            $Rec.TimerText.Foreground = $brush.TextDim
+            $Rec.Spinner.Visibility   = 'Collapsed'
+            $Rec.Dot.Visibility       = 'Collapsed'
+            $Rec.Bg.Opacity           = 1.0
+        }
     }
     # The note takes the timer's colour, which each state already picks to read
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
+    # The detail takes the label's colour, not the timer's. On a blocked row it
+    # carries Marshal's question, the one line there meant to be read rather
+    # than glanced at, and the timer's pulled-back amber measured about 2.6 to 1
+    # against the fill, too faint at this size. Size and weight already mark it
+    # as the lesser line.
+    $Rec.DetailText.Foreground = $Rec.LabelText.Foreground
 }
 
 # Menus built in code take the card's dark styles from the window's resources
@@ -1256,6 +1299,9 @@ function Invoke-DueSounds {
         if ($null -eq $rec.SoundDueAt -or $now -lt $rec.SoundDueAt) { continue }
         $rec.SoundDueAt = $null
         if ($rec.State -eq 'Working') { continue }
+        # A Marshal round that found nothing for you. Its stop armed the sound
+        # like any other, and this is where it is let go.
+        if ($rec.State -eq 'Watching') { continue }
         $key = [string][int64]$rec.Handle
         if ($script:settings.Sounds.ContainsKey($key)) { Invoke-Sound -Name $script:settings.Sounds[$key] }
     }
@@ -1375,6 +1421,10 @@ function Update-Timers {
             $text = Format-Elapsed -Span ($second - $rec.WorkSince)
         } else {
             $stopped = $rec.FinishedAt
+            # Marshal says itself when its last round ended, and that survives
+            # a restart of the card, which the moment the card saw it stop does
+            # not. Every other row has no RoundAt and carries on as before.
+            if ($null -ne $rec.RoundAt) { $stopped = $rec.RoundAt }
             # The widget did not see this one finish, usually because it was
             # started afterwards. Claude's own session file still knows when it
             # went idle. Only idle counts: a busy status would give the time the
@@ -1691,6 +1741,141 @@ function Resolve-BlockedRows {
 }
 
 # ---------------------------------------------------------------------------
+# Marshal, the long-running coordinator session. It runs a round every 15
+# minutes and idles in between, so by its title alone it would sit green with a
+# blue dot almost all day, asking for attention it does not want. Whether it
+# wants you is something only Marshal knows, and it says so at the end of every
+# round in state/marshal.json:
+#
+#   { "needsYou": bool, "open": int, "summary": string, "at": ISO 8601 time }
+#
+# Its row works as any other while a round runs. Between rounds it is Blocked
+# only while that report says needsYou, with the summary under the label, and
+# otherwise Watching: a quiet dark row that the tray leaves out.
+# ---------------------------------------------------------------------------
+
+# The row is found by the folder Marshal runs in, because that is an identity
+# the card resolves exactly through the process chain, while the title is
+# whatever Claude last wrote there. The folder is built from the profile rather
+# than written out, so no user name is baked into the repository.
+$marshalDir = (Join-Path $env:USERPROFILE 'Marshal').TrimEnd('\')
+$marshalReportFile = Join-Path $stateDir 'marshal.json'
+$script:marshalReport = $null
+$script:marshalReportMtime = [int64]0
+
+# True for the Marshal session's row. The window title "Marshal" counts only
+# while the row has no folder yet, which is the first sweep or so of a new
+# window, so an unrelated session that happens to carry that title is never
+# mistaken for it once its folder is known.
+function Test-MarshalRow {
+    param([string]$Cwd, [string]$Label)
+    if ($Cwd) {
+        $folder = ($Cwd -replace '/', '\').TrimEnd('\')
+        return [string]::Equals($folder, $marshalDir, [System.StringComparison]::OrdinalIgnoreCase)
+    }
+    return [string]::Equals(([string]$Label).Trim(), 'Marshal', [System.StringComparison]::OrdinalIgnoreCase)
+}
+
+# Marshal's last report, or $null when there is none. Parsed only when the file
+# changes, so a Marshal between rounds costs a stat per poll.
+#
+# A file that does not parse is usually one caught halfway through being
+# written. The last good report stands and the file's time is not remembered,
+# so the next poll reads it again once the write has finished.
+function Read-MarshalReport {
+    param([string]$Path)
+    $file = Get-Item -LiteralPath $Path -ErrorAction SilentlyContinue
+    if (-not $file) {
+        $script:marshalReport = $null
+        $script:marshalReportMtime = [int64]0
+        return $null
+    }
+    $mtime = $file.LastWriteTimeUtc.Ticks
+    if ($mtime -eq $script:marshalReportMtime) { return $script:marshalReport }
+
+    try {
+        $saved = [System.IO.File]::ReadAllText($file.FullName, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+    } catch {
+        return $script:marshalReport
+    }
+
+    # The round's own time, as Marshal wrote it. PowerShell 5.1 leaves an ISO
+    # 8601 string as a string, and DateTimeOffset honours the offset in it, so
+    # a "Z" time and a "+02:00" time both land on the same local clock.
+    $at = $null
+    try {
+        if ($saved.at) {
+            $at = [DateTimeOffset]::Parse([string]$saved.at, [System.Globalization.CultureInfo]::InvariantCulture,
+                                          [System.Globalization.DateTimeStyles]::AssumeLocal).LocalDateTime
+        }
+    } catch { }
+    if ($null -eq $at) { $at = $file.LastWriteTime }
+
+    $open = 0
+    try { $open = [int]$saved.open } catch { }
+
+    $script:marshalReport = @{
+        # -eq with the boolean on the right, so a "false" written as a string
+        # reads as false; a plain [bool] cast would call any non-empty string
+        # true and raise a question that was never asked.
+        NeedsYou  = ($saved.needsYou -eq $true)
+        Open      = $open
+        # One line on the row, however Marshal broke it up.
+        Summary   = (([string]$saved.summary) -replace '\s+', ' ').Trim()
+        At        = $at
+        # When the file was last written, which is what says Marshal is alive.
+        # Judged on this rather than on "at", so a Marshal writing its time in
+        # the wrong zone shows a wrong clock but is never called dead for it.
+        WrittenAt = $file.LastWriteTime
+    }
+    $script:marshalReportMtime = $mtime
+    return $script:marshalReport
+}
+
+# What the Marshal row shows, from the state its title gives and its last
+# report: @{ State; Detail; RoundAt }. Kept free of the window and the row so
+# the decision can be checked on its own against sample reports.
+function Get-MarshalLook {
+    param([string]$State, $Report, [datetime]$Now)
+
+    $look = @{ State = $State; Detail = ''; RoundAt = $null }
+    if ($null -ne $Report) { $look.RoundAt = $Report.At }
+
+    # A round is running. It looks like any working session, and its report is
+    # the previous round's, so it has nothing to say yet.
+    if ($State -eq 'Working') { return $look }
+
+    # Two missed rounds. Whatever the report says belongs to a Marshal that has
+    # stopped, so a question in it is not shown as live; the row says stale
+    # instead, which is the sign that Marshal itself needs restarting.
+    $age = $null
+    if ($null -ne $Report) { $age = $Now - $Report.WrittenAt }
+    $stale = ($null -ne $age -and $age.TotalMinutes -gt $marshalStaleMin)
+
+    if ($null -ne $Report -and -not $stale -and $Report.NeedsYou) {
+        $look.State = 'Blocked'
+        $look.Detail = $Report.Summary
+        if (-not $look.Detail -and $Report.Open -gt 0) { $look.Detail = '{0} open' -f $Report.Open }
+        return $look
+    }
+
+    # A permission prompt or a question dialog the hooks reported. Marshal is
+    # waiting on you whatever its last report said, and while it waits no round
+    # can run to say so, so this stays Blocked as on any other row.
+    if ($State -eq 'Blocked') { return $look }
+
+    $look.State = 'Watching'
+    if ($stale) {
+        $minutes = [Math]::Floor($age.TotalMinutes)
+        if ($minutes -lt 120) { $span = '{0} min' -f $minutes }
+        elseif ($minutes -lt 2880) { $span = '{0} h' -f [Math]::Floor($minutes / 60) }
+        else { $span = '{0} days' -f [Math]::Floor($minutes / 1440) }
+        $look.Detail = 'stale' + $listSep + 'no round for ' + $span
+    }
+    return $look
+}
+
+# ---------------------------------------------------------------------------
 # The poll
 # ---------------------------------------------------------------------------
 $script:knownHandles = New-Object System.Collections.ArrayList
@@ -1806,8 +1991,22 @@ function Update-Card {
         $rec.PendingState = 'Blocked'
     }
 
+    # Marshal's row is settled last, for the same reason and after the markers:
+    # those are judged on the title's Waiting, which the Watching below would
+    # otherwise hide from them. Every other row gets an empty detail and no
+    # round time, which is exactly what it had before.
     foreach ($rec in $ordered) {
-        Set-RowState -Rec $rec -State $rec.PendingState -Label $rec.PendingLabel
+        $rec.PendingDetail = ''
+        $rec.RoundAt = $null
+        if (-not (Test-MarshalRow -Cwd $rec.Cwd -Label $rec.PendingLabel)) { continue }
+        $look = Get-MarshalLook -State $rec.PendingState -Report (Read-MarshalReport -Path $marshalReportFile) -Now (Get-Date)
+        $rec.PendingState  = $look.State
+        $rec.PendingDetail = $look.Detail
+        $rec.RoundAt       = $look.RoundAt
+    }
+
+    foreach ($rec in $ordered) {
+        Set-RowState -Rec $rec -State $rec.PendingState -Label $rec.PendingLabel -Detail $rec.PendingDetail
     }
     Invoke-DueSounds -Ordered $ordered
 
@@ -1822,7 +2021,9 @@ function Update-Card {
 
     # The card carries nothing, so it gets out of the way until it does again. A
     # running Unity editor counts as something: a headless one is invisible
-    # everywhere else, and keeping it in sight is what its rows are for.
+    # everywhere else, and keeping it in sight is what its rows are for. So does
+    # Marshal while it is Watching, unlike in the tray: it is a live session, and
+    # its row is the only place a stale Marshal shows.
     if (@($ordered).Count -eq 0 -and $script:unityRows.Count -eq 0) {
         if ($window.IsVisible -and -not $script:manualShow) {
             $window.Hide()
@@ -2066,6 +2267,11 @@ $script:trayIcon = $null
 
 function Set-TrayState {
     param($Rows)
+    # A Watching row is Marshal between rounds with nothing for you, so it adds
+    # nothing to the tray. Left out entirely rather than counted as working: a
+    # card holding only a watching Marshal turns the tray the grey of an empty
+    # card, not the blue of a session busy on your behalf.
+    $Rows = @($Rows | Where-Object { $_.State -ne 'Watching' })
     $worst = 'Working'
     if (@($Rows | Where-Object { $_.State -eq 'Waiting' }).Count -gt 0) { $worst = 'Waiting' }
     if (@($Rows | Where-Object { $_.State -eq 'Blocked' }).Count -gt 0) { $worst = 'Blocked' }

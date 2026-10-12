@@ -16,8 +16,20 @@ One row per session, grouped by the folder the session runs in:
 | Dark row, turning ring | Working. The time on the right counts up. |
 | Green row, blue dot | Finished and waiting for you. The time on the right is when it stopped. |
 | Amber row, blue dot, pulsing | Blocked on you: a permission prompt or a question. |
+| Dark row, dimmed label, no ring, no dot | Watching: only the Marshal session, between rounds, with nothing for you. The time on the right is when its last round ended. |
 
 The blue dot always means the same thing: this session wants something from you.
+
+Marshal is a long-running coordinator session that runs a round every 15 minutes and idles in
+between, so by its title alone it would sit green with a blue dot all day. The card finds its row by
+the session's folder, `%USERPROFILE%\Marshal`, falling back to the window title "Marshal" only until
+the folder is known. While a round runs the row is Working as usual. Between rounds it follows
+`state\marshal.json`, which Marshal writes at the end of every round as
+`{"needsYou": bool, "open": int, "summary": string, "at": ISO 8601 time}`: with `needsYou` true the
+row is Blocked, with the summary on a second line under the label and its sound if one is set;
+otherwise it is Watching. A missing report also reads as Watching, and one not rewritten for more
+than 40 minutes adds a "stale" note, because that means Marshal has stopped. The tray colour ignores
+a Watching row, but it still counts as a session, so the card does not hide.
 
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.

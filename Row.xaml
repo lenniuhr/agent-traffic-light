@@ -77,18 +77,59 @@
           Visibility="Collapsed"
           Data="M 5,1 A 4,4 0 1 1 1,5" />
 
-    <!-- Sentence case, never caps: word shape is what you actually read at a
-         glance, and caps destroys it. Ellipsis at the end because these labels
-         are Claude's task summaries and run past 40 characters. -->
-    <TextBlock x:Name="Label"
-               Grid.Column="2"
-               VerticalAlignment="Center"
-               FontFamily="Segoe UI"
-               FontWeight="SemiBold"
-               FontSize="15"
-               Foreground="{DynamicResource BrushText}"
-               TextTrimming="CharacterEllipsis"
-               Text="" />
+    <!-- The label, and under it a detail line that only the Marshal row ever
+         fills: its open question while it is blocked on you, or a stale note
+         when its rounds have stopped. With the detail collapsed the panel holds
+         the label alone, centred exactly where it always sat, so every other row
+         looks as it did.
+
+         With a detail showing, the pair takes the Unity row's two-line sizes,
+         13 over 11, and lifts clear of the context bar along the bottom edge;
+         15 over 11 centred in the row put the detail's descenders on the bar.
+         Both switches are triggers on the detail's own visibility, so the
+         script only shows or hides it and the sizes stay in this file. -->
+    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+      <StackPanel.Style>
+        <Style TargetType="StackPanel">
+          <Style.Triggers>
+            <DataTrigger Binding="{Binding Visibility, ElementName=Detail}" Value="Visible">
+              <Setter Property="Margin" Value="0,0,0,4" />
+            </DataTrigger>
+          </Style.Triggers>
+        </Style>
+      </StackPanel.Style>
+
+      <!-- Sentence case, never caps: word shape is what you actually read at a
+           glance, and caps destroys it. Ellipsis at the end because these labels
+           are Claude's task summaries and run past 40 characters. The size sits
+           in the style rather than on the element, because a value set on the
+           element would win over the trigger. -->
+      <TextBlock x:Name="Label"
+                 FontFamily="Segoe UI"
+                 FontWeight="SemiBold"
+                 Foreground="{DynamicResource BrushText}"
+                 TextTrimming="CharacterEllipsis"
+                 Text="">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="FontSize" Value="15" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding Visibility, ElementName=Detail}" Value="Visible">
+                <Setter Property="FontSize" Value="13" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+
+      <TextBlock x:Name="Detail"
+                 FontFamily="Segoe UI"
+                 FontSize="11"
+                 Foreground="{DynamicResource BrushTextDim}"
+                 TextTrimming="CharacterEllipsis"
+                 Visibility="Collapsed"
+                 Text="" />
+    </StackPanel>
 
     <!-- The time, alone. The model used to sit stacked underneath it, which put
          it a pixel away from the context bar; it lives in the stripe now.
