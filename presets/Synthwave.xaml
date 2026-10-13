@@ -1,0 +1,181 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Synthwave: the neon eighties of Outrun, Drive and Hotline Miami. A night
+       sky over a striped sunset sun and a glowing grid running to the horizon,
+       every line lit in neon. Only what differs from Classic is here.
+
+       The colours keep their meaning, in neon: cyan working, green finished,
+       yellow blocked. Pink is the style's own colour, for the card and the
+       outlines of working rows; there is no red.
+
+       The glow traces whatever is opaque inside the card, so the sky is the
+       card's own flat colour, outside the glow, and the rows are left mostly
+       clear: their text and outlines glow, not their rectangles. -->
+
+  <SolidColorBrush x:Key="BrushCard"        Color="#F2140A26" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#FF2E97" />
+  <SolidColorBrush x:Key="BrushCardInner"   Color="#5000E5FF" />
+
+  <SolidColorBrush x:Key="BrushText"        Color="#F7EBFF" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#B48CD9" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#00E5FF" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#3339FF14" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#40FFD319" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#00E5FF" />
+
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#80140726" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#F0FFF0" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#FFF8DC" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#8CFF7A" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#FFE36E" />
+
+  <!-- Every row a neon tube: pink while working, green when finished, yellow
+       when blocked. The stripe covers the tube on the left, by its thickness. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#C0FF2E97" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#39FF14" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFD319" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#140A26" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#B967FF" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#FF2E97" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#00E5FF" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#B967FF" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#FF8AD8" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#FF8C42" />
+
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#33FF2E97" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#CC00E5FF" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#FFD319" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#F2140A26" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#FF2E97" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#40FF2E97" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#00E5FF" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#B48CD9" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#40FF2E97" />
+
+  <CornerRadius x:Key="CardCorner">4</CornerRadius>
+  <CornerRadius x:Key="CardInnerCorner">3</CornerRadius>
+  <CornerRadius x:Key="RowCorner">3</CornerRadius>
+  <CornerRadius x:Key="RowInnerCorner">2</CornerRadius>
+  <CornerRadius x:Key="StripeCorner">3,0,0,3</CornerRadius>
+  <CornerRadius x:Key="MenuCorner">4</CornerRadius>
+  <CornerRadius x:Key="MenuItemCorner">2</CornerRadius>
+
+  <!-- The neon: a hot pink glow round everything lit on the card. -->
+  <DropShadowEffect x:Key="ContentGlow" Color="#FF2E97" BlurRadius="10" ShadowDepth="0" Opacity="0.75" />
+  <DropShadowEffect x:Key="CardShadow" Color="#FF2E97" BlurRadius="18" ShadowDepth="0" Opacity="0.45" />
+
+  <FontFamily x:Key="FontText">Bahnschrift, Segoe UI</FontFamily>
+  <FontFamily x:Key="FontClock">Bahnschrift Condensed, Bahnschrift</FontFamily>
+
+  <!-- The scene, anchored to the card's bottom edge so the horizon is always
+       at the bottom, however tall the card: stars high up in the sky, a pink
+       haze over the horizon, the sun with its stripes cut out of it, setting
+       behind the horizon, and the grid floor running towards it. The frame is
+       500 high from 0,0 and clipped to it; a short card shows its bottom part. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Bottom">
+    <DrawingBrush.Drawing>
+      <DrawingGroup ClipGeometry="M0,0 H380 V500 H0 Z">
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,500" /></GeometryDrawing.Geometry></GeometryDrawing>
+
+        <!-- Stars. -->
+        <GeometryDrawing Brush="#E0FFFFFF">
+          <GeometryDrawing.Geometry>
+            <GeometryGroup>
+              <EllipseGeometry Center="40,60" RadiusX="1" RadiusY="1" />
+              <EllipseGeometry Center="120,30" RadiusX="0.8" RadiusY="0.8" />
+              <EllipseGeometry Center="210,90" RadiusX="1.2" RadiusY="1.2" />
+              <EllipseGeometry Center="330,50" RadiusX="0.9" RadiusY="0.9" />
+              <EllipseGeometry Center="365,150" RadiusX="1" RadiusY="1" />
+              <EllipseGeometry Center="20,190" RadiusX="0.8" RadiusY="0.8" />
+              <EllipseGeometry Center="260,210" RadiusX="1.1" RadiusY="1.1" />
+              <EllipseGeometry Center="95,250" RadiusX="0.9" RadiusY="0.9" />
+              <EllipseGeometry Center="372,290" RadiusX="0.8" RadiusY="0.8" />
+              <EllipseGeometry Center="12,320" RadiusX="1" RadiusY="1" />
+              <EllipseGeometry Center="170,330" RadiusX="0.8" RadiusY="0.8" />
+            </GeometryGroup>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+
+        <!-- Haze over the horizon. -->
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,330,380,130" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="#00FF2E97" Offset="0" /><GradientStop Color="#55FF2E97" Offset="1" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+
+        <!-- The sun, yellow to pink, its lower half cut into bands, sinking
+             behind the horizon at 460, in the middle as Outrun has it. It sits
+             behind the last rows, so it is dimmed to a backlight: at full
+             strength a yellow timer in front of it disappeared. -->
+        <DrawingGroup Opacity="0.6">
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry>
+            <CombinedGeometry GeometryCombineMode="Exclude">
+              <CombinedGeometry.Geometry1><EllipseGeometry Center="190,428" RadiusX="54" RadiusY="54" /></CombinedGeometry.Geometry1>
+              <CombinedGeometry.Geometry2>
+                <GeometryGroup>
+                  <RectangleGeometry Rect="130,426,120,2" />
+                  <RectangleGeometry Rect="130,435,120,3" />
+                  <RectangleGeometry Rect="130,444,120,4" />
+                  <RectangleGeometry Rect="130,453,120,5" />
+                  <RectangleGeometry Rect="130,460,120,40" />
+                </GeometryGroup>
+              </CombinedGeometry.Geometry2>
+            </CombinedGeometry>
+          </GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="#FFF9D423" Offset="0" /><GradientStop Color="#FFFF8A3D" Offset="0.5" /><GradientStop Color="#FFFF2E97" Offset="0.85" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        </DrawingGroup>
+
+        <!-- The floor and its grid, lines running to a vanishing point on the
+             horizon, cross lines closing up towards it. -->
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,460,380,40" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="#F0200A40" Offset="0" /><GradientStop Color="#F0140726" Offset="1" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Pen><Pen Brush="#D0FF2E97" Thickness="1" /></GeometryDrawing.Pen>
+          <GeometryDrawing.Geometry>
+            <GeometryGroup>
+              <LineGeometry StartPoint="0,464" EndPoint="380,464" />
+              <LineGeometry StartPoint="0,470" EndPoint="380,470" />
+              <LineGeometry StartPoint="0,478" EndPoint="380,478" />
+              <LineGeometry StartPoint="0,489" EndPoint="380,489" />
+              <LineGeometry StartPoint="190,460" EndPoint="-380,500" />
+              <LineGeometry StartPoint="190,460" EndPoint="-190,500" />
+              <LineGeometry StartPoint="190,460" EndPoint="-30,500" />
+              <LineGeometry StartPoint="190,460" EndPoint="90,500" />
+              <LineGeometry StartPoint="190,460" EndPoint="190,500" />
+              <LineGeometry StartPoint="190,460" EndPoint="290,500" />
+              <LineGeometry StartPoint="190,460" EndPoint="410,500" />
+              <LineGeometry StartPoint="190,460" EndPoint="570,500" />
+              <LineGeometry StartPoint="190,460" EndPoint="760,500" />
+            </GeometryGroup>
+          </GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Pen><Pen Brush="#FFFF2E97" Thickness="1.5" /></GeometryDrawing.Pen>
+          <GeometryDrawing.Geometry><LineGeometry StartPoint="0,460" EndPoint="380,460" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>

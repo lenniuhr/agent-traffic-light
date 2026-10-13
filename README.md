@@ -71,8 +71,9 @@ here; Terminal, square, flat and monospaced, with denser rows drawn as boxes in 
 Phosphor, a glowing green monochrome screen where, with one colour to work with, a row gets louder
 the more it needs you: plain text while working, a bright box when finished, inverse video when
 blocked; or Frutiger Aero, see-through glass from sky blue to green in the manner of Windows Vista
-and 7, with glossy rows, bubbles and a halo behind the text. Frutiger Aero costs noticeably more
-CPU than the others, for the halo on every text.
+and 7, with glossy rows, bubbles and a halo behind the text; or Synthwave, the neon eighties of
+Outrun, with every row a neon tube and a striped sunset sun over a glowing grid on the card's
+bottom edge. Frutiger Aero costs noticeably more CPU than the others, for the halo on every text.
 Each style is a file in `presets\`. Classic holds every colour, size, corner, outline, font and
 shadow the card uses; any other preset holds only what it changes and is laid over Classic, so a new
 one starts as a copy of Terminal with its values changed. Whatever the style, the colours keep their
