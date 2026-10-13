@@ -142,13 +142,16 @@ the menu and its submenu popups resolve the same keys as the card.
 
 1. loads the file and replaces the second merged dictionary with it;
 2. calls `Read-StyleValues`;
-3. re-applies every agent row's state (clears the row's remembered state so `Set-RowState` does not
-   return early, then applies it again without restarting its timers or sound bookkeeping);
+3. repaints every agent row with `Set-RowLook`, the per-state painting split out of `Set-RowState`,
+   which leaves the row's timers, state and sound bookkeeping alone;
 4. re-applies the Unity rows' stripes;
 5. runs `Update-Layout`;
 6. saves `Preset`.
 
 Rows are not rebuilt. Everything bound with `DynamicResource` updates by itself.
+
+A preset's name written to `state\preset.flag` makes the next poll call `Set-Preset`, the way
+`state\dump.flag` makes it dump the layout, so checks can switch the live card without clicking.
 
 **Failure.** A preset file that is missing or does not parse is written to the error log and Classic
 is used, at start and on a switch. A switch that fails leaves the current preset in place. Font
