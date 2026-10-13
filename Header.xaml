@@ -31,7 +31,7 @@
                VerticalAlignment="Center"
                FontFamily="{DynamicResource FontHeader}"
                FontSize="{DynamicResource SizeHeader}"
-               FontWeight="SemiBold"
+               FontWeight="{DynamicResource HeaderWeight}"
                Foreground="{DynamicResource BrushTextDim}"
                TextTrimming="CharacterEllipsis"
                Text="" />

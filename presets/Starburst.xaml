@@ -96,7 +96,14 @@
   <FontFamily x:Key="FontCaption">fonts/#Lobster, Comic Sans MS</FontFamily>
   <FontFamily x:Key="FontHeader">fonts/#Bangers, Impact</FontFamily>
   <FontFamily x:Key="FontTimer">fonts/#VT323, Courier New</FontFamily>
+  <!-- Each display face has one weight; asked for more, Windows smears it. -->
   <FontWeight x:Key="LabelWeight">Normal</FontWeight>
+  <FontWeight x:Key="HeaderWeight">Normal</FontWeight>
+  <FontWeight x:Key="ClockWeight">Normal</FontWeight>
+
+  <!-- The warning line in dark amber, which reads on the grey where the
+       blocked yellow does not. -->
+  <SolidColorBrush x:Key="BrushWarning" Color="#5A4200" />
   <sys:Double x:Key="SizeLabel">14</sys:Double>
   <sys:Double x:Key="SizeLabelWithDetail">12</sys:Double>
   <sys:Double x:Key="SizeClock">24</sys:Double>
