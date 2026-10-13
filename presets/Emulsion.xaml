@@ -1,0 +1,110 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Emulsion: a two colour job on the press, after the Emulsion theme of the
+       Nightjar audio studio. Key black and one fluorescent pink, and the whole
+       style turns on one rule: the fluorescent is a plate and never an ink.
+       It grounds what wants you, and everything set on it is set in key.
+       Nothing casts a soft shadow: a raised thing is its second plate pulled
+       out of register, hard edged. Only what differs from Classic is here.
+
+       Finished is the fluorescent plate rather than green, since a two colour
+       job has no green to give; blocked is the key plate with amber, the one
+       warning ink the theme keeps. There is no red. -->
+
+  <SolidColorBrush x:Key="BrushCard"        Color="#DED9E2" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#141019" />
+
+  <!-- The frame: solid key ink on three sides. The top band, ruled in the
+       fluorescent, is drawn in the card art. -->
+  <Thickness x:Key="CardEdgeThickness">3,0,3,3</Thickness>
+  <Thickness x:Key="CardInnerThickness">0</Thickness>
+
+  <SolidColorBrush x:Key="BrushText"        Color="#141019" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#4C4257" />
+
+  <!-- The dot is key on the fluorescent and the fluorescent on key: a two
+       colour job has no blue to give it. -->
+  <SolidColorBrush x:Key="BrushWorking"     Color="#141019" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#FF2D94" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#141019" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#FF2D94" />
+
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#FAF9FB" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#141019" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#EEC158" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#B3141019" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#A49DAB" />
+
+  <!-- Bare stock cut to a key keyline; firmer round the plates. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#47141019" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#141019" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#E2AC3C" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+
+  <!-- Stripes are the key frame repeated on each row, each session's pattern
+       tabbed on it in the fluorescent. Workspaces take an icon on their
+       heading; the model's name shows on hovering the stripe. -->
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#141019" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#141019" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#141019" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#141019" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#141019" />
+  <sys:String x:Key="WorkspaceIcons">&#x2699; &#x2B22; &#x271A; &#x25C6; &#x25B2; &#x2316; &#x2731; &#x2691; &#x2708; &#x2693;</sys:String>
+  <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
+  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker</sys:String>
+  <SolidColorBrush x:Key="BrushStripePattern" Color="#FF2D94" />
+
+  <!-- Unity editors on the fluorescent plate with a window, a pale tint of
+       it headless, the light version of the same editor. -->
+  <SolidColorBrush x:Key="BrushUnityEditor" Color="#FF2D94" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#F7C6DD" />
+
+  <!-- A mid grey that reads on the stock, the plate and the key. -->
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#338E8397" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#8E8397" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#E2AC3C" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#FAF9FB" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#141019" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#59FF2D94" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#B00068" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#4C4257" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#33141019" />
+
+  <CornerRadius x:Key="CardCorner">0</CornerRadius>
+  <CornerRadius x:Key="CardInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="StripeCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuItemCorner">0</CornerRadius>
+  <sys:Double x:Key="SwatchRadius">0</sys:Double>
+
+  <!-- The second plate out of register: the fluorescent, hard edged, down and
+       to the right. -->
+  <DropShadowEffect x:Key="CardShadow" Color="#FF2D94" BlurRadius="0" ShadowDepth="6" Opacity="1" Direction="315" />
+  <DropShadowEffect x:Key="MenuShadow" Color="#FF2D94" BlurRadius="0" ShadowDepth="4" Opacity="1" Direction="315" />
+
+  <!-- The theme's heading face is Oswald, a narrow grotesque; where neither
+       it nor Arial Narrow is installed, the clock keeps Bahnschrift. -->
+  <FontFamily x:Key="FontClock">Oswald, Arial Narrow, Bahnschrift</FontFamily>
+
+  <!-- The board is one mark only: a registration cross on a square grid,
+       drawn at random down both margins, where the rows leave the board bare,
+       printed in the fluorescent. Drawn from the card's top left in card
+       pixels and cut off at its bottom. Across the top, the frame's key band
+       with its fluorescent rule. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <DrawingGroup ClipGeometry="M2,15h7v1h-7z M5,12h1v7h-1z M372,55h7v1h-7z M375,52h1v7h-1z M2,75h7v1h-7z M5,72h1v7h-1z M372,75h7v1h-7z M375,72h1v7h-1z M2,95h7v1h-7z M5,92h1v7h-1z M372,95h7v1h-7z M375,92h1v7h-1z M2,115h7v1h-7z M5,112h1v7h-1z M372,115h7v1h-7z M375,112h1v7h-1z M2,155h7v1h-7z M5,152h1v7h-1z M372,155h7v1h-7z M375,152h1v7h-1z M372,175h7v1h-7z M375,172h1v7h-1z M2,195h7v1h-7z M5,192h1v7h-1z M372,195h7v1h-7z M375,192h1v7h-1z M2,215h7v1h-7z M5,212h1v7h-1z M372,215h7v1h-7z M375,212h1v7h-1z M2,235h7v1h-7z M5,232h1v7h-1z M372,235h7v1h-7z M375,232h1v7h-1z M2,255h7v1h-7z M5,252h1v7h-1z M372,255h7v1h-7z M375,252h1v7h-1z M372,275h7v1h-7z M375,272h1v7h-1z M2,295h7v1h-7z M5,292h1v7h-1z M372,295h7v1h-7z M375,292h1v7h-1z M2,315h7v1h-7z M5,312h1v7h-1z M2,335h7v1h-7z M5,332h1v7h-1z M2,355h7v1h-7z M5,352h1v7h-1z M372,355h7v1h-7z M375,352h1v7h-1z M2,375h7v1h-7z M5,372h1v7h-1z M372,375h7v1h-7z M375,372h1v7h-1z M2,395h7v1h-7z M5,392h1v7h-1z M372,395h7v1h-7z M375,392h1v7h-1z M372,415h7v1h-7z M375,412h1v7h-1z M2,435h7v1h-7z M5,432h1v7h-1z M372,435h7v1h-7z M375,432h1v7h-1z M2,455h7v1h-7z M5,452h1v7h-1z M372,455h7v1h-7z M375,452h1v7h-1z M2,475h7v1h-7z M5,472h1v7h-1z M372,475h7v1h-7z M375,472h1v7h-1z M2,495h7v1h-7z M5,492h1v7h-1z M372,495h7v1h-7z M375,492h1v7h-1z M2,515h7v1h-7z M5,512h1v7h-1z M372,535h7v1h-7z M375,532h1v7h-1z M2,555h7v1h-7z M5,552h1v7h-1z M372,555h7v1h-7z M375,552h1v7h-1z M2,575h7v1h-7z M5,572h1v7h-1z M2,595h7v1h-7z M5,592h1v7h-1z M372,595h7v1h-7z M375,592h1v7h-1z M2,615h7v1h-7z M5,612h1v7h-1z M372,615h7v1h-7z M375,612h1v7h-1z M2,635h7v1h-7z M5,632h1v7h-1z M372,635h7v1h-7z M375,632h1v7h-1z M2,675h7v1h-7z M5,672h1v7h-1z M372,675h7v1h-7z M375,672h1v7h-1z M372,695h7v1h-7z M375,692h1v7h-1z M2,715h7v1h-7z M5,712h1v7h-1z M372,715h7v1h-7z M375,712h1v7h-1z M2,735h7v1h-7z M5,732h1v7h-1z M2,755h7v1h-7z M5,752h1v7h-1z M372,755h7v1h-7z M375,752h1v7h-1z M2,775h7v1h-7z M5,772h1v7h-1z M2,795h7v1h-7z M5,792h1v7h-1z M372,795h7v1h-7z M375,792h1v7h-1z M2,815h7v1h-7z M5,812h1v7h-1z M372,815h7v1h-7z M375,812h1v7h-1z M2,835h7v1h-7z M5,832h1v7h-1z M2,855h7v1h-7z M5,852h1v7h-1z M372,855h7v1h-7z M375,852h1v7h-1z M2,875h7v1h-7z M5,872h1v7h-1z M372,875h7v1h-7z M375,872h1v7h-1z M2,895h7v1h-7z M5,892h1v7h-1z M372,895h7v1h-7z M375,892h1v7h-1z M372,915h7v1h-7z M375,912h1v7h-1z M2,935h7v1h-7z M5,932h1v7h-1z M372,935h7v1h-7z M375,932h1v7h-1z M2,955h7v1h-7z M5,952h1v7h-1z M372,955h7v1h-7z M375,952h1v7h-1z M2,975h7v1h-7z M5,972h1v7h-1z M2,995h7v1h-7z M5,992h1v7h-1z M372,995h7v1h-7z M375,992h1v7h-1z M2,1015h7v1h-7z M5,1012h1v7h-1z M372,1015h7v1h-7z M375,1012h1v7h-1z M2,1035h7v1h-7z M5,1032h1v7h-1z M372,1035h7v1h-7z M375,1032h1v7h-1z M2,1055h7v1h-7z M5,1052h1v7h-1z M372,1055h7v1h-7z M375,1052h1v7h-1z M2,1075h7v1h-7z M5,1072h1v7h-1z M372,1075h7v1h-7z M375,1072h1v7h-1z M2,1095h7v1h-7z M5,1092h1v7h-1z M372,1095h7v1h-7z M375,1092h1v7h-1z M372,1115h7v1h-7z M375,1112h1v7h-1z M2,1135h7v1h-7z M5,1132h1v7h-1z M372,1135h7v1h-7z M375,1132h1v7h-1z M2,1155h7v1h-7z M5,1152h1v7h-1z M372,1155h7v1h-7z M375,1152h1v7h-1z M2,1175h7v1h-7z M5,1172h1v7h-1z M372,1195h7v1h-7z M375,1192h1v7h-1z M2,1215h7v1h-7z M5,1212h1v7h-1z M2,1235h7v1h-7z M5,1232h1v7h-1z M2,1255h7v1h-7z M5,1252h1v7h-1z M372,1255h7v1h-7z M375,1252h1v7h-1z M372,1275h7v1h-7z M375,1272h1v7h-1z M372,1295h7v1h-7z M375,1292h1v7h-1z M2,1335h7v1h-7z M5,1332h1v7h-1z M372,1335h7v1h-7z M375,1332h1v7h-1z M2,1355h7v1h-7z M5,1352h1v7h-1z M372,1355h7v1h-7z M375,1352h1v7h-1z M2,1375h7v1h-7z M5,1372h1v7h-1z M372,1375h7v1h-7z M375,1372h1v7h-1z M2,1395h7v1h-7z M5,1392h1v7h-1z M372,1395h7v1h-7z M375,1392h1v7h-1z M372,1415h7v1h-7z M375,1412h1v7h-1z M2,1435h7v1h-7z M5,1432h1v7h-1z M372,1435h7v1h-7z M375,1432h1v7h-1z M372,1455h7v1h-7z M375,1452h1v7h-1z M2,1475h7v1h-7z M5,1472h1v7h-1z M372,1475h7v1h-7z M375,1472h1v7h-1z M2,1495h7v1h-7z M5,1492h1v7h-1z M372,1495h7v1h-7z M375,1492h1v7h-1z M2,1515h7v1h-7z M5,1512h1v7h-1z M372,1515h7v1h-7z M375,1512h1v7h-1z M372,1535h7v1h-7z M375,1532h1v7h-1z M372,1555h7v1h-7z M375,1552h1v7h-1z M2,1575h7v1h-7z M5,1572h1v7h-1z M372,1575h7v1h-7z M375,1572h1v7h-1z M2,1595h7v1h-7z M5,1592h1v7h-1z M372,1595h7v1h-7z M375,1592h1v7h-1z">
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,1600" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <GeometryDrawing Brush="#FF2D94" Geometry="M2,15h7v1h-7z M5,12h1v7h-1z M372,55h7v1h-7z M375,52h1v7h-1z M2,75h7v1h-7z M5,72h1v7h-1z M372,75h7v1h-7z M375,72h1v7h-1z M2,95h7v1h-7z M5,92h1v7h-1z M372,95h7v1h-7z M375,92h1v7h-1z M2,115h7v1h-7z M5,112h1v7h-1z M372,115h7v1h-7z M375,112h1v7h-1z M2,155h7v1h-7z M5,152h1v7h-1z M372,155h7v1h-7z M375,152h1v7h-1z M372,175h7v1h-7z M375,172h1v7h-1z M2,195h7v1h-7z M5,192h1v7h-1z M372,195h7v1h-7z M375,192h1v7h-1z M2,215h7v1h-7z M5,212h1v7h-1z M372,215h7v1h-7z M375,212h1v7h-1z M2,235h7v1h-7z M5,232h1v7h-1z M372,235h7v1h-7z M375,232h1v7h-1z M2,255h7v1h-7z M5,252h1v7h-1z M372,255h7v1h-7z M375,252h1v7h-1z M372,275h7v1h-7z M375,272h1v7h-1z M2,295h7v1h-7z M5,292h1v7h-1z M372,295h7v1h-7z M375,292h1v7h-1z M2,315h7v1h-7z M5,312h1v7h-1z M2,335h7v1h-7z M5,332h1v7h-1z M2,355h7v1h-7z M5,352h1v7h-1z M372,355h7v1h-7z M375,352h1v7h-1z M2,375h7v1h-7z M5,372h1v7h-1z M372,375h7v1h-7z M375,372h1v7h-1z M2,395h7v1h-7z M5,392h1v7h-1z M372,395h7v1h-7z M375,392h1v7h-1z M372,415h7v1h-7z M375,412h1v7h-1z M2,435h7v1h-7z M5,432h1v7h-1z M372,435h7v1h-7z M375,432h1v7h-1z M2,455h7v1h-7z M5,452h1v7h-1z M372,455h7v1h-7z M375,452h1v7h-1z M2,475h7v1h-7z M5,472h1v7h-1z M372,475h7v1h-7z M375,472h1v7h-1z M2,495h7v1h-7z M5,492h1v7h-1z M372,495h7v1h-7z M375,492h1v7h-1z M2,515h7v1h-7z M5,512h1v7h-1z M372,535h7v1h-7z M375,532h1v7h-1z M2,555h7v1h-7z M5,552h1v7h-1z M372,555h7v1h-7z M375,552h1v7h-1z M2,575h7v1h-7z M5,572h1v7h-1z M2,595h7v1h-7z M5,592h1v7h-1z M372,595h7v1h-7z M375,592h1v7h-1z M2,615h7v1h-7z M5,612h1v7h-1z M372,615h7v1h-7z M375,612h1v7h-1z M2,635h7v1h-7z M5,632h1v7h-1z M372,635h7v1h-7z M375,632h1v7h-1z M2,675h7v1h-7z M5,672h1v7h-1z M372,675h7v1h-7z M375,672h1v7h-1z M372,695h7v1h-7z M375,692h1v7h-1z M2,715h7v1h-7z M5,712h1v7h-1z M372,715h7v1h-7z M375,712h1v7h-1z M2,735h7v1h-7z M5,732h1v7h-1z M2,755h7v1h-7z M5,752h1v7h-1z M372,755h7v1h-7z M375,752h1v7h-1z M2,775h7v1h-7z M5,772h1v7h-1z M2,795h7v1h-7z M5,792h1v7h-1z M372,795h7v1h-7z M375,792h1v7h-1z M2,815h7v1h-7z M5,812h1v7h-1z M372,815h7v1h-7z M375,812h1v7h-1z M2,835h7v1h-7z M5,832h1v7h-1z M2,855h7v1h-7z M5,852h1v7h-1z M372,855h7v1h-7z M375,852h1v7h-1z M2,875h7v1h-7z M5,872h1v7h-1z M372,875h7v1h-7z M375,872h1v7h-1z M2,895h7v1h-7z M5,892h1v7h-1z M372,895h7v1h-7z M375,892h1v7h-1z M372,915h7v1h-7z M375,912h1v7h-1z M2,935h7v1h-7z M5,932h1v7h-1z M372,935h7v1h-7z M375,932h1v7h-1z M2,955h7v1h-7z M5,952h1v7h-1z M372,955h7v1h-7z M375,952h1v7h-1z M2,975h7v1h-7z M5,972h1v7h-1z M2,995h7v1h-7z M5,992h1v7h-1z M372,995h7v1h-7z M375,992h1v7h-1z M2,1015h7v1h-7z M5,1012h1v7h-1z M372,1015h7v1h-7z M375,1012h1v7h-1z M2,1035h7v1h-7z M5,1032h1v7h-1z M372,1035h7v1h-7z M375,1032h1v7h-1z M2,1055h7v1h-7z M5,1052h1v7h-1z M372,1055h7v1h-7z M375,1052h1v7h-1z M2,1075h7v1h-7z M5,1072h1v7h-1z M372,1075h7v1h-7z M375,1072h1v7h-1z M2,1095h7v1h-7z M5,1092h1v7h-1z M372,1095h7v1h-7z M375,1092h1v7h-1z M372,1115h7v1h-7z M375,1112h1v7h-1z M2,1135h7v1h-7z M5,1132h1v7h-1z M372,1135h7v1h-7z M375,1132h1v7h-1z M2,1155h7v1h-7z M5,1152h1v7h-1z M372,1155h7v1h-7z M375,1152h1v7h-1z M2,1175h7v1h-7z M5,1172h1v7h-1z M372,1195h7v1h-7z M375,1192h1v7h-1z M2,1215h7v1h-7z M5,1212h1v7h-1z M2,1235h7v1h-7z M5,1232h1v7h-1z M2,1255h7v1h-7z M5,1252h1v7h-1z M372,1255h7v1h-7z M375,1252h1v7h-1z M372,1275h7v1h-7z M375,1272h1v7h-1z M372,1295h7v1h-7z M375,1292h1v7h-1z M2,1335h7v1h-7z M5,1332h1v7h-1z M372,1335h7v1h-7z M375,1332h1v7h-1z M2,1355h7v1h-7z M5,1352h1v7h-1z M372,1355h7v1h-7z M375,1352h1v7h-1z M2,1375h7v1h-7z M5,1372h1v7h-1z M372,1375h7v1h-7z M375,1372h1v7h-1z M2,1395h7v1h-7z M5,1392h1v7h-1z M372,1395h7v1h-7z M375,1392h1v7h-1z M372,1415h7v1h-7z M375,1412h1v7h-1z M2,1435h7v1h-7z M5,1432h1v7h-1z M372,1435h7v1h-7z M375,1432h1v7h-1z M372,1455h7v1h-7z M375,1452h1v7h-1z M2,1475h7v1h-7z M5,1472h1v7h-1z M372,1475h7v1h-7z M375,1472h1v7h-1z M2,1495h7v1h-7z M5,1492h1v7h-1z M372,1495h7v1h-7z M375,1492h1v7h-1z M2,1515h7v1h-7z M5,1512h1v7h-1z M372,1515h7v1h-7z M375,1512h1v7h-1z M372,1535h7v1h-7z M375,1532h1v7h-1z M372,1555h7v1h-7z M375,1552h1v7h-1z M2,1575h7v1h-7z M5,1572h1v7h-1z M372,1575h7v1h-7z M375,1572h1v7h-1z M2,1595h7v1h-7z M5,1592h1v7h-1z M372,1595h7v1h-7z M375,1592h1v7h-1z" />
+        <GeometryDrawing Brush="#141019"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,9" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <GeometryDrawing Brush="#FF2D94"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,3,380,3" /></GeometryDrawing.Geometry></GeometryDrawing>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>

@@ -63,7 +63,7 @@
       <TextBlock x:Name="Memory"
                  Effect="{DynamicResource TextGlow}"
                  HorizontalAlignment="Right"
-                 FontFamily="{DynamicResource FontText}"
+                 FontFamily="{DynamicResource FontTimer}"
                  FontSize="{DynamicResource SizeTimer}"
                  Foreground="{DynamicResource BrushText}"
                  Typography.NumeralAlignment="Tabular"

@@ -29,9 +29,9 @@
                  Effect="{DynamicResource TextGlow}"
                Margin="8,0,0,0"
                VerticalAlignment="Center"
-               FontFamily="{DynamicResource FontText}"
+               FontFamily="{DynamicResource FontHeader}"
                FontSize="{DynamicResource SizeHeader}"
-               FontWeight="SemiBold"
+               FontWeight="{DynamicResource HeaderWeight}"
                Foreground="{DynamicResource BrushTextDim}"
                TextTrimming="CharacterEllipsis"
                Text="" />

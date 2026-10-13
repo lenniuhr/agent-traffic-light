@@ -179,7 +179,7 @@
                VerticalAlignment="Center"
                HorizontalAlignment="Right"
                Margin="0,0,10,0"
-               FontFamily="{DynamicResource FontText}"
+               FontFamily="{DynamicResource FontTimer}"
                FontSize="{DynamicResource SizeTimer}"
                Foreground="{DynamicResource BrushTextDim}"
                Effect="{DynamicResource TextGlow}"

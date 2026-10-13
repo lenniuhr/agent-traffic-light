@@ -219,6 +219,27 @@
        digits so it does not shift sideways as it counts. -->
   <FontFamily x:Key="FontText">Segoe UI</FontFamily>
   <FontFamily x:Key="FontClock">Bahnschrift</FontFamily>
+
+  <!-- Faces of their own for the group headings, the timers and the two lines
+       beside the clock, for a preset that wants more faces than two. A preset
+       that leaves them out gets its own FontText for the headings and timers
+       and its own FontClock for the two lines, as before these keys. A face
+       can also come from presets\fonts\ by a relative path, fonts/#Name. -->
+  <FontFamily x:Key="FontHeader">Segoe UI</FontFamily>
+  <FontFamily x:Key="FontTimer">Segoe UI</FontFamily>
+  <FontFamily x:Key="FontCaption">Bahnschrift</FontFamily>
+
+  <!-- The weight of the group headings, and of the clock and the line
+       "VIBING SESSION" beside it. A display face with one weight only should
+       be set Normal: asked for SemiBold, Windows thickens it by smearing, and
+       it stops being readable. -->
+  <FontWeight x:Key="HeaderWeight">SemiBold</FontWeight>
+  <FontWeight x:Key="ClockWeight">SemiBold</FontWeight>
+
+  <!-- The warning line under the rows, when sessions share a window. The
+       blocked colour here; a preset that leaves it out gets its own blocked
+       colour, as before this key. -->
+  <SolidColorBrush x:Key="BrushWarning" Color="#9A6526" />
   <FontWeight x:Key="LabelWeight">SemiBold</FontWeight>
 
   <!-- With Marshal's detail line showing, the label takes the Unity row's

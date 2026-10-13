@@ -217,13 +217,13 @@
                           VerticalAlignment="Center"
                           Margin="24,0,0,0">
                 <TextBlock Text="VIBING SESSION" Effect="{DynamicResource TextGlow}"
-                           FontFamily="{DynamicResource FontClock}"
-                           FontWeight="SemiBold"
+                           FontFamily="{DynamicResource FontCaption}"
+                           FontWeight="{DynamicResource ClockWeight}"
                            FontSize="{DynamicResource SizeClockCaption}"
                            Foreground="{DynamicResource BrushText}" />
                 <TextBlock x:Name="WorkClockSub" Effect="{DynamicResource TextGlow}"
                            Text=""
-                           FontFamily="{DynamicResource FontClock}"
+                           FontFamily="{DynamicResource FontCaption}"
                            FontSize="{DynamicResource SizeClockCaption}"
                            Typography.NumeralAlignment="Tabular"
                            Foreground="{DynamicResource BrushTextDim}" />
@@ -233,7 +233,7 @@
                          HorizontalAlignment="Right"
                          VerticalAlignment="Center"
                          FontFamily="{DynamicResource FontClock}"
-                         FontWeight="SemiBold"
+                         FontWeight="{DynamicResource ClockWeight}"
                          FontStretch="Condensed"
                          FontSize="{DynamicResource SizeClock}"
                          Typography.NumeralAlignment="Tabular"
@@ -251,7 +251,7 @@
                      Margin="14,2,14,8"
                      FontFamily="{DynamicResource FontText}"
                      FontSize="{DynamicResource SizeHeader}"
-                     Foreground="{DynamicResource BrushBlocked}"
+                     Foreground="{DynamicResource BrushWarning}"
                      TextTrimming="CharacterEllipsis"
                      Visibility="Collapsed" />
         </Grid>

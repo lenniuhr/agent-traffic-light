@@ -1,0 +1,105 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Blueprint: a cyanotype print of the thing you are building, after the
+       Blueprint theme of the Nightjar audio studio. Ruled paper, figures
+       outlined rather than filled, a tick at each top corner of the sheet.
+       Only what differs from Classic is here.
+
+       The colours keep their meaning as outlines over a faint wash: cyan
+       working, green finished, amber blocked. There is no red. -->
+
+  <SolidColorBrush x:Key="BrushCard"        Color="#03111D" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#61E3F0FB" />
+  <Thickness x:Key="CardInnerThickness">0</Thickness>
+
+  <SolidColorBrush x:Key="BrushText"        Color="#E3F0FB" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#A8C6DD" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#73D9FF" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#2E5FD39A" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#33F5B53F" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#73D9FF" />
+
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#CC0E2C49" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#E3F0FB" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#FFF3DC" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#5FD39A" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#F5B53F" />
+
+  <!-- Figures outlined: every row a drawn box, in its state's ink. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#47E3F0FB" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#5FD39A" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#F5B53F" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+
+  <!-- Stripes in the sheet's deeper blue, each session's pattern ruled on it
+       in the print's white. Workspaces take an icon on their heading; the
+       model's name shows on hovering the stripe. -->
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#14415F" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#14415F" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#14415F" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#14415F" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#14415F" />
+  <sys:String x:Key="WorkspaceIcons">&#x2699; &#x2B22; &#x271A; &#x25C6; &#x25B2; &#x2316; &#x2731; &#x2691; &#x2708; &#x2693;</sys:String>
+  <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
+  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker</sys:String>
+  <SolidColorBrush x:Key="BrushStripePattern" Color="#CCE3F0FB" />
+
+  <!-- Unity editors in the print's cyan with a window, a pale wash of it
+       headless, the light version of the same editor. -->
+  <SolidColorBrush x:Key="BrushUnityEditor" Color="#1FB8F0" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#BFE6F7" />
+
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#24E3F0FB" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#8CE3F0FB" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#F5B53F" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#092944" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#61E3F0FB" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#2E79D4FF" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#73D9FF" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#A8C6DD" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#24E3F0FB" />
+
+  <CornerRadius x:Key="CardCorner">0</CornerRadius>
+  <CornerRadius x:Key="CardInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="StripeCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuItemCorner">0</CornerRadius>
+  <sys:Double x:Key="SwatchRadius">0</sys:Double>
+
+  <DropShadowEffect x:Key="CardShadow" Color="#020A12" BlurRadius="18" ShadowDepth="4" Opacity="0.6" Direction="270" />
+  <DropShadowEffect x:Key="MenuShadow" Color="#020A12" BlurRadius="14" ShadowDepth="3" Opacity="0.6" Direction="270" />
+
+  <!-- The ruled paper: a fine line every 10 px and a firmer one every 50, in
+       the print's white, as a tile cached once. A tick at each top corner of
+       the sheet. Drawn from the card's top left and cut off at its bottom. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <DrawingGroup ClipGeometry="M0,0 H380 V1600 H0 Z">
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,1600" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,1600" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <DrawingBrush TileMode="Tile" Viewport="0,0,50,50" ViewportUnits="Absolute"
+                          Viewbox="0,0,50,50" ViewboxUnits="Absolute" RenderOptions.CachingHint="Cache">
+              <DrawingBrush.Drawing>
+                <DrawingGroup>
+                  <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,50,50" /></GeometryDrawing.Geometry></GeometryDrawing>
+                  <GeometryDrawing Brush="#17E3F0FB" Geometry="M10,0h1v50h-1z M20,0h1v50h-1z M30,0h1v50h-1z M40,0h1v50h-1z M0,10h50v1h-50z M0,20h50v1h-50z M0,30h50v1h-50z M0,40h50v1h-50z" />
+                  <GeometryDrawing Brush="#2BE3F0FB" Geometry="M0,0h1v50h-1z M1,0h49v1h-49z" />
+                </DrawingGroup>
+              </DrawingBrush.Drawing>
+            </DrawingBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#6BE3F0FB" Geometry="M3,3h9v1h-9z M3,4h1v8h-1z M368,3h9v1h-9z M376,4h1v8h-1z" />
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>

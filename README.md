@@ -79,11 +79,26 @@ blocked, and an icon on each workspace heading in place of the coloured square. 
 black, each session prints a white pattern of its own on its stripe, so it can be found again at a
 glance, and the model's name shows on hovering the stripe; Unity editors are green, pale when
 headless.
+
+Five more come from the themes of the Nightjar audio studio. Two of them share Caterpillar's
+stripes, patterns and heading icons in their own inks: Emulsion, a two colour print in key black and
+fluorescent pink on lilac stock, with a hard pink offset for a shadow and registration crosses down
+the margins, where finished is the pink plate rather than green; and Blueprint, a cyanotype on ruled
+paper with every row drawn as an outline in its state's colour. The other three colour their
+stripes by workspace and keep the model's name on them: Office, a 1970s mixing desk in warm
+aluminium with lit push buttons, fader cap stripes and an orange lamp for the dot; Starburst, a
+1999 homepage in Windows 98 grey with bevelled rows, loud web colours, homepage icons, a rainbow
+under the title bar and five clashing faces: Comic Sans, a shaded WordArt clock, a script, comic
+book capitals and a terminal face; and Tungsten, the game's main menu render behind smoked panes,
+in black and white only, with white hairlines, grey stripes, a serif, and blocked rows in photo
+negative.
+
 Frutiger Aero costs noticeably more CPU than the others, for the halo on every text.
-Each style is a file in `presets\`. Classic holds every colour, size, corner, outline, font and
+Each style is a file in `presets\`, a picture a style draws, such as Tungsten's backdrop, sits
+in `presets\art\`, and a free font a style uses sits in `presets\fonts\` with its licence. Classic holds every colour, size, corner, outline, font and
 shadow the card uses; any other preset holds only what it changes and is laid over Classic, so a new
 one starts as a copy of Terminal with its values changed. Whatever the style, the colours keep their
-meaning.
+meaning, except where a style says otherwise.
 
 With "Show Unity editors" on, which is the default, a Unity group below the sessions lists every
 running Unity editor, one row per project: the

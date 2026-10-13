@@ -1272,7 +1272,8 @@ try { [TlNative]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch
 [TlNative]::ShowWindow([TlNative]::GetConsoleWindow(), $SW_HIDE) | Out-Null
 
 # XAML is read from the tool's folder. Each file is read with its own folder as
-# its base, so a preset can name an image that sits next to it.
+# its base, so a preset can name an image or a font by a path relative to it,
+# such as presets\art\ and presets\fonts\.
 $xamlRoot = $PSScriptRoot
 function Import-Xaml {
     param([string]$Name)
@@ -1313,6 +1314,13 @@ function Import-Preset {
         if ($null -eq $dict[$key] -or -not $want.IsInstanceOfType($dict[$key])) {
             throw "presets\$Name.xaml sets $key to something other than a $($want.Name)"
         }
+    }
+    # The faces split out of FontText and FontClock, and the warning colour
+    # split out of the blocked one, follow them in a preset that does not set
+    # them itself, so it looks as it did before the split.
+    foreach ($pair in @(@('FontHeader', 'FontText'), @('FontTimer', 'FontText'), @('FontCaption', 'FontClock'),
+                        @('BrushWarning', 'BrushBlocked'))) {
+        if (-not $dict.Contains($pair[0]) -and $dict.Contains($pair[1])) { $dict[$pair[0]] = $dict[$pair[1]] }
     }
     return $dict
 }

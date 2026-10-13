@@ -1,0 +1,145 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Starburst: a personal homepage from 1999, after the Starburst theme of
+       the Nightjar audio studio. Windows 98 grey, real bevels, a navy title
+       bar with a rainbow under it, Comic Sans for the words and Impact for
+       the clock, link blue, highlighter yellow. A meme, built to be worn for
+       an afternoon. Only what differs from Classic is here.
+
+       The colours keep their meaning in the page's own highlighters: link
+       blue for the dot, mint for finished, yellow for blocked. There is no
+       red. -->
+
+  <SolidColorBrush x:Key="BrushCard"        Color="#C0C0C0" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#000000" />
+  <SolidColorBrush x:Key="BrushCardInner"   Color="#FFFFFF" />
+
+  <SolidColorBrush x:Key="BrushText"        Color="#000000" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#383838" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#0000EE" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#9CFF9C" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#FFD000" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#0000EE" />
+
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#E4E4E4" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#000000" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#000000" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#004D00" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#5A4200" />
+
+  <!-- Every row a bevelled button: a grey edge, a white line inside it, and
+       the key's shine, light at the top and shaded at the bottom. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#808080" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#006600" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#806000" />
+  <Thickness x:Key="RowInnerEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowInnerEdge"   Color="#FFFFFF" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+  <LinearGradientBrush x:Key="RowGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#80FFFFFF" Offset="0" />
+    <GradientStop Color="#00FFFFFF" Offset="0.45" />
+    <GradientStop Color="#00000000" Offset="0.55" />
+    <GradientStop Color="#1F000000" Offset="1" />
+  </LinearGradientBrush>
+
+  <!-- Stripes in the loudest colours a 1999 page owned, one per workspace,
+       with the model's name on them in Comic Sans. Workspaces take a
+       homepage icon on their heading. -->
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#000000" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#00FFFF" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#FF00FF" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#00FFFF" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#FF8000" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#C080FF" />
+  <sys:String x:Key="WorkspaceIcons">&#x2605; &#x2709; &#x263A; &#x266B; &#x273F; &#x263C; &#x260E; &#x2708; &#x2665; &#x272A;</sys:String>
+
+  <!-- Unity editors in link blue with a window, a visited-link lavender
+       headless, the light version of the same editor. -->
+  <SolidColorBrush x:Key="BrushUnityEditor" Color="#0000EE" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#C8C8FF" />
+
+  <!-- The page's purple scrollbar. -->
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#33000000" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#800080" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#FF8000" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#C0C0C0" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#000000" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#FFFF00" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#0000EE" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#000000" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#808080" />
+
+  <CornerRadius x:Key="CardCorner">0</CornerRadius>
+  <CornerRadius x:Key="CardInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="StripeCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuItemCorner">0</CornerRadius>
+  <sys:Double x:Key="SwatchRadius">0</sys:Double>
+
+  <!-- Hard black drop shadows, the 1999 way. -->
+  <DropShadowEffect x:Key="CardShadow" Color="#000000" BlurRadius="0" ShadowDepth="3" Opacity="0.6" Direction="315" />
+  <DropShadowEffect x:Key="MenuShadow" Color="#000000" BlurRadius="0" ShadowDepth="2" Opacity="0.6" Direction="315" />
+
+  <!-- As many faces as a 1999 page could fit: Comic Sans for the words, a
+       shaded WordArt display face for the clock, a script for the two lines
+       beside it, comic book capitals for the headings and a terminal face for
+       the timers, the last four free fonts in presets\fonts\. -->
+  <FontFamily x:Key="FontText">Comic Sans MS</FontFamily>
+  <FontFamily x:Key="FontClock">fonts/#Bungee Shade, Impact</FontFamily>
+  <FontFamily x:Key="FontCaption">fonts/#Lobster, Comic Sans MS</FontFamily>
+  <FontFamily x:Key="FontHeader">fonts/#Bangers, Impact</FontFamily>
+  <FontFamily x:Key="FontTimer">fonts/#VT323, Courier New</FontFamily>
+  <!-- Each display face has one weight; asked for more, Windows smears it. -->
+  <FontWeight x:Key="LabelWeight">Normal</FontWeight>
+  <FontWeight x:Key="HeaderWeight">Normal</FontWeight>
+  <FontWeight x:Key="ClockWeight">Normal</FontWeight>
+
+  <!-- The warning line in dark amber, which reads on the grey where the
+       blocked yellow does not. -->
+  <SolidColorBrush x:Key="BrushWarning" Color="#5A4200" />
+  <sys:Double x:Key="SizeLabel">14</sys:Double>
+  <sys:Double x:Key="SizeLabelWithDetail">12</sys:Double>
+  <sys:Double x:Key="SizeClock">24</sys:Double>
+  <sys:Double x:Key="SizeClockCaption">13</sys:Double>
+  <sys:Double x:Key="SizeHeader">14</sys:Double>
+  <sys:Double x:Key="SizeTimer">17</sys:Double>
+  <sys:Double x:Key="HeaderHeight">24</sys:Double>
+  <GridLength x:Key="TimerWidth">70</GridLength>
+
+  <!-- The active title bar of Windows 98, navy into blue, and the page's
+       rainbow rule under it. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,7" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+              <GradientStop Color="#000080" Offset="0" />
+              <GradientStop Color="#1084D0" Offset="1" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,7,380,3" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+              <GradientStop Color="#FF0000" Offset="0" />
+              <GradientStop Color="#FFFF00" Offset="0.25" />
+              <GradientStop Color="#00FF00" Offset="0.5" />
+              <GradientStop Color="#00FFFF" Offset="0.75" />
+              <GradientStop Color="#FF00FF" Offset="1" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>
