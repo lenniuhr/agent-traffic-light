@@ -165,6 +165,20 @@
     <GradientStop Color="#00FFFFFF" Offset="0" />
   </LinearGradientBrush>
 
+  <!-- Decoration on the card, over the sheen and behind the rows: bubbles,
+       light, whatever a preset draws. Empty here. Drawn at its own size from
+       the card's top left corner, not stretched, so a preset draws in card
+       pixels and the art stays put as the card grows and shrinks. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <GeometryDrawing Brush="Transparent">
+        <GeometryDrawing.Geometry>
+          <RectangleGeometry Rect="0,0,1,1" />
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+
   <!-- Type. Sentence case, never caps, in the rows: word shape is what you
        actually read at a glance. The clock has a face of its own, with tabular
        digits so it does not shift sideways as it counts. -->

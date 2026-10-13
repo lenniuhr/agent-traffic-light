@@ -177,10 +177,15 @@
             <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
-          <!-- The preset's sheen over the whole card, under everything on it. -->
+          <!-- The preset's sheen over the whole card, then its decoration, both
+               under everything on it. -->
           <Border Grid.RowSpan="3"
                   CornerRadius="{DynamicResource CardInnerCorner}"
                   Background="{DynamicResource CardGloss}"
+                  IsHitTestVisible="False" />
+          <Border Grid.RowSpan="3"
+                  CornerRadius="{DynamicResource CardInnerCorner}"
+                  Background="{DynamicResource CardArt}"
                   IsHitTestVisible="False" />
 
           <!-- Today's time with at least one session open. The height is fixed

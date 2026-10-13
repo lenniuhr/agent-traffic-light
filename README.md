@@ -70,7 +70,9 @@ Under Style the settings pick the card's look, applied on the spot: Classic, the
 here; Terminal, square, flat and monospaced, with denser rows drawn as boxes in the state's colour; or
 Phosphor, a glowing green monochrome screen where, with one colour to work with, a row gets louder
 the more it needs you: plain text while working, a bright box when finished, inverse video when
-blocked.
+blocked; or Frutiger Aero, see-through glass from sky blue to green in the manner of Windows Vista
+and 7, with glossy rows, bubbles and a halo behind the text. Frutiger Aero costs noticeably more
+CPU than the others, for the halo on every text.
 Each style is a file in `presets\`. Classic holds every colour, size, corner, outline, font and
 shadow the card uses; any other preset holds only what it changes and is laid over Classic, so a new
 one starts as a copy of Terminal with its values changed. Whatever the style, the colours keep their
