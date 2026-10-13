@@ -886,6 +886,9 @@ $script:unityEditors = @()
 # read from its transcripts. Off by default, which groups them by the folder the
 # terminal was opened in and skips reading transcripts for it at all.
 #
+# Preset is the name of a file in the presets folder, laid over Classic. One
+# that has gone missing falls back to Classic when the card starts.
+#
 # Sounds maps a terminal window handle to the sound that window's session plays
 # when it needs you, '' being Off picked on purpose. Keyed by window like the row
 # order, so a sound survives a /clear, a new session in the same window and a
@@ -894,7 +897,7 @@ $script:unityEditors = @()
 # from it, so changing it changes every window that follows it.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
-$script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; DefaultSound = ''; Sounds = @{} }
+$script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; DefaultSound = ''; Preset = 'Classic'; Sounds = @{} }
 
 function Read-Settings {
     try {
@@ -902,6 +905,7 @@ function Read-Settings {
         if ($null -ne $saved.ShowUnityEditors) { $script:settings.ShowUnityEditors = [bool]$saved.ShowUnityEditors }
         if ($null -ne $saved.GroupByRepo) { $script:settings.GroupByRepo = [bool]$saved.GroupByRepo }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
+        if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.Sounds) {
             foreach ($entry in $saved.Sounds.PSObject.Properties) {
                 $script:settings.Sounds[[string]$entry.Name] = [string]$entry.Value
@@ -916,6 +920,7 @@ function Save-Settings {
             ShowUnityEditors = $script:settings.ShowUnityEditors
             GroupByRepo      = $script:settings.GroupByRepo
             DefaultSound     = $script:settings.DefaultSound
+            Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
         } | ConvertTo-Json -Depth 4 | Set-Content -Path $settingsFile -Encoding UTF8
     } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
@@ -1168,9 +1173,44 @@ function Import-Xaml {
 }
 
 $window    = Import-Xaml 'AgentTrafficLight.xaml'
-# The look comes from the presets folder, Classic first. Merged before anything
-# reads a resource, so the lookups below and every row built later find them.
+# The look comes from the presets folder: Classic, which holds every key, and
+# the chosen preset laid over it, holding only what it changes. Merged before
+# anything reads a resource, so the lookups below and every row built later
+# find them.
+$presetDir = Join-Path $PSScriptRoot 'presets'
+
+# The chosen preset's dictionary, or null for Classic, which is the base and
+# needs no second layer. Throws if the file is missing or is not a preset, so
+# the caller decides what a failure means.
+function Import-Preset {
+    param([string]$Name)
+    if ($Name -eq 'Classic') { return $null }
+    $dict = Import-Xaml (Join-Path 'presets' "$Name.xaml")
+    if (-not ($dict -is [System.Windows.ResourceDictionary])) { throw "presets\$Name.xaml is not a ResourceDictionary" }
+    return $dict
+}
+
+# Puts a preset over Classic in place of the one there now, or takes it away.
+function Use-PresetLayer {
+    param($Dict)
+    $merged = $window.Resources.MergedDictionaries
+    while ($merged.Count -gt 1) { $merged.RemoveAt(1) }
+    if ($null -ne $Dict) { [void]$merged.Add($Dict) }
+}
+
+# Classic first, then the others by name.
+function Get-PresetNames {
+    $others = @(Get-ChildItem $presetDir -Filter '*.xaml' -File |
+                ForEach-Object { $_.BaseName } | Where-Object { $_ -ne 'Classic' } | Sort-Object)
+    return @('Classic') + $others
+}
+
 [void]$window.Resources.MergedDictionaries.Add((Import-Xaml 'presets\Classic.xaml'))
+$script:preset = 'Classic'
+try {
+    Use-PresetLayer -Dict (Import-Preset -Name $script:settings.Preset)
+    $script:preset = $script:settings.Preset
+} catch { Write-ErrorLog -Where 'style' -Problem $_ }
 $rowCanvas = $window.FindName('RowCanvas')
 $warnText  = $window.FindName('WarnText')
 $workClock     = $window.FindName('WorkClock')
@@ -1601,9 +1641,12 @@ function Set-RowLook {
 
 # Menus built in code take the card's dark styles from the window's resources
 # explicitly: a context menu opens in a popup of its own, outside the window's
-# tree, so the styles would not reach it by lookup.
+# tree, so neither the styles nor the presets they read would reach it by
+# lookup. The menu is handed the window's presets as they are when it opens,
+# and its submenus find them through it.
 function New-CardMenu {
     $menu = New-Object System.Windows.Controls.ContextMenu
+    foreach ($dict in $window.Resources.MergedDictionaries) { [void]$menu.Resources.MergedDictionaries.Add($dict) }
     $menu.Style = $window.FindResource('CardMenu')
     return $menu
 }
@@ -1747,6 +1790,36 @@ function New-DefaultSoundMenu {
         $item.IsChecked = ($choice -eq $script:settings.DefaultSound)
     }
     return $sound
+}
+
+# Lays a preset over Classic and repaints the card with it. Rows are not
+# rebuilt: what the templates bind follows by itself, and what the script set
+# in code is set again. Loaded first, so a preset that fails to load leaves the
+# card as it was.
+function Set-Preset {
+    param([string]$Name)
+    $dict = Import-Preset -Name $Name
+    Use-PresetLayer -Dict $dict
+    $script:preset = $Name
+    Read-StyleValues
+    foreach ($rec in $rows.Values) { if ($rec.State) { Set-RowLook -Rec $rec } }
+    Sync-UnityRows
+    Update-Layout
+    $script:settings.Preset = $Name
+    Save-Settings
+}
+
+# The Style entry of the card's menu: every preset, with a tick on the one in use.
+function New-StyleMenu {
+    $style = New-CardMenuItem -Header 'Style'
+    foreach ($name in @(Get-PresetNames)) {
+        $item = Add-CardMenuAction -Parent $style -Header $name -Arg $name -Where 'style' -Action {
+            param($Name)
+            Set-Preset -Name $Name
+        }
+        $item.IsChecked = ($name -eq $script:preset)
+    }
+    return $style
 }
 
 # Double-clicking a row maximizes its session's window on the primary display,
@@ -2465,6 +2538,16 @@ function Update-Card {
         Write-LayoutDump
     }
 
+    # Write a preset's name into state/preset.flag and this poll switches to it,
+    # the way the Style menu does, so a check can switch the live card without
+    # clicking through it.
+    $presetFlag = Join-Path $stateDir 'preset.flag'
+    if (Test-Path $presetFlag) {
+        $name = ([string](Get-Content $presetFlag -Raw)).Trim()
+        Remove-Item $presetFlag -Force -ErrorAction SilentlyContinue
+        try { Set-Preset -Name $name } catch { Write-ErrorLog -Where 'style' -Problem $_ }
+    }
+
     $seen = @{}
 
     foreach ($h in @($script:knownHandles)) {
@@ -2816,6 +2899,7 @@ function Show-SettingsMenu {
 
     [void]$menu.Items.Add((New-CardMenuSeparator))
     [void]$menu.Items.Add((New-DefaultSoundMenu))
+    [void]$menu.Items.Add((New-StyleMenu))
 
     $menu.PlacementTarget = $menuButton
     $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
