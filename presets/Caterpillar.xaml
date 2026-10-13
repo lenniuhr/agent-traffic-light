@@ -59,7 +59,7 @@
   <SolidColorBrush x:Key="BrushWs2"         Color="#14170D" />
   <SolidColorBrush x:Key="BrushWs3"         Color="#14170D" />
   <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
-  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker rails plain</sys:String>
+  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker</sys:String>
   <SolidColorBrush x:Key="BrushStripePattern" Color="#E6F2F4E8" />
 
   <!-- Unity editors in green, the colour for what is always there: a bright
