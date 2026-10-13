@@ -51,6 +51,7 @@ $flipMs        = 180    # colour change and slide when a row changes state
 $blinkMs       = 600    # one beat of the three-beat permission alarm
 $breatheMs     = 2000   # permission settles into this after the beats
 $spinTurnMs    = 1400   # one turn of the working ring, the only motion on a calm card
+$endlessFps    = 60     # the ring and the alarm's breathe never stop; unset, each redraws the whole card at the screen's rate, 180 a second on a 180 Hz screen, which cost a third of a core
 $soundSettleMs = 1200   # a stop must outlast this before its sound plays, so a title that flickers between tools stays silent
 $marshalStaleMin = 40   # Marshal rounds every 15 minutes, so a report this old means two missed rounds and a Marshal that has stopped
 
@@ -1513,6 +1514,7 @@ $script:spinAnimation.From = 0.0
 $script:spinAnimation.To = 360.0
 $script:spinAnimation.Duration = [System.Windows.Duration][TimeSpan]::FromMilliseconds($spinTurnMs)
 $script:spinAnimation.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
+[System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($script:spinAnimation, $endlessFps)
 $script:spinRunning = $false
 
 # Lift for a row being dragged, so it reads as picked up and above the others.
@@ -2206,6 +2208,7 @@ function Start-Alarm {
     $breathe.RepeatBehavior = [System.Windows.Media.Animation.RepeatBehavior]::Forever
 
     $sb = New-Object System.Windows.Media.Animation.Storyboard
+    [System.Windows.Media.Animation.Timeline]::SetDesiredFrameRate($sb, $endlessFps)
     foreach ($a in @($beats, $breathe)) {
         [System.Windows.Media.Animation.Storyboard]::SetTarget($a, $Rec.Bg)
         [System.Windows.Media.Animation.Storyboard]::SetTargetProperty($a, (New-Object System.Windows.PropertyPath '(UIElement.Opacity)'))
