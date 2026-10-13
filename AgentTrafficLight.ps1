@@ -1082,6 +1082,7 @@ function Get-Header {
             Element = $element
             Label   = $element.FindName('HeaderLabel')
             Swatch  = $element.FindName('Swatch')
+            Icon    = $element.FindName('Icon')
         })
     }
     return $script:headerPool[$Index]
@@ -1096,6 +1097,112 @@ function Get-Header {
 function Get-WorkspaceBrush {
     param([int]$Index)
     return $brush.Ws[$Index % $brush.Ws.Count]
+}
+
+# Icon by name, for the presets that list icons. Unlike the hues above this
+# does hash the name, so a workspace keeps its icon from one start to the next:
+# with ten or so icons rather than four, a clash is rarer, and one is settled by
+# moving on to the next free icon, in the sorted order of the names. Repeats
+# only once more workspaces are open than there are icons. The hash is our own,
+# because String.GetHashCode is not promised to stay the same between runs.
+function Get-WorkspaceIcons {
+    param([string[]]$Names)
+    $icons = $script:workspaceIcons
+    $iconFor = @{}
+    if ($icons.Count -eq 0) { return $iconFor }
+    $taken = @{}
+    foreach ($name in $Names) {
+        [long]$hash = 0
+        foreach ($c in $name.ToCharArray()) { $hash = ($hash * 31 + [int]$c) % 2147483647 }
+        $i = [int]($hash % $icons.Count)
+        for ($step = 0; $step -lt $icons.Count -and $taken.ContainsKey($i); $step++) { $i = ($i + 1) % $icons.Count }
+        $taken[$i] = $true
+        $iconFor[$name] = $icons[$i]
+    }
+    return $iconFor
+}
+
+# The stripe's colour for a session's model, for the presets that colour the
+# stripe by model. A model not known yet, or of no family listed, is Other.
+function Get-ModelBrush {
+    param([string]$Model)
+    if ($Model -match 'claude-([a-z]+)' -and $brush.Model.ContainsKey($matches[1])) { return $brush.Model[$matches[1]] }
+    return $brush.ModelOther
+}
+
+# The tiles of the stripe patterns: size, path, and whether the path is
+# filled or drawn as lines. Lines run past the tile's edge and are cut by it,
+# so a diagonal meets the next tile's without a break.
+$stripePatternTiles = @{
+    hatch      = @{ W = 6; H = 6; Line = 1.2; Path = 'M-1,7 L7,-1 M-1,1 L1,-1 M5,7 L7,5' }
+    crosshatch = @{ W = 6; H = 6; Line = 1.0; Path = 'M-1,7 L7,-1 M-1,1 L1,-1 M5,7 L7,5 M-1,-1 L7,7 M5,-1 L7,1 M-1,5 L1,7' }
+    plus       = @{ W = 7; H = 7; Line = 0;   Path = 'M3,1 H4 V6 H3 Z M1,3 H6 V4 H1 Z' }
+    dots       = @{ W = 4; H = 4; Line = 0;   Path = 'M1,1 H2.5 V2.5 H1 Z' }
+    bars       = @{ W = 4; H = 4; Line = 0;   Path = 'M0,0 H4 V1.5 H0 Z' }
+    chevron    = @{ W = 7; H = 6; Line = 1.2; Path = 'M0,4.5 L3.5,1.5 L7,4.5' }
+    checker    = @{ W = 6; H = 6; Line = 0;   Path = 'M0,0 H3 V3 H0 Z M3,3 H6 V6 H3 Z' }
+    rails      = @{ W = 7; H = 7; Line = 0;   Path = 'M3,0 H4.5 V7 H3 Z' }
+}
+
+# One pattern as a tiled brush in the preset's pattern ink, or null for plain.
+# A name the card does not know is plain as well.
+function New-StripePattern {
+    param([string]$Name, $Ink)
+    $tile = $stripePatternTiles[$Name]
+    if ($null -eq $tile) { return $null }
+    $box = New-Object System.Windows.Rect(0, 0, $tile.W, $tile.H)
+    $group = New-Object System.Windows.Media.DrawingGroup
+    $group.ClipGeometry = New-Object System.Windows.Media.RectangleGeometry($box)
+    $group.Children.Add((New-Object System.Windows.Media.GeometryDrawing(
+        [System.Windows.Media.Brushes]::Transparent, $null, (New-Object System.Windows.Media.RectangleGeometry($box)))))
+    $shape = [System.Windows.Media.Geometry]::Parse($tile.Path)
+    if ($tile.Line -gt 0) {
+        $pen = New-Object System.Windows.Media.Pen($Ink, $tile.Line)
+        $group.Children.Add((New-Object System.Windows.Media.GeometryDrawing($null, $pen, $shape)))
+    } else {
+        $group.Children.Add((New-Object System.Windows.Media.GeometryDrawing($Ink, $null, $shape)))
+    }
+    $pattern = New-Object System.Windows.Media.DrawingBrush($group)
+    $pattern.TileMode = 'Tile'
+    $pattern.Viewport = $box
+    $pattern.ViewportUnits = 'Absolute'
+    $pattern.Viewbox = $box
+    $pattern.ViewboxUnits = 'Absolute'
+    if ($pattern.CanFreeze) { $pattern.Freeze() }
+    return $pattern
+}
+
+# Pattern by window, for the presets that list patterns. The window handle
+# stays the same for as long as the window is open, through a /clear and
+# through a restart of the card, so the pattern does too. Clashes move on to
+# the next free pattern, in the order of the handles.
+function Get-SessionPatterns {
+    param($Recs)
+    $patterns = $script:stripePatterns
+    $patternFor = @{}
+    if ($patterns.Count -eq 0) { return $patternFor }
+    $taken = @{}
+    foreach ($rec in @($Recs | Sort-Object { $_.Handle.ToInt64() })) {
+        $key = $rec.Handle.ToInt64()
+        $i = [int]([Math]::Abs($key) % $patterns.Count)
+        for ($step = 0; $step -lt $patterns.Count -and $taken.ContainsKey($i); $step++) { $i = ($i + 1) % $patterns.Count }
+        $taken[$i] = $true
+        $patternFor[$key] = $patterns[$i]
+    }
+    return $patternFor
+}
+
+# A heading shows its icon when it has one, and the swatch otherwise.
+function Set-HeaderMark {
+    param($Header, [string]$Icon)
+    if ($Icon) {
+        $Header.Icon.Text = $Icon
+        $Header.Icon.Visibility = 'Visible'
+        $Header.Swatch.Visibility = 'Collapsed'
+    } else {
+        $Header.Icon.Visibility = 'Collapsed'
+        $Header.Swatch.Visibility = 'Visible'
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -1262,12 +1369,30 @@ function Read-StyleValues {
         CtxFill        = $window.FindResource('BrushCtxFill')
         CtxHigh        = $window.FindResource('BrushCtxHigh')
         Headless       = $window.FindResource('BrushHeadless')
+        UnityEditor    = $window.FindResource('BrushUnityEditor')
+        Model          = @{
+            opus   = $window.FindResource('BrushModelOpus')
+            fable  = $window.FindResource('BrushModelFable')
+            sonnet = $window.FindResource('BrushModelSonnet')
+            haiku  = $window.FindResource('BrushModelHaiku')
+        }
+        ModelOther     = $window.FindResource('BrushModelOther')
         Ws             = @(
             $window.FindResource('BrushWs0'),
             $window.FindResource('BrushWs1'),
             $window.FindResource('BrushWs2'),
             $window.FindResource('BrushWs3')
         )
+    }
+    $script:workspaceIcons = @(([string]$window.FindResource('WorkspaceIcons')) -split '\s+' | Where-Object { $_ })
+    $script:stripeByModel = ([string]$window.FindResource('StripeColour')) -eq 'Model'
+    $script:stripeModelName = [bool]$window.FindResource('StripeModelName')
+    $patternInk = $window.FindResource('BrushStripePattern')
+    # A list rather than a pipeline, which would drop plain's null and with it
+    # its place among the patterns.
+    $script:stripePatterns = New-Object System.Collections.ArrayList
+    foreach ($name in @(([string]$window.FindResource('StripePatterns')) -split '\s+' | Where-Object { $_ })) {
+        [void]$script:stripePatterns.Add((New-StripePattern -Name $name -Ink $patternInk))
     }
     $script:rowHeight    = [double]$window.FindResource('RowHeight')
     $script:rowGap       = [double]$window.FindResource('RowGap')
@@ -1378,6 +1503,7 @@ function New-Row {
         Bg        = $element
         Dot       = $element.FindName('Dot')
         Stripe    = $element.FindName('Stripe')
+        StripePattern = $element.FindName('StripePattern')
         LabelText = $element.FindName('Label')
         DetailText = $element.FindName('Detail')
         TimerText = $element.FindName('Timer')
@@ -1537,7 +1663,7 @@ function Sync-UnityRows {
         # Headless first, then by project, so the editors with no window to find
         # are the ones at the top of the group.
         $rec.SortKey = '{0}|{1}' -f $(if ($editor.Headless) { '0' } else { '1' }), $editor.Project
-        if ($editor.Headless) { $rec.Stripe.Background = $brush.Headless } else { $rec.Stripe.Background = $brush.WsNeutral }
+        if ($editor.Headless) { $rec.Stripe.Background = $brush.Headless } else { $rec.Stripe.Background = $brush.UnityEditor }
 
         $rec.Label.Text = $editor.Project
         $detail = $(if ($editor.Headless) { 'headless' } else { 'editor' })
@@ -2743,6 +2869,9 @@ function Update-Layout {
     $headerIndex = 0
     $trailingGroupGap = $false
 
+    $iconFor = Get-WorkspaceIcons -Names @($known | ForEach-Object { $_.Name })
+    $patternFor = Get-SessionPatterns -Recs @($rows.Values)
+
     $groupIndex = 0
     foreach ($g in $groups) {
         $isResolved = ($g.Name -ne 'unknown')
@@ -2755,6 +2884,7 @@ function Update-Layout {
             $headerIndex++
             $header.Label.Text = $g.Name
             $header.Swatch.Fill = $wsBrush
+            Set-HeaderMark -Header $header -Icon $iconFor[$g.Name]
             $header.Element.Visibility = 'Visible'
             [System.Windows.Controls.Canvas]::SetTop($header.Element, $y)
             $y += $headerHeight
@@ -2780,12 +2910,16 @@ function Update-Layout {
         foreach ($rec in $inGroup) {
             # Always drawn, because it holds the model name. It takes the hue of
             # its group's header swatch, so the two always agree; only a row
-            # whose session is not resolved yet stays neutral.
-            if ($showThisGroup) {
+            # whose session is not resolved yet stays neutral. A preset that
+            # colours it by model gives it the model's colour instead.
+            if ($script:stripeByModel) {
+                $rec.Stripe.Background = Get-ModelBrush -Model $rec.Model
+            } elseif ($showThisGroup) {
                 $rec.Stripe.Background = $wsBrush
             } else {
                 $rec.Stripe.Background = $brush.WsNeutral
             }
+            $rec.StripePattern.Background = $patternFor[$rec.Handle.ToInt64()]
             # The row under the pointer is placed by the drag, not by the layout.
             if (-not ($null -ne $drag -and [object]::ReferenceEquals($rec, $drag.Rec))) {
                 Move-RowTo -Rec $rec -Top $y
@@ -2797,6 +2931,14 @@ function Update-Layout {
                 $rec.ModelText.Text = $matches[1]
             } else {
                 $rec.ModelText.Text = ''
+            }
+            # A preset that says the model by colour alone moves the name to
+            # the stripe's tooltip.
+            if (-not $script:stripeModelName) {
+                $rec.ModelText.Text = ''
+                $rec.Stripe.ToolTip = $(if ($rec.Model) { $rec.Model } else { $null })
+            } else {
+                $rec.Stripe.ToolTip = $null
             }
 
             $limit = $script:contextWindow
@@ -2826,6 +2968,7 @@ function Update-Layout {
         $headerIndex++
         $header.Label.Text = 'Unity'
         $header.Swatch.Fill = $brush.WsNeutral
+        Set-HeaderMark -Header $header -Icon $null
         $header.Element.Visibility = 'Visible'
         [System.Windows.Controls.Canvas]::SetTop($header.Element, $y)
         $y += $headerHeight

@@ -49,18 +49,23 @@
             VerticalAlignment="Stretch"
             Margin="{DynamicResource StripeMargin}"
             CornerRadius="{DynamicResource StripeCorner}">
-      <TextBlock x:Name="Model"
-                 HorizontalAlignment="Center"
-                 VerticalAlignment="Center"
-                 FontFamily="{DynamicResource FontText}"
-                 FontSize="{DynamicResource SizeModel}"
-                 FontWeight="SemiBold"
-                 Foreground="{DynamicResource BrushStripeText}"
-                 Text="">
-        <TextBlock.LayoutTransform>
-          <RotateTransform Angle="-90" />
-        </TextBlock.LayoutTransform>
-      </TextBlock>
+      <Grid>
+        <!-- The session's own pattern over the stripe's colour, for a preset
+             that lists patterns. Empty otherwise. -->
+        <Border x:Name="StripePattern" CornerRadius="{DynamicResource StripeCorner}" />
+        <TextBlock x:Name="Model"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   FontFamily="{DynamicResource FontText}"
+                   FontSize="{DynamicResource SizeModel}"
+                   FontWeight="SemiBold"
+                   Foreground="{DynamicResource BrushStripeText}"
+                   Text="">
+          <TextBlock.LayoutTransform>
+            <RotateTransform Angle="-90" />
+          </TextBlock.LayoutTransform>
+        </TextBlock>
+      </Grid>
     </Border>
 
     <!-- The dot means this session wants something from you that you have not

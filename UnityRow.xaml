@@ -35,7 +35,7 @@
             VerticalAlignment="Stretch"
             Margin="{DynamicResource StripeMargin}"
             CornerRadius="{DynamicResource StripeCorner}"
-            Background="{DynamicResource BrushWsNeutral}" />
+            Background="{DynamicResource BrushUnityEditor}" />
 
     <!-- Two lines where an agent row has one: the project folder alone does not
          tell two checkouts of the same project apart, the branch does. -->

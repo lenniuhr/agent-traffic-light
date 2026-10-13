@@ -11,6 +11,20 @@
                Width="8" Height="8"
                RadiusX="{DynamicResource SwatchRadius}" RadiusY="{DynamicResource SwatchRadius}"
                VerticalAlignment="Center" />
+    <!-- The workspace's icon, in place of the swatch when the preset lists
+         icons. Wider than the swatch for the glyph, and pulled in by the
+         difference, so the label starts where it does after a swatch. -->
+    <TextBlock x:Name="Icon"
+               Width="12"
+               Margin="-2,0,-2,0"
+               TextAlignment="Center"
+               VerticalAlignment="Center"
+               FontFamily="Segoe UI Symbol"
+               FontSize="12"
+               Foreground="{DynamicResource BrushText}"
+               Effect="{DynamicResource TextGlow}"
+               Visibility="Collapsed"
+               Text="" />
     <TextBlock x:Name="HeaderLabel"
                  Effect="{DynamicResource TextGlow}"
                Margin="8,0,0,0"

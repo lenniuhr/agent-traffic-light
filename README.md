@@ -73,7 +73,13 @@ the more it needs you: plain text while working, a bright box when finished, inv
 blocked; or Frutiger Aero, see-through glass from sky blue to green in the manner of Windows Vista
 and 7, with glossy rows, bubbles and a halo behind the text; or Synthwave, the neon eighties of
 Outrun, with every row a neon tube and a striped sunset sun over a glowing grid on the card's
-bottom edge. Frutiger Aero costs noticeably more CPU than the others, for the halo on every text.
+bottom edge; or Caterpillar, a light hazard print: pale board with a register lattice, a black frame
+with a dashed acid green tread, rows that turn acid green when finished and black with amber when
+blocked, and an icon on each workspace heading in place of the coloured square. Its stripes are
+black, each session prints a white pattern of its own on its stripe, so it can be found again at a
+glance, and the model's name shows on hovering the stripe; Unity editors are green, pale when
+headless.
+Frutiger Aero costs noticeably more CPU than the others, for the halo on every text.
 Each style is a file in `presets\`. Classic holds every colour, size, corner, outline, font and
 shadow the card uses; any other preset holds only what it changes and is laid over Classic, so a new
 one starts as a copy of Terminal with its values changed. Whatever the style, the colours keep their
