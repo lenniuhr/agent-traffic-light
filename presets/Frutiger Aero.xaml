@@ -2,17 +2,20 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
-  <!-- Frutiger Aero, the glossy optimism of Windows Vista and 7: light sky-blue
-       glass, a bright sheen cut off halfway down every surface, fresh green,
-       white halos behind the text. Only what differs from Classic is here.
+  <!-- Frutiger Aero, the glossy optimism of Windows Vista and 7: see-through
+       glass running from sky blue to fresh green, a bright sheen across every
+       surface, bubbles and swooshes of light, white halos behind the text.
+       Only what differs from Classic is here.
 
        The glass is tinted, not blurred: Windows only blurs behind a window as
-       frosted acrylic, which also breaks this card's transparent corners. A
-       light tint keeps the desktop showing through, and the gloss and the
-       double edge do what made Aero look like glass. -->
+       frosted acrylic, which also breaks this card's transparent corners. So
+       the card is left clearly see-through, takes its colour from the gradient
+       laid over it, and the gloss, the double edges and the decoration do what
+       made Aero look like glass. -->
 
-  <!-- The card: translucent sky blue, a dark blue edge and a white one inside
-       it, which is exactly the double stroke of an Aero window frame. -->
+  <!-- The card: a third sky blue, so the desktop shows through, a dark blue
+       edge and a white one inside it, which is exactly the double stroke of an
+       Aero window frame. -->
   <SolidColorBrush x:Key="BrushCard"        Color="#553FA6E0" />
   <SolidColorBrush x:Key="BrushCardEdge"    Color="#E0145A96" />
   <SolidColorBrush x:Key="BrushCardInner"   Color="#D0FFFFFF" />
@@ -65,12 +68,13 @@
   <SolidColorBrush x:Key="BrushMenuArrow"     Color="#3D6585" />
   <SolidColorBrush x:Key="BrushMenuSeparator" Color="#30000000" />
 
-  <!-- The gloss: bright at the top, cut off sharply halfway down, with a
-       faint light rising again from the bottom edge. -->
+  <!-- The card's colour lives here rather than in BrushCard: sky blue to aqua
+       to green down the card. The white sheen across the top is drawn with
+       the decoration below, in pixels, so it ends where the rows begin at any
+       card height. The rows get their own sheen, cut off halfway down, with
+       light rising again from their bottom edge. -->
   <LinearGradientBrush x:Key="CardGloss" StartPoint="0,0" EndPoint="0,1">
-    <GradientStop Color="#B8FFFFFF" Offset="0" />
-    <GradientStop Color="#48FFFFFF" Offset="0.10" />
-    <GradientStop Color="#505FC4F5" Offset="0.11" />
+    <GradientStop Color="#505FC4F5" Offset="0" />
     <GradientStop Color="#4A3FD0E6" Offset="0.5" />
     <GradientStop Color="#5868D27A" Offset="0.85" />
     <GradientStop Color="#9078E070" Offset="1" />
@@ -88,10 +92,33 @@
   <DropShadowEffect x:Key="TextGlow" Color="#FFFFFF" BlurRadius="8" ShadowDepth="0" Opacity="0.85" />
 
   <FontFamily x:Key="FontClock">Segoe UI</FontFamily>
+
+  <!-- The decoration, in card pixels from the top left corner: the white band
+       behind the header, 52 high so it ends where the rows begin and the
+       header (10 down, 32 high) sits in its middle; glass bubbles along the
+       edges, each a clear disc with a bright rim and a highlight; two swooshes
+       of light across the middle; and a soft glare in the top left corner.
+       Mostly behind the rows; it shows in the gaps between them.
+
+       A drawing is pinned to the card's corner by its top left bound, not by
+       0,0, so the whole thing is clipped to a frame from 0,0. The glare once
+       reached 70 left and 60 up past the corner and so moved everything by
+       that much; the decoration was liked as it looked then, so it keeps that
+       place by an explicit move, and only the band sits where it was meant. -->
   <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
     <DrawingBrush.Drawing>
-      <DrawingGroup>
+      <DrawingGroup ClipGeometry="M0,0 H380 V440 H0 Z">
         <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,440" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,52" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="#B8FFFFFF" Offset="0" /><GradientStop Color="#48FFFFFF" Offset="1" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <DrawingGroup>
+        <DrawingGroup.Transform><TranslateTransform X="70" Y="60" /></DrawingGroup.Transform>
         <GeometryDrawing>
           <GeometryDrawing.Geometry><EllipseGeometry Center="335,34" RadiusX="20" RadiusY="20" /></GeometryDrawing.Geometry>
           <GeometryDrawing.Brush>
@@ -230,6 +257,7 @@
           <GeometryDrawing.Geometry><EllipseGeometry Center="40,10" RadiusX="110" RadiusY="70" /></GeometryDrawing.Geometry>
           <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#70FFFFFF" Offset="0" /><GradientStop Color="#00FFFFFF" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
         </GeometryDrawing>
+        </DrawingGroup>
       </DrawingGroup>
     </DrawingBrush.Drawing>
   </DrawingBrush>

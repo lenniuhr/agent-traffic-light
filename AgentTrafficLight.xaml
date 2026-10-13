@@ -191,10 +191,12 @@
           <!-- Today's time with at least one session open. The height is fixed
                because the script sizes the window from it before WPF has
                measured anything. Tabular digits keep the number from shifting
-               sideways as it counts. The two small lines on the left together
-               match the number's height, so neither side floats. Their bottom
-               margin puts the lower line on the timer's baseline. The right
-               margin lines the timer up with the row timers below. -->
+               sideways as it counts. The menu button, the two small lines and
+               the number are all centred in the box. They used to sit on the
+               number's baseline, by a margin tuned to Classic's fonts, and every
+               other preset's fonts put the lines off it and the button out of
+               line with both; centred, they line up whatever a preset sets. The
+               right margin lines the timer up with the row timers below. -->
           <Border x:Name="WorkClock" Grid.Row="0" Height="32" Margin="14,10,16,0">
             <Grid>
               <!-- The settings menu. Three bars rather than a gear, because it
@@ -212,8 +214,8 @@
                          ToolTip="Settings"
                          Foreground="{DynamicResource BrushTextDim}" />
               <StackPanel HorizontalAlignment="Left"
-                          VerticalAlignment="Bottom"
-                          Margin="24,0,0,4">
+                          VerticalAlignment="Center"
+                          Margin="24,0,0,0">
                 <TextBlock Text="VIBING SESSION" Effect="{DynamicResource TextGlow}"
                            FontFamily="{DynamicResource FontClock}"
                            FontWeight="SemiBold"
@@ -229,7 +231,7 @@
               <TextBlock x:Name="WorkClockText" Effect="{DynamicResource TextGlow}"
                          Text="0:00:00"
                          HorizontalAlignment="Right"
-                         VerticalAlignment="Bottom"
+                         VerticalAlignment="Center"
                          FontFamily="{DynamicResource FontClock}"
                          FontWeight="SemiBold"
                          FontStretch="Condensed"
