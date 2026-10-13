@@ -833,18 +833,24 @@ function Sync-SessionExtras {
         $info.Prompt = $cached.Prompt
 
         # Every sweep, not only when the session's own transcript changed: its
-        # helpers write to files of their own. Marshal stays on its own folder.
-        # It coordinates rather than works in a repository, and it writes its
-        # report into the card's own folder every round, which would otherwise
-        # file it under this repository.
+        # helpers write to files of their own. Only with GroupByRepo on; off,
+        # every row stays on the folder its terminal opened in. Marshal stays on
+        # its own folder either way. It coordinates rather than works in a
+        # repository, and it writes its report into the card's own folder every
+        # round, which would otherwise file it under this repository.
         $info.WorkRepo = ''
-        if (-not (Test-MarshalRow -Cwd $info.Cwd -Label '')) {
+        if ($script:settings.GroupByRepo -and -not (Test-MarshalRow -Cwd $info.Cwd -Label '')) {
             try {
                 $root = Update-WorkRepo -SessionId $info.SessionId -MainPath $path -LaunchCwd $info.Cwd
                 if ($root) { $info.WorkRepo = Split-Path -Leaf $root }
             } catch { Write-ErrorLog -Where 'workspace' -Problem $_ }
         }
     }
+
+    # With the grouping off nothing is counted, and what was counted goes, so
+    # switching it back on reads each session's history afresh rather than
+    # carrying on from where it stopped and missing everything in between.
+    if (-not $script:settings.GroupByRepo) { $script:workState.Clear() }
 
     # Sessions that have ended take their votes with them.
     $liveIds = @{}
@@ -886,18 +892,26 @@ $script:unityEditors = @()
 # ShowUnityEditors is on by default, and the menu switch is there for the days
 # the editors only crowd the card. A machine without Unity shows nothing either way.
 #
+# GroupByRepo groups rows under the repository each agent is really working in,
+# read from its transcripts. Off by default, which groups them by the folder the
+# terminal was opened in and skips reading transcripts for it at all.
+#
 # Sounds maps a terminal window handle to the sound that window's session plays
-# when it needs you. Keyed by window like the row order, so a sound survives a
-# /clear, a new session in the same window and a restart of the card, and it is
-# dropped when the window closes.
+# when it needs you, '' being Off picked on purpose. Keyed by window like the row
+# order, so a sound survives a /clear, a new session in the same window and a
+# restart of the card, and it is dropped when the window closes. A window with no
+# entry follows DefaultSound, which is Off until one is picked; nothing is copied
+# from it, so changing it changes every window that follows it.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
-$script:settings = @{ ShowUnityEditors = $true; Sounds = @{} }
+$script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; DefaultSound = ''; Sounds = @{} }
 
 function Read-Settings {
     try {
         $saved = Get-Content $settingsFile -Raw -ErrorAction Stop | ConvertFrom-Json
         if ($null -ne $saved.ShowUnityEditors) { $script:settings.ShowUnityEditors = [bool]$saved.ShowUnityEditors }
+        if ($null -ne $saved.GroupByRepo) { $script:settings.GroupByRepo = [bool]$saved.GroupByRepo }
+        if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($null -ne $saved.Sounds) {
             foreach ($entry in $saved.Sounds.PSObject.Properties) {
                 $script:settings.Sounds[[string]$entry.Name] = [string]$entry.Value
@@ -910,6 +924,8 @@ function Save-Settings {
     try {
         [pscustomobject]@{
             ShowUnityEditors = $script:settings.ShowUnityEditors
+            GroupByRepo      = $script:settings.GroupByRepo
+            DefaultSound     = $script:settings.DefaultSound
             Sounds           = [pscustomobject]$script:settings.Sounds
         } | ConvertTo-Json -Depth 4 | Set-Content -Path $settingsFile -Encoding UTF8
     } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
@@ -1322,7 +1338,7 @@ function New-Row {
 
     $element.Tag = $Handle
     $rec.Spinner.RenderTransform = $script:spinTurn
-    if ($script:settings.Sounds.ContainsKey([string][int64]$Handle)) { $rec.SoundMark.Visibility = 'Visible' }
+    if (Get-RowSound -Key ([string][int64]$Handle)) { $rec.SoundMark.Visibility = 'Visible' }
 
     # Right click opens the row's menu: bring to front, maximize, and the sound
     # this session plays when it needs you. The sound is per row, so several
@@ -1627,37 +1643,82 @@ function Show-RowMenu {
     $menu.IsOpen = $true
 }
 
-# The Sound entry of a row's menu: Off and every sound, with a tick on the one
-# chosen now. Picking a sound plays it once, so the choice is heard.
+# The sound a window's session plays when it needs you: its own choice, Off
+# included, or else the default. '' is no sound.
+function Get-RowSound {
+    param([string]$Key)
+    if ($script:settings.Sounds.ContainsKey($Key)) { return $script:settings.Sounds[$Key] }
+    return $script:settings.DefaultSound
+}
+
+# The note on every row, after a row's choice or the default has changed.
+function Update-SoundMarks {
+    foreach ($rec in $rows.Values) {
+        $mark = $(if (Get-RowSound -Key ([string][int64]$rec.Handle)) { 'Visible' } else { 'Collapsed' })
+        if ($rec.SoundMark.Visibility -ne $mark) { $rec.SoundMark.Visibility = $mark }
+    }
+}
+
+function Get-SoundName {
+    param([string]$Sound)
+    if ($Sound) { return $Sound }
+    return 'Off'
+}
+
+# The Sound entry of a row's menu: Default, naming what the default is now, then
+# Off and every sound, with a tick on the one chosen now. Picking plays the
+# sound once, so the choice is heard.
 function New-RowSoundMenu {
     param([string]$Key)
-    $current = ''
-    if ($script:settings.Sounds.ContainsKey($Key)) { $current = $script:settings.Sounds[$Key] }
+    $own = $script:settings.Sounds.ContainsKey($Key)
 
     $sound = New-CardMenuItem -Header 'Sound'
+    $default = Add-CardMenuAction -Parent $sound -Header ('Default (' + (Get-SoundName $script:settings.DefaultSound) + ')') `
+                                  -Arg $Key -Where 'rowmenu' -Action {
+        param($Key)
+        Set-RowSound -Key $Key -FollowDefault
+    }
+    $default.IsChecked = (-not $own)
+    [void]$sound.Items.Add((New-CardMenuSeparator))
+
     foreach ($choice in @('') + @($soundChoices)) {
-        $item = Add-CardMenuAction -Parent $sound -Header $(if ($choice) { $choice } else { 'Off' }) `
+        $item = Add-CardMenuAction -Parent $sound -Header (Get-SoundName $choice) `
                                    -Arg @{ Key = $Key; Sound = $choice } -Where 'rowmenu' -Action {
             param($Pick)
             Set-RowSound -Key $Pick.Key -Sound $Pick.Sound
         }
-        $item.IsChecked = ($choice -eq $current)
+        $item.IsChecked = ($own -and $choice -eq $script:settings.Sounds[$Key])
     }
     return $sound
 }
 
 function Set-RowSound {
-    param([string]$Key, [string]$Sound)
-    if ($Sound) {
-        $script:settings.Sounds[$Key] = $Sound
-        Invoke-Sound -Name $Sound
-    } else {
+    param([string]$Key, [string]$Sound, [switch]$FollowDefault)
+    if ($FollowDefault) {
         $script:settings.Sounds.Remove($Key)
+    } else {
+        $script:settings.Sounds[$Key] = $Sound
     }
     Save-Settings
-    if ($rows.ContainsKey($Key)) {
-        $rows[$Key].SoundMark.Visibility = $(if ($Sound) { 'Visible' } else { 'Collapsed' })
+    Invoke-Sound -Name (Get-RowSound -Key $Key)
+    Update-SoundMarks
+}
+
+# The Default sound entry of the card's menu, built like a row's Sound entry
+# without its Default line.
+function New-DefaultSoundMenu {
+    $sound = New-CardMenuItem -Header 'Default sound'
+    foreach ($choice in @('') + @($soundChoices)) {
+        $item = Add-CardMenuAction -Parent $sound -Header (Get-SoundName $choice) -Arg $choice -Where 'settings' -Action {
+            param($Sound)
+            $script:settings.DefaultSound = $Sound
+            Save-Settings
+            Invoke-Sound -Name $Sound
+            Update-SoundMarks
+        }
+        $item.IsChecked = ($choice -eq $script:settings.DefaultSound)
     }
+    return $sound
 }
 
 # Double-clicking a row maximizes its session's window on the primary display,
@@ -1750,7 +1811,7 @@ function Update-Needs {
 
             if ($null -ne $watch.DueAt -and $now -ge $watch.DueAt) {
                 $watch.DueAt = $null
-                if ($script:settings.Sounds.ContainsKey($key)) { Invoke-Sound -Name $script:settings.Sounds[$key] }
+                Invoke-Sound -Name (Get-RowSound -Key $key)
             }
         }
 
@@ -2420,8 +2481,9 @@ function Update-Card {
 
     # Attach the workspace to every row before anything else looks at it. The
     # map is rebuilt on the slow timer, so this is a dictionary lookup. The
-    # workspace is the repository the agent is really working in, read from its
-    # transcript, and the folder its terminal opened in until that is known.
+    # workspace is the folder the session's terminal opened in, or with
+    # GroupByRepo on the repository the agent is really working in, read from its
+    # transcript, once that is known.
     foreach ($rec in $ordered) {
         $key = [string][int64]$rec.Handle
         if ($script:sessionByHwnd.ContainsKey($key)) {
@@ -2706,6 +2768,25 @@ function Show-SettingsMenu {
         } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
     })
     [void]$menu.Items.Add($unityItem)
+
+    # Takes effect at once rather than on the next sweep: the extras are read
+    # again with the new setting and the poll regroups the rows from them.
+    $repoItem = New-CardMenuItem -Header 'Group by working repository'
+    $repoItem.IsCheckable = $true
+    $repoItem.IsChecked = [bool]$script:settings.GroupByRepo
+    $repoItem.Add_Click({
+        param($sender, $e)
+        try {
+            $script:settings.GroupByRepo = [bool]$sender.IsChecked
+            Save-Settings
+            Sync-SessionExtras
+            Update-Card
+        } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+    })
+    [void]$menu.Items.Add($repoItem)
+
+    [void]$menu.Items.Add((New-CardMenuSeparator))
+    [void]$menu.Items.Add((New-DefaultSoundMenu))
 
     $menu.PlacementTarget = $menuButton
     $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom

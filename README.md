@@ -9,7 +9,8 @@ Terminal. The name is generic on purpose, so other agents can be added later.
 
 ## What it shows
 
-One row per session, grouped under the repository the session is really working in:
+One row per session, grouped under the folder its terminal was opened in, or with "Group by working
+repository" on, under the repository the session is really working in:
 
 | Row | Meaning |
 | --- | --- |
@@ -25,7 +26,8 @@ stopped. Opening clears only the dot; the row keeps its colour. The dot comes ba
 session finishes again or asks something new, so the rows with a dot are the ones still to
 handle. After the card itself restarts, every waiting session shows its dot again until opened.
 
-The repository comes from transcripts, so it needs no hook and nothing from the agent, and it works
+"Group by working repository" is off by default and switched in the card's settings. With it on,
+the repository comes from transcripts, so it needs no hook and nothing from the agent, and it works
 for sessions that were already open: the session's own, and those of the helper agents it starts,
 which is where a session that delegates its work does it. Every file read or written, every folder
 a shell command names, and the shell's folder once that has moved count as votes for the
@@ -50,13 +52,17 @@ Each row also shows the model in the coloured stripe on its left, and a thin bar
 showing how much of the context window is in use. The bar turns amber past 80 %.
 
 Right-click a session's row for its menu: Bring to front, Maximize window (or Put window back), and
-Sound, which opens a list of sounds on hover, with Off and a tick on the current one. A note on the
-row shows that it has a sound. Once picked, the sound plays every time that session starts needing
-you, its row turning Waiting or Blocked, once per time rather than over and over while it waits, and
-it stays on until you pick Off, across restarts of the card. It follows that session's own agent,
-so subagents finishing inside it never trigger it, and different sessions can have different
-sounds. A Marshal round in between does not count as a new need, so an open question sounds once,
-not every round. The choice belongs to the terminal window and goes away when the window closes.
+Sound, which opens a list on hover: Default, naming the default sound, then Off and every sound, with
+a tick on the current one. A note on the row shows that it has a sound. The sound plays every time
+that session starts needing you, its row turning Waiting or Blocked, once per time rather than over
+and over while it waits, across restarts of the card. It follows that session's own agent, so
+subagents finishing inside it never trigger it, and different sessions can have different sounds. A
+Marshal round in between does not count as a new need, so an open question sounds once, not every
+round. The choice belongs to the terminal window and goes away when the window closes.
+
+A session left on Default plays the default sound, picked under "Default sound" in the card's
+settings and Off until one is. Changing the default changes it for every session on Default,
+including those already open; a session with Off or a sound of its own keeps it.
 
 The three bars left of the session clock open the card's settings, saved in `state\settings.json`.
 
