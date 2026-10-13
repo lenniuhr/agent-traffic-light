@@ -38,24 +38,14 @@ if (-not (Test-Path $stateDir)) { New-Item -ItemType Directory -Path $stateDir |
 $positionFile = Join-Path $stateDir 'window-position.json'
 
 # ---------------------------------------------------------------------------
-# Tuning. Sizes and colours live in the XAML; only timings live here, because
-# they are driven from code rather than from storyboards.
+# Tuning. Sizes and colours live in the presets folder; only timings live here,
+# because they are driven from code rather than from storyboards.
 # ---------------------------------------------------------------------------
 $titlePollMs   = 400    # reading titles of known handles costs 0.35 ms
 $windowSweepMs = 3000   # a full EnumWindows sweep costs 6.2 ms, peaks at 36 ms
-# Row height is read back from Row.xaml once a row exists, so the layout and the
-# design file can never disagree about it. This is only the value used before
-# the first row is built.
-$rowHeight     = 42
-$rowGap        = 6
-$headerHeight  = 22   # drawn above every resolved workspace group
-$groupGap      = 8
-$ctxBarWidth   = 330  # row width less the stripe it starts after and its margins
 $ctxHighMark   = 0.8  # fraction of the window at which the bar turns amber
 $transcriptTail = 98304  # bytes read from the end of a transcript
 $transcriptTailMax = 1572864  # furthest back the read widens to find a usage record
-$cardPadding   = 10
-$cardWidth     = 380
 $shadowMargin  = 12
 $flipMs        = 180    # colour change and slide when a row changes state
 $blinkMs       = 600    # one beat of the three-beat permission alarm
@@ -1188,34 +1178,52 @@ $workClockText = $window.FindName('WorkClockText')
 $workClockSub  = $window.FindName('WorkClockSub')
 $menuButton    = $window.FindName('MenuButton')
 
-$brush = @{
-    Working      = $window.FindResource('BrushWorking')
-    Waiting      = $window.FindResource('BrushWaiting')
-    Blocked      = $window.FindResource('BrushBlocked')
-    RowBase      = $window.FindResource('BrushRowBase')
-    Text         = $window.FindResource('BrushText')
-    TextDim      = $window.FindResource('BrushTextDim')
-    TextOnWait   = $window.FindResource('BrushTextOnWait')
-    TextOnBlock  = $window.FindResource('BrushTextOnBlock')
-    TimerOnWait  = $window.FindResource('BrushTimerOnWait')
-    TimerOnBlock = $window.FindResource('BrushTimerOnBlock')
-    WsNeutral    = $window.FindResource('BrushWsNeutral')
-    CtxFill      = $window.FindResource('BrushCtxFill')
-    CtxHigh      = $window.FindResource('BrushCtxHigh')
-    Headless     = $window.FindResource('BrushHeadless')
-    RowEdge      = $window.FindResource('BrushRowEdge')
-    RowEdgeOnWait  = $window.FindResource('BrushRowEdgeOnWait')
-    RowEdgeOnBlock = $window.FindResource('BrushRowEdgeOnBlock')
-    Ws           = @(
-        $window.FindResource('BrushWs0'),
-        $window.FindResource('BrushWs1'),
-        $window.FindResource('BrushWs2'),
-        $window.FindResource('BrushWs3')
-    )
+# The colours and sizes the script works with itself, read from the merged
+# presets. Run at start and after every switch of preset; everything bound in
+# the templates follows a switch by itself, these do not.
+#
+# The card's width follows the rows: a row, its padding either side, and the
+# shadow's room round the card. The context bar starts after the stripe and
+# stops short of the timer's margin, 30 in all.
+function Read-StyleValues {
+    $script:brush = @{
+        Working        = $window.FindResource('BrushWorking')
+        Waiting        = $window.FindResource('BrushWaiting')
+        Blocked        = $window.FindResource('BrushBlocked')
+        RowBase        = $window.FindResource('BrushRowBase')
+        RowEdge        = $window.FindResource('BrushRowEdge')
+        RowEdgeOnWait  = $window.FindResource('BrushRowEdgeOnWait')
+        RowEdgeOnBlock = $window.FindResource('BrushRowEdgeOnBlock')
+        Text           = $window.FindResource('BrushText')
+        TextDim        = $window.FindResource('BrushTextDim')
+        TextOnWait     = $window.FindResource('BrushTextOnWait')
+        TextOnBlock    = $window.FindResource('BrushTextOnBlock')
+        TimerOnWait    = $window.FindResource('BrushTimerOnWait')
+        TimerOnBlock   = $window.FindResource('BrushTimerOnBlock')
+        WsNeutral      = $window.FindResource('BrushWsNeutral')
+        CtxFill        = $window.FindResource('BrushCtxFill')
+        CtxHigh        = $window.FindResource('BrushCtxHigh')
+        Headless       = $window.FindResource('BrushHeadless')
+        Ws             = @(
+            $window.FindResource('BrushWs0'),
+            $window.FindResource('BrushWs1'),
+            $window.FindResource('BrushWs2'),
+            $window.FindResource('BrushWs3')
+        )
+    }
+    $script:rowHeight    = [double]$window.FindResource('RowHeight')
+    $script:rowGap       = [double]$window.FindResource('RowGap')
+    $script:headerHeight = [double]$window.FindResource('HeaderHeight')
+    $script:groupGap     = [double]$window.FindResource('GroupGap')
+    $script:cardPadding  = [double]$window.FindResource('CardPadding')
+    $rowWidth            = [double]$window.FindResource('RowWidth')
+    $script:cardWidth    = $rowWidth + 2 * $script:cardPadding
+    $script:ctxBarWidth  = $rowWidth - 30
+    $window.Width = $script:cardWidth + 2 * $shadowMargin
+    $rowCanvas.Margin = New-Object System.Windows.Thickness($script:cardPadding, $script:cardPadding, $script:cardPadding, 0)
 }
-[void]$window.FindResource('RowGap')
-[void]$window.FindResource('GroupGap')
-[void]$window.FindResource('CardPadding')
+
+Read-StyleValues
 
 # One rotation shared by every working row's ring, turning on one clock. Each
 # indicator used to start its own animation the moment its row began working,
@@ -1301,8 +1309,6 @@ $script:firstSeen = 0
 function New-Row {
     param([IntPtr]$Handle, [string]$Label, [string]$State)
     $element = Import-Xaml 'Row.xaml'
-    # Keep the layout honest about the size the design file actually specifies.
-    if ($element.Height -gt 0) { $script:rowHeight = $element.Height }
     $script:firstSeen++
     $rec = @{
         Handle    = $Handle
@@ -1523,14 +1529,24 @@ function Set-RowState {
     $Rec.State = $State
     $Rec.Since = $now
 
+    Set-RowLook -Rec $Rec
+}
+
+# Paints a row for the state it is in: fill, outline, text colours, ring and
+# alarm. Kept apart from Set-RowState so a switch of preset can paint every row
+# again without touching its timers or its state.
+function Set-RowLook {
+    param($Rec)
+
     # Stop whatever motion the previous state was running before starting the
     # next one, or the two animations fight over the same property.
     if ($Rec.Alarm) { $Rec.Alarm.Stop(); $Rec.Alarm = $null }
     $Rec.Bg.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
 
-    switch ($State) {
+    switch ($Rec.State) {
         'Working' {
             $Rec.Bg.Background        = $brush.RowBase
+            $Rec.Bg.BorderBrush       = $brush.RowEdge
             $Rec.LabelText.Foreground = $brush.Text
             $Rec.TimerText.Foreground = $brush.TextDim
             # The only thing that moves on a calm card. Every ring turns with
@@ -1540,6 +1556,7 @@ function Set-RowState {
         }
         'Waiting' {
             Start-FillAnimation -Rec $Rec -To $brush.Waiting.Color
+            $Rec.Bg.BorderBrush       = $brush.RowEdgeOnWait
             $Rec.LabelText.Foreground = $brush.TextOnWait
             $Rec.TimerText.Foreground = $brush.TimerOnWait
             $Rec.Spinner.Visibility   = 'Collapsed'
@@ -1549,6 +1566,7 @@ function Set-RowState {
         }
         'Blocked' {
             Start-FillAnimation -Rec $Rec -To $brush.Blocked.Color
+            $Rec.Bg.BorderBrush       = $brush.RowEdgeOnBlock
             $Rec.LabelText.Foreground = $brush.TextOnBlock
             $Rec.TimerText.Foreground = $brush.TimerOnBlock
             $Rec.Spinner.Visibility   = 'Collapsed'
@@ -1563,6 +1581,7 @@ function Set-RowState {
         # quieter than a working one; the time on the right is its last round.
         'Watching' {
             Start-FillAnimation -Rec $Rec -To $brush.RowBase.Color
+            $Rec.Bg.BorderBrush       = $brush.RowEdge
             $Rec.LabelText.Foreground = $brush.TextDim
             $Rec.TimerText.Foreground = $brush.TextDim
             $Rec.Spinner.Visibility   = 'Collapsed'
@@ -2180,7 +2199,8 @@ function Complete-RowDrag {
 
 function Write-LayoutDump {
     $lines = New-Object System.Collections.ArrayList
-    [void]$lines.Add(('{0:o}  drag={1}  order={2}' -f (Get-Date), ($null -ne $script:drag), ($script:userOrder -join ',')))
+    [void]$lines.Add(('{0:o}  drag={1}  order={2}  preset={3}  pitch={4}  height={5}' -f (Get-Date), ($null -ne $script:drag),
+        ($script:userOrder -join ','), $script:preset, ($script:rowHeight + $rowGap), $window.Height))
     foreach ($name in @($script:groupOrder.Keys)) {
         [void]$lines.Add("group $name")
         foreach ($rec in @($script:groupOrder[$name])) {
@@ -2692,7 +2712,7 @@ function Update-Layout {
         $y += $headerHeight
         foreach ($unityRow in $unityList) {
             [System.Windows.Controls.Canvas]::SetTop($unityRow.Element, $y)
-            $y += $unityRow.Element.Height + $rowGap
+            $y += $script:rowHeight + $rowGap
         }
         $y += $groupGap
         $trailingGroupGap = $true
