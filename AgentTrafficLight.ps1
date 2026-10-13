@@ -323,6 +323,48 @@ public class TlNative {
 }
 "@
 
+# Keeps the card at its own height while Windows moves it. A drag runs in
+# Windows' move loop, which on every step proposes the window at the size it
+# had when the drag began, so a row closing or opening mid-drag resized the
+# card's layout but not its window: a strip of empty card, or a cut-off one,
+# stayed until the drag ended. Each step's proposal (WM_MOVING) passes through
+# this hook, which gives it the card's current height. In C#, because it runs
+# on every step of the drag, where a PowerShell handler made the move stutter.
+Add-Type -ReferencedAssemblies PresentationFramework, PresentationCore, WindowsBase, System.Xaml -TypeDefinition @"
+using System;
+using System.Runtime.InteropServices;
+using System.Windows;
+using System.Windows.Interop;
+
+public static class TlMoveSize {
+    [StructLayout(LayoutKind.Sequential)]
+    struct RECT { public int Left, Top, Right, Bottom; }
+
+    const int WM_MOVING = 0x0216;
+    static Window card;
+    static HwndSourceHook hook;
+
+    public static void Attach(Window window) {
+        card = window;
+        hook = Hook;
+        HwndSource.FromHwnd(new WindowInteropHelper(window).Handle).AddHook(hook);
+    }
+
+    static IntPtr Hook(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) {
+        if (msg != WM_MOVING || card == null) return IntPtr.Zero;
+        PresentationSource source = PresentationSource.FromVisual(card);
+        if (source == null || source.CompositionTarget == null) return IntPtr.Zero;
+        int height = (int)Math.Round(card.Height * source.CompositionTarget.TransformToDevice.M22);
+        RECT r = (RECT)Marshal.PtrToStructure(lParam, typeof(RECT));
+        if (r.Bottom - r.Top != height) {
+            r.Bottom = r.Top + height;
+            Marshal.StructureToPtr(r, lParam, false);
+        }
+        return IntPtr.Zero;
+    }
+}
+"@
+
 $GWL_EXSTYLE       = -20
 $WS_EX_TOOLWINDOW  = 0x00000080
 $SW_HIDE           = 0
@@ -2436,8 +2478,9 @@ function Complete-RowDrag {
 
 function Write-LayoutDump {
     $lines = New-Object System.Collections.ArrayList
-    [void]$lines.Add(('{0:o}  drag={1}  order={2}  preset={3}  pitch={4}  height={5}' -f (Get-Date), ($null -ne $script:drag),
-        ($script:userOrder -join ','), $script:preset, ($script:rowHeight + $rowGap), $window.Height))
+    [void]$lines.Add(('{0:o}  drag={1}  order={2}  preset={3}  pitch={4}  height={5}  live={6}  rows={7}  warn={8}' -f (Get-Date), ($null -ne $script:drag),
+        ($script:userOrder -join ','), $script:preset, ($script:rowHeight + $rowGap), $window.Height,
+        $script:liveSessionCount, $rows.Count, $warnText.Visibility))
     foreach ($name in @($script:groupOrder.Keys)) {
         [void]$lines.Add("group $name")
         foreach ($rec in @($script:groupOrder[$name])) {
@@ -2849,6 +2892,22 @@ function Get-CardHeight {
     return $body + $shadowMargin * 2
 }
 
+# Whether to warn that more sessions are running than the card shows, which is
+# what tabs sharing a window look like. Only once that has lasted five seconds:
+# the rows follow the windows every poll but the session count only every
+# sweep, three seconds apart, so the two disagree for a moment every time a
+# session opens or closes, and a session's process can outlive its window by a
+# moment too. Warning on those flashed a false alarm, and grew the card by the
+# warning's line, at every close.
+$script:warnSince = $null
+
+function Test-ShowWarning {
+    param([int]$Live, [int]$Shown, [datetime]$Now)
+    if ($Live -le $Shown) { $script:warnSince = $null; return $false }
+    if ($null -eq $script:warnSince) { $script:warnSince = $Now }
+    return (($Now - $script:warnSince).TotalSeconds -ge 5)
+}
+
 function Update-Layout {
     $ordered = @($rows.Values)
 
@@ -3000,7 +3059,7 @@ function Update-Layout {
 
     $count = @($ordered).Count
     $liveFiles = $script:liveSessionCount
-    if ($liveFiles -gt $count) {
+    if (Test-ShowWarning -Live $liveFiles -Shown $count -Now (Get-Date)) {
         # One session per window is load-bearing: if two ever share a window as
         # tabs, only the active tab's title is readable and the other session
         # disappears. Fail loudly instead of silently showing four of five.
@@ -3256,6 +3315,8 @@ $clockTimer.Add_Tick({
 
 Sweep-Windows
 $window.Show()
+# Once the window has its handle: holds its height through a drag.
+[TlMoveSize]::Attach($window)
 Update-Card
 $titleTimer.Start()
 $sweepTimer.Start()
