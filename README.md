@@ -73,7 +73,9 @@ the more it needs you: plain text while working, a bright box when finished, inv
 blocked; or Frutiger Aero, see-through glass from sky blue to green in the manner of Windows Vista
 and 7, with glossy rows, bubbles and a halo behind the text; or Synthwave, the neon eighties of
 Outrun, with every row a neon tube and a striped sunset sun over a glowing grid on the card's
-bottom edge; or Caterpillar, a light hazard print: pale board with a register lattice, a black frame
+bottom edge; or Elden Ring, Limgrave under the Erdtree's light in colours measured from the game,
+with beams, motes of grace and golden leaves, gold corner brackets, a glowing clock and Cinzel
+throughout; or Caterpillar, a light hazard print: pale board with a register lattice, a black frame
 with a dashed acid green tread, rows that turn acid green when finished and black with amber when
 blocked, and an icon on each workspace heading in place of the coloured square. Its stripes are
 black, each session prints a white pattern of its own on its stripe, so it can be found again at a

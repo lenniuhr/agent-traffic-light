@@ -188,6 +188,30 @@
                   Background="{DynamicResource CardArt}"
                   IsHitTestVisible="False" />
 
+          <!-- The preset's corner ornament: drawn once for the top left corner
+               and mirrored into the other three, so the four always match. -->
+          <Border Grid.RowSpan="3" HorizontalAlignment="Left" VerticalAlignment="Top"
+                  Width="{DynamicResource CornerArtSize}" Height="{DynamicResource CornerArtSize}"
+                  Background="{DynamicResource CardCornerArt}" IsHitTestVisible="False" />
+          <Border Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Top"
+                  Width="{DynamicResource CornerArtSize}" Height="{DynamicResource CornerArtSize}"
+                  Background="{DynamicResource CardCornerArt}" IsHitTestVisible="False"
+                  RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform><ScaleTransform ScaleX="-1" /></Border.RenderTransform>
+          </Border>
+          <Border Grid.RowSpan="3" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+                  Width="{DynamicResource CornerArtSize}" Height="{DynamicResource CornerArtSize}"
+                  Background="{DynamicResource CardCornerArt}" IsHitTestVisible="False"
+                  RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform><ScaleTransform ScaleY="-1" /></Border.RenderTransform>
+          </Border>
+          <Border Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                  Width="{DynamicResource CornerArtSize}" Height="{DynamicResource CornerArtSize}"
+                  Background="{DynamicResource CardCornerArt}" IsHitTestVisible="False"
+                  RenderTransformOrigin="0.5,0.5">
+            <Border.RenderTransform><ScaleTransform ScaleX="-1" ScaleY="-1" /></Border.RenderTransform>
+          </Border>
+
           <!-- Today's time with at least one session open. The height is fixed
                because the script sizes the window from it before WPF has
                measured anything. Tabular digits keep the number from shifting
@@ -228,16 +252,21 @@
                            Typography.NumeralAlignment="Tabular"
                            Foreground="{DynamicResource BrushTextDim}" />
               </StackPanel>
-              <TextBlock x:Name="WorkClockText" Effect="{DynamicResource TextGlow}"
-                         Text="0:00:00"
-                         HorizontalAlignment="Right"
-                         VerticalAlignment="Center"
-                         FontFamily="{DynamicResource FontClock}"
-                         FontWeight="{DynamicResource ClockWeight}"
-                         FontStretch="Condensed"
-                         FontSize="{DynamicResource SizeClock}"
-                         Typography.NumeralAlignment="Tabular"
-                         Foreground="{DynamicResource BrushText}" />
+              <!-- The clock's own halo sits on a wrapper, so it adds to the text
+                   glow the clock shares with every other text. -->
+              <Border HorizontalAlignment="Right" VerticalAlignment="Center"
+                      Effect="{DynamicResource ClockGlow}">
+                <TextBlock x:Name="WorkClockText" Effect="{DynamicResource TextGlow}"
+                           Text="0:00:00"
+                           HorizontalAlignment="Right"
+                           VerticalAlignment="Center"
+                           FontFamily="{DynamicResource FontClock}"
+                           FontWeight="{DynamicResource ClockWeight}"
+                           FontStretch="Condensed"
+                           FontSize="{DynamicResource SizeClock}"
+                           Typography.NumeralAlignment="Tabular"
+                           Foreground="{DynamicResource BrushText}" />
+              </Border>
             </Grid>
           </Border>
 

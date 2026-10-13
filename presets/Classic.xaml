@@ -189,6 +189,11 @@
        None here, as null for the same reason. -->
   <x:Null x:Key="TextGlow" />
 
+  <!-- A halo round the clock alone, on top of any TextGlow. None here, as null
+       for the same reason: the clock is one text that changes once a second,
+       so a preset that lights only it pays far less than one lighting all. -->
+  <x:Null x:Key="ClockGlow" />
+
   <!-- A sheen laid over the card and over every row, under their text: the
        gloss of a glass look. None here. Gradients, so a preset can light the
        top and let it fall away; a row's state colour stays its fill
@@ -205,6 +210,20 @@
        the card's top left corner, not stretched, so a preset draws in card
        pixels and the art stays put as the card grows and shrinks. -->
   <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <GeometryDrawing Brush="Transparent">
+        <GeometryDrawing.Geometry>
+          <RectangleGeometry Rect="0,0,1,1" />
+        </GeometryDrawing.Geometry>
+      </GeometryDrawing>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+
+  <!-- An ornament for the card's corners: drawn once, for the top left corner
+       in a box CornerArtSize square from 0,0, and mirrored into the other
+       three. None here, at size 0, so it takes no room and costs nothing. -->
+  <sys:Double x:Key="CornerArtSize">0</sys:Double>
+  <DrawingBrush x:Key="CardCornerArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
     <DrawingBrush.Drawing>
       <GeometryDrawing Brush="Transparent">
         <GeometryDrawing.Geometry>

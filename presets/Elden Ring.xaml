@@ -1,0 +1,249 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Elden Ring: Limgrave under the Erdtree's light. Only what differs from
+       Classic is here.
+
+       The colours are measured from a still of Limgrave rather than guessed:
+       its shadows are a cool blue-green slate, not black or brown; its middle
+       is sage and olive; its haze a pale yellow-green; the Erdtree's light a
+       golden white; its falling leaves and the grace a strong gold. The card
+       runs from that slate at the bottom left to the hazy sage at the top
+       right, where the light comes from, with beams fanning down from there,
+       motes of grace and golden leaves drifting through them.
+
+       Kept to simple shapes on purpose: a drawn tree and big glowing orbs read
+       as made-up art at this size; points, soft beams and leaves read as light.
+
+       The colours keep their meaning: a cool teal-silver while working, moss
+       green when finished, the gold of grace when blocked, and no red. The
+       type is Cinzel throughout, roman capitals with small capitals for lower
+       case, as the game's menus have it, from presets\fonts\. -->
+
+  <SolidColorBrush x:Key="BrushCard"        Color="#FF142023" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#D8B848" />
+  <SolidColorBrush x:Key="BrushCardInner"   Color="#40D8D4A9" />
+
+  <SolidColorBrush x:Key="BrushText"        Color="#ECE8CC" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#A8A876" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#9CC0C0" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#B0303D2C" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#B85A4816" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#FFF0C0" />
+
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#A8142023" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#EEF0D8" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#FFF6D8" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#B8C49A" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#E8D08A" />
+
+  <!-- Rows edged in a faint sage, the state's own colour when it needs you;
+       the stripe covers the edge on the left, by its thickness. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#507A8670" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#8A9A6A" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#E8C048" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#142023" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#A8A876" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#D8B848" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#8FA87A" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#9CC0C0" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#C2BF88" />
+
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#30D8D4A9" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#C2BF88" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#E8C048" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#F2142023" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#D8B848" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#40A8A876" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#E8C048" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#A8A876" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#40D8B848" />
+
+  <CornerRadius x:Key="CardCorner">3</CornerRadius>
+  <CornerRadius x:Key="CardInnerCorner">2</CornerRadius>
+  <CornerRadius x:Key="RowCorner">2</CornerRadius>
+  <CornerRadius x:Key="RowInnerCorner">1</CornerRadius>
+  <CornerRadius x:Key="StripeCorner">2,0,0,2</CornerRadius>
+
+  <!-- Cinzel has one weight; asked for a heavier one, Windows would smear a
+       made-up bold over it. -->
+  <FontFamily x:Key="FontText">fonts/#Cinzel, Palatino Linotype</FontFamily>
+  <FontFamily x:Key="FontClock">fonts/#Cinzel, Palatino Linotype</FontFamily>
+  <FontWeight x:Key="LabelWeight">Normal</FontWeight>
+  <FontWeight x:Key="HeaderWeight">Normal</FontWeight>
+  <FontWeight x:Key="ClockWeight">Normal</FontWeight>
+
+  <!-- The time in the warm light of grace: a small golden halo round the
+       clock alone, which costs little where one round every text would not. -->
+  <DropShadowEffect x:Key="ClockGlow" Color="#E8C048" BlurRadius="10" ShadowDepth="0" Opacity="0.55" />
+
+  <!-- The card: blue-green slate at the bottom left rising to the hazy sage of
+       the light at the top right. -->
+  <LinearGradientBrush x:Key="CardGloss" StartPoint="1,0" EndPoint="0,1">
+    <GradientStop Color="#FF5E6B54" Offset="0" />
+    <GradientStop Color="#FF35453F" Offset="0.4" />
+    <GradientStop Color="#FF1F2E30" Offset="0.75" />
+    <GradientStop Color="#FF142023" Offset="1" />
+  </LinearGradientBrush>
+
+  <!-- The corners, as the game frames its menus: a fine gold bracket with a
+       fainter one inside it, a diamond at the corner and a small one at each
+       end. Drawn for the top left corner in a box 30 square; the card mirrors
+       it into the other three. -->
+  <sys:Double x:Key="CornerArtSize">30</sys:Double>
+  <DrawingBrush x:Key="CardCornerArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,30,30" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <GeometryDrawing Geometry="M4,27 L4,4 L27,4">
+          <GeometryDrawing.Pen><Pen Brush="#D8B848" Thickness="1" /></GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <GeometryDrawing Geometry="M8,20 L8,8 L20,8">
+          <GeometryDrawing.Pen><Pen Brush="#80D8B848" Thickness="0.8" /></GeometryDrawing.Pen>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#E8C048" Geometry="M4,1 L7,4 L4,7 L1,4 Z M27,2.5 L28.5,4 L27,5.5 L25.5,4 Z M4,25.5 L5.5,27 L4,28.5 L2.5,27 Z" />
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+
+  <!-- The light: five beams fanning down from above the top right corner, of
+       uneven width and strength; motes of grace, small points with only a
+       little blur, densest near the light; golden leaves drifting, two of
+       them larger and paler, as if nearer than the focus. Anchored to the
+       card's top left, in card pixels, in a frame from 0,0. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <DrawingGroup ClipGeometry="M0,0 H380 V600 H0 Z">
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,600" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <!-- A divider at the top edge's middle, as in the game's menus: a
+             small diamond between two short rules fading outwards. -->
+        <GeometryDrawing Geometry="M120,3.5 H178 V4.5 H120 Z M202,3.5 H260 V4.5 H202 Z">
+          <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00D8B848" Offset="0" /><GradientStop Color="#C0D8B848" Offset="0.45" /><GradientStop Color="#00D8B848" Offset="0.45" /><GradientStop Color="#00D8B848" Offset="0.55" /><GradientStop Color="#C0D8B848" Offset="0.55" /><GradientStop Color="#00D8B848" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#D8B848" Geometry="M190,0.5 L193.5,4 L190,7.5 L186.5,4 Z" />
+        <DrawingGroup>
+          <DrawingGroup.Transform><TransformGroup><RotateTransform Angle="27" /><TranslateTransform X="470" Y="-170" /></TransformGroup></DrawingGroup.Transform>
+          <DrawingGroup.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF000000" Offset="0.2" /><GradientStop Color="#00000000" Offset="0.85" /></LinearGradientBrush></DrawingGroup.OpacityMask>
+          <GeometryDrawing Geometry="M-2,0 L2,0 L22,1000 L-22,1000 Z">
+            <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00F0E8B0" Offset="0" /><GradientStop Color="#26F0E8B0" Offset="0.5" /><GradientStop Color="#00F0E8B0" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        </DrawingGroup>        <DrawingGroup>
+          <DrawingGroup.Transform><TransformGroup><RotateTransform Angle="33" /><TranslateTransform X="470" Y="-170" /></TransformGroup></DrawingGroup.Transform>
+          <DrawingGroup.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF000000" Offset="0.2" /><GradientStop Color="#00000000" Offset="0.85" /></LinearGradientBrush></DrawingGroup.OpacityMask>
+          <GeometryDrawing Geometry="M-1,0 L1,0 L9,1000 L-9,1000 Z">
+            <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00F0E8B0" Offset="0" /><GradientStop Color="#18F0E8B0" Offset="0.5" /><GradientStop Color="#00F0E8B0" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        </DrawingGroup>        <DrawingGroup>
+          <DrawingGroup.Transform><TransformGroup><RotateTransform Angle="38.5" /><TranslateTransform X="470" Y="-170" /></TransformGroup></DrawingGroup.Transform>
+          <DrawingGroup.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF000000" Offset="0.2" /><GradientStop Color="#00000000" Offset="0.85" /></LinearGradientBrush></DrawingGroup.OpacityMask>
+          <GeometryDrawing Geometry="M-3,0 L3,0 L37,1000 L-37,1000 Z">
+            <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00F0E8B0" Offset="0" /><GradientStop Color="#2EF0E8B0" Offset="0.5" /><GradientStop Color="#00F0E8B0" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        </DrawingGroup>        <DrawingGroup>
+          <DrawingGroup.Transform><TransformGroup><RotateTransform Angle="45" /><TranslateTransform X="470" Y="-170" /></TransformGroup></DrawingGroup.Transform>
+          <DrawingGroup.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF000000" Offset="0.2" /><GradientStop Color="#00000000" Offset="0.85" /></LinearGradientBrush></DrawingGroup.OpacityMask>
+          <GeometryDrawing Geometry="M-1.5,0 L1.5,0 L13,1000 L-13,1000 Z">
+            <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00F0E8B0" Offset="0" /><GradientStop Color="#14F0E8B0" Offset="0.5" /><GradientStop Color="#00F0E8B0" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        </DrawingGroup>        <DrawingGroup>
+          <DrawingGroup.Transform><TransformGroup><RotateTransform Angle="53" /><TranslateTransform X="470" Y="-170" /></TransformGroup></DrawingGroup.Transform>
+          <DrawingGroup.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF000000" Offset="0.2" /><GradientStop Color="#00000000" Offset="0.85" /></LinearGradientBrush></DrawingGroup.OpacityMask>
+          <GeometryDrawing Geometry="M-2.5,0 L2.5,0 L25,1000 L-25,1000 Z">
+            <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00F0E8B0" Offset="0" /><GradientStop Color="#20F0E8B0" Offset="0.5" /><GradientStop Color="#00F0E8B0" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        </DrawingGroup>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="352,22" RadiusX="4.224" RadiusY="4.224" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="352,22" RadiusX="1.92" RadiusY="1.92" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="330,48" RadiusX="2.904" RadiusY="2.904" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="330,48" RadiusX="1.32" RadiusY="1.32" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="366,70" RadiusX="3.432" RadiusY="3.432" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="366,70" RadiusX="1.56" RadiusY="1.56" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="300,30" RadiusX="2.376" RadiusY="2.376" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="300,30" RadiusX="1.08" RadiusY="1.08" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="318,92" RadiusX="3.96" RadiusY="3.96" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="318,92" RadiusX="1.8" RadiusY="1.8" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="276,64" RadiusX="2.64" RadiusY="2.64" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="276,64" RadiusX="1.2" RadiusY="1.2" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="350,118" RadiusX="2.376" RadiusY="2.376" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="350,118" RadiusX="1.08" RadiusY="1.08" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="240,26" RadiusX="2.112" RadiusY="2.112" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="240,26" RadiusX="0.96" RadiusY="0.96" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="292,140" RadiusX="3.168" RadiusY="3.168" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="292,140" RadiusX="1.44" RadiusY="1.44" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="362,170" RadiusX="2.64" RadiusY="2.64" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="362,170" RadiusX="1.2" RadiusY="1.2" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="214,96" RadiusX="2.376" RadiusY="2.376" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="214,96" RadiusX="1.08" RadiusY="1.08" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="260,190" RadiusX="2.112" RadiusY="2.112" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="260,190" RadiusX="0.96" RadiusY="0.96" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="330,230" RadiusX="2.904" RadiusY="2.904" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="330,230" RadiusX="1.32" RadiusY="1.32" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="180,160" RadiusX="1.848" RadiusY="1.848" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="180,160" RadiusX="0.84" RadiusY="0.84" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="120,60" RadiusX="1.848" RadiusY="1.848" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="120,60" RadiusX="0.84" RadiusY="0.84" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="356,300" RadiusX="2.376" RadiusY="2.376" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="356,300" RadiusX="1.08" RadiusY="1.08" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="150,250" RadiusX="2.112" RadiusY="2.112" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="150,250" RadiusX="0.96" RadiusY="0.96" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="60,130" RadiusX="1.584" RadiusY="1.584" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="60,130" RadiusX="0.72" RadiusY="0.72" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="300,340" RadiusX="1.848" RadiusY="1.848" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="300,340" RadiusX="0.84" RadiusY="0.84" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="90,320" RadiusX="1.848" RadiusY="1.848" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="90,320" RadiusX="0.84" RadiusY="0.84" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="30,240" RadiusX="1.584" RadiusY="1.584" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="30,240" RadiusX="0.72" RadiusY="0.72" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="220,400" RadiusX="1.848" RadiusY="1.848" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="220,400" RadiusX="0.84" RadiusY="0.84" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing><GeometryDrawing.Geometry><EllipseGeometry Center="340,440" RadiusX="2.112" RadiusY="2.112" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#48E8C048" Offset="0" /><GradientStop Color="#00E8C048" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#E8F2DC90"><GeometryDrawing.Geometry><EllipseGeometry Center="340,440" RadiusX="0.96" RadiusY="0.96" /></GeometryDrawing.Geometry></GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="0.7" ScaleY="0.7" /><RotateTransform Angle="20" /><TranslateTransform X="300" Y="44" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="0.9" ScaleY="0.9" /><RotateTransform Angle="-35" /><TranslateTransform X="352" Y="134" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="0.6" ScaleY="0.6" /><RotateTransform Angle="70" /><TranslateTransform X="222" Y="92" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="1" ScaleY="1" /><RotateTransform Angle="-15" /><TranslateTransform X="122" Y="172" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="0.8" ScaleY="0.8" /><RotateTransform Angle="40" /><TranslateTransform X="332" Y="262" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="0.7" ScaleY="0.7" /><RotateTransform Angle="-60" /><TranslateTransform X="62" Y="302" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="1.1" ScaleY="1.1" /><RotateTransform Angle="15" /><TranslateTransform X="252" Y="362" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="0.8" ScaleY="0.8" /><RotateTransform Angle="-30" /><TranslateTransform X="172" Y="470" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#E8D8A838" Offset="0" /><GradientStop Color="#C0D8A838" Offset="0.65" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="0.6" ScaleY="0.6" /><RotateTransform Angle="55" /><TranslateTransform X="362" Y="422" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#60D8A838" Offset="0" /><GradientStop Color="#30D8A838" Offset="0.3" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="2" ScaleY="2" /><RotateTransform Angle="25" /><TranslateTransform X="36" Y="70" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>        <GeometryDrawing>
+          <GeometryDrawing.Brush><RadialGradientBrush Center="0.5,0.4" GradientOrigin="0.5,0.4" RadiusX="0.6" RadiusY="0.6"><GradientStop Color="#60D8A838" Offset="0" /><GradientStop Color="#30D8A838" Offset="0.3" /><GradientStop Color="#00D8A838" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+          <GeometryDrawing.Geometry><PathGeometry Figures="M0,0 C-5,-3 -6,-10 -1.5,-17 C3.5,-11 4,-4 0,0 Z M-0.4,0 L0.4,0 L0.3,4 L-0.5,4 Z">
+            <PathGeometry.Transform><TransformGroup><ScaleTransform ScaleX="2.2" ScaleY="2.2" /><RotateTransform Angle="-20" /><TranslateTransform X="336" Y="386" /></TransformGroup></PathGeometry.Transform></PathGeometry></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>
