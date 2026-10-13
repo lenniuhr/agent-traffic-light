@@ -52,8 +52,10 @@
   <CornerRadius x:Key="MenuItemCorner">0</CornerRadius>
   <sys:Double x:Key="SwatchRadius">0</sys:Double>
 
-  <x:Null x:Key="CardShadow" />
-  <x:Null x:Key="MenuShadow" />
+  <!-- Flat: shadows with no strength. x:Null would not do, as a null here
+       counts as not set and Classic's shadow shows through. -->
+  <DropShadowEffect x:Key="CardShadow" Opacity="0" BlurRadius="0" ShadowDepth="0" />
+  <DropShadowEffect x:Key="MenuShadow" Opacity="0" BlurRadius="0" ShadowDepth="0" />
 
   <!-- Consolas where Cascadia Mono is not installed. -->
   <FontFamily x:Key="FontText">Cascadia Mono, Consolas</FontFamily>
@@ -69,8 +71,9 @@
   <GridLength x:Key="TimerWidth">68</GridLength>
 
   <!-- Denser rows, at the same width, so the card does not jump sideways
-       when the style changes. -->
-  <sys:Double x:Key="RowHeight">32</sys:Double>
+       when the style changes. Not lower than 36: at 32 the context bar sat
+       against the descenders of the label. -->
+  <sys:Double x:Key="RowHeight">36</sys:Double>
   <sys:Double x:Key="RowGap">2</sys:Double>
   <sys:Double x:Key="CardPadding">8</sys:Double>
 </ResourceDictionary>

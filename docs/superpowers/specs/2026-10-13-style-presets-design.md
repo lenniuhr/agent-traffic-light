@@ -71,8 +71,10 @@ in Classic. Applies to agent rows; a Unity row takes `BrushRowEdge`.
 **Outlines** (`Thickness`): `CardEdgeThickness` `1`, `CardInnerThickness` `1`,
 `MenuEdgeThickness` `1`.
 
-**Shadows** (`Effect`, or `x:Null` for none): `CardShadow` (blur 20, depth 2, opacity 0.35),
-`MenuShadow` (blur 14, depth 3, opacity 0.45), both black, direction 270.
+**Shadows** (`DropShadowEffect`): `CardShadow` (blur 20, depth 2, opacity 0.35),
+`MenuShadow` (blur 14, depth 3, opacity 0.45), both black, direction 270. A preset turns one off with
+`Opacity="0"`: `x:Null` cannot, since WPF reads a null in a merged dictionary as not set and finds
+Classic's shadow underneath.
 
 **Fonts**: `FontText` (`FontFamily`, `Segoe UI`) for labels, details, timers, headers, the model
 name, the warning line and the menus; `FontClock` (`Bahnschrift`) for the work clock and its caption;
@@ -154,8 +156,10 @@ Rows are not rebuilt. Everything bound with `DynamicResource` updates by itself.
 A preset's name written to `state\preset.flag` makes the next poll call `Set-Preset`, the way
 `state\dump.flag` makes it dump the layout, so checks can switch the live card without clicking.
 
-**Failure.** A preset file that is missing or does not parse is written to the error log and Classic
-is used, at start and on a switch. A switch that fails leaves the current preset in place. Font
+**Failure.** A preset file that is missing or does not parse, or that sets a key Classic does not
+have, a null, or a value of another type than Classic's, is refused before it touches the card: it is
+written to the error log, at start the card uses Classic, and a switch leaves the current preset in
+place. Font
 families are written as fallback lists (`Cascadia Mono, Consolas`), so a missing font falls through.
 
 ## The Terminal preset
@@ -163,7 +167,7 @@ families are written as fallback lists (`Cascadia Mono, Consolas`), so a missing
 `presets\Terminal.xaml`, a modern dark terminal. Overrides only:
 
 - Surface: `BrushCard` `#0C0C0C`; `BrushCardEdge` `#3A3A3A`; `CardInnerThickness` `0`; every corner
-  key `0`; `CardShadow` and `MenuShadow` none.
+  key `0`; `CardShadow` and `MenuShadow` at `Opacity` 0.
 - Rows: `BrushRowBase` `#141414`; `RowEdgeThickness` `1`; `BrushRowEdge` `#2A2A2A`;
   `BrushWaiting` `#0F2416` with `BrushRowEdgeOnWait` `#16C60C`; `BrushBlocked` `#2E2606` with
   `BrushRowEdgeOnBlock` `#C19C00`. The fills stay dark so the outline and the dot carry the state.
@@ -175,7 +179,7 @@ families are written as fallback lists (`Cascadia Mono, Consolas`), so a missing
 - Menus: `BrushMenu` `#0C0C0C`, `BrushMenuEdge` `#3A3A3A`, `BrushMenuHighlight` `#262626`.
 - Type: `FontText` and `FontClock` `Cascadia Mono, Consolas`; `LabelWeight` `Normal`; `SizeLabel`
   13, `SizeLabelWithDetail` 12, `SizeClock` 22, `SizeClockCaption` 10.
-- Density: `RowHeight` 32, `RowGap` 2, `CardPadding` 8. `RowWidth` stays 360 so the card keeps its
+- Density: `RowHeight` 36 (32 put the context bar against the label's descenders), `RowGap` 2, `CardPadding` 8. `RowWidth` stays 360 so the card keeps its
   width; `HeaderHeight` and `GroupGap` stay.
 
 ## Other files

@@ -115,8 +115,10 @@
   <Thickness x:Key="CardInnerThickness">1</Thickness>
   <Thickness x:Key="MenuEdgeThickness">1</Thickness>
 
-  <!-- Shadows. A preset without them sets these to x:Null. The card's margin
-       round the outside is the shadow's room, so it stays either way. -->
+  <!-- Shadows. A preset without them sets a shadow with Opacity 0: a null in a
+       preset counts as not set, so Classic's shadow would show through, and
+       the card refuses one. The card's margin round the outside is the
+       shadow's room, so it stays either way. -->
   <DropShadowEffect x:Key="CardShadow" Color="#000000" BlurRadius="20" ShadowDepth="2" Opacity="0.35" Direction="270" />
   <DropShadowEffect x:Key="MenuShadow" Color="#000000" BlurRadius="14" ShadowDepth="3" Opacity="0.45" Direction="270" />
 

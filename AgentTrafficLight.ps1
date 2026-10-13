@@ -1182,11 +1182,24 @@ $presetDir = Join-Path $PSScriptRoot 'presets'
 # The chosen preset's dictionary, or null for Classic, which is the base and
 # needs no second layer. Throws if the file is missing or is not a preset, so
 # the caller decides what a failure means.
+#
+# Every value is checked against Classic's before the preset can touch the
+# card. A value of the wrong type would otherwise throw half way through a
+# switch, or quietly draw nothing where the template expected it, and a null
+# counts as not set, so Classic's value would show through.
 function Import-Preset {
     param([string]$Name)
     if ($Name -eq 'Classic') { return $null }
     $dict = Import-Xaml (Join-Path 'presets' "$Name.xaml")
     if (-not ($dict -is [System.Windows.ResourceDictionary])) { throw "presets\$Name.xaml is not a ResourceDictionary" }
+    $classic = $window.Resources.MergedDictionaries[0]
+    foreach ($key in @($dict.Keys)) {
+        if (-not $classic.Contains($key)) { throw "presets\$Name.xaml sets $key, which Classic does not have" }
+        $want = $classic[$key].GetType()
+        if ($null -eq $dict[$key] -or -not $want.IsInstanceOfType($dict[$key])) {
+            throw "presets\$Name.xaml sets $key to something other than a $($want.Name)"
+        }
+    }
     return $dict
 }
 
