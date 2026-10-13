@@ -92,22 +92,21 @@
     <GradientStop Color="#FF142023" Offset="1" />
   </LinearGradientBrush>
 
-  <!-- The corners, as the game frames its menus: a fine gold bracket with a
-       fainter one inside it, a diamond at the corner and a small one at each
-       end. Drawn for the top left corner in a box 30 square; the card mirrors
-       it into the other three. -->
-  <sys:Double x:Key="CornerArtSize">30</sys:Double>
+  <!-- The corners, as the game frames its items: a small square step at the
+       corner, and from it a gold hairline along each edge that fades away
+       instead of ending, quiet enough to read as inlay rather than ornament.
+       Drawn for the top left corner in a box 40 square; the card mirrors it
+       into the other three. -->
+  <sys:Double x:Key="CornerArtSize">40</sys:Double>
   <DrawingBrush x:Key="CardCornerArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
     <DrawingBrush.Drawing>
       <DrawingGroup>
-        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,30,30" /></GeometryDrawing.Geometry></GeometryDrawing>
-        <GeometryDrawing Geometry="M4,27 L4,4 L27,4">
-          <GeometryDrawing.Pen><Pen Brush="#D8B848" Thickness="1" /></GeometryDrawing.Pen>
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,40,40" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <GeometryDrawing><GeometryDrawing.Geometry><RectangleGeometry Rect="9,4,29,0.8" /></GeometryDrawing.Geometry><GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#B0C9B278" Offset="0" /><GradientStop Color="#00C9B278" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing><GeometryDrawing.Geometry><RectangleGeometry Rect="4,9,0.8,29" /></GeometryDrawing.Geometry><GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#B0C9B278" Offset="0" /><GradientStop Color="#00C9B278" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Geometry="M4.4,9.4 L4.4,4.4 L9.4,4.4 M9.4,4.4 L9.4,9.4 L4.4,9.4">
+          <GeometryDrawing.Pen><Pen Brush="#90C9B278" Thickness="0.8" /></GeometryDrawing.Pen>
         </GeometryDrawing>
-        <GeometryDrawing Geometry="M8,20 L8,8 L20,8">
-          <GeometryDrawing.Pen><Pen Brush="#80D8B848" Thickness="0.8" /></GeometryDrawing.Pen>
-        </GeometryDrawing>
-        <GeometryDrawing Brush="#E8C048" Geometry="M4,1 L7,4 L4,7 L1,4 Z M27,2.5 L28.5,4 L27,5.5 L25.5,4 Z M4,25.5 L5.5,27 L4,28.5 L2.5,27 Z" />
       </DrawingGroup>
     </DrawingBrush.Drawing>
   </DrawingBrush>
@@ -121,12 +120,13 @@
     <DrawingBrush.Drawing>
       <DrawingGroup ClipGeometry="M0,0 H380 V600 H0 Z">
         <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,600" /></GeometryDrawing.Geometry></GeometryDrawing>
-        <!-- A divider at the top edge's middle, as in the game's menus: a
-             small diamond between two short rules fading outwards. -->
-        <GeometryDrawing Geometry="M120,3.5 H178 V4.5 H120 Z M202,3.5 H260 V4.5 H202 Z">
-          <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00D8B848" Offset="0" /><GradientStop Color="#C0D8B848" Offset="0.45" /><GradientStop Color="#00D8B848" Offset="0.45" /><GradientStop Color="#00D8B848" Offset="0.55" /><GradientStop Color="#C0D8B848" Offset="0.55" /><GradientStop Color="#00D8B848" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush>
-        </GeometryDrawing>
-        <GeometryDrawing Brush="#D8B848" Geometry="M190,0.5 L193.5,4 L190,7.5 L186.5,4 Z" />
+        <!-- A divider at the top edge's middle: two hairlines fading outwards
+             from a small diamond. -->
+        <GeometryDrawing><GeometryDrawing.Geometry><RectangleGeometry Rect="120,3.6,64,0.8" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#00C9B278" Offset="0" /><GradientStop Color="#B0C9B278" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing><GeometryDrawing.Geometry><RectangleGeometry Rect="196,3.6,64,0.8" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><LinearGradientBrush StartPoint="0,0" EndPoint="1,0"><GradientStop Color="#B0C9B278" Offset="0" /><GradientStop Color="#00C9B278" Offset="1" /></LinearGradientBrush></GeometryDrawing.Brush></GeometryDrawing>
+        <GeometryDrawing Brush="#C8D8C080" Geometry="M190,1.8 L192.2,4 L190,6.2 L187.8,4 Z" />
         <DrawingGroup>
           <DrawingGroup.Transform><TransformGroup><RotateTransform Angle="27" /><TranslateTransform X="470" Y="-170" /></TransformGroup></DrawingGroup.Transform>
           <DrawingGroup.OpacityMask><LinearGradientBrush StartPoint="0,0" EndPoint="0,1"><GradientStop Color="#FF000000" Offset="0.2" /><GradientStop Color="#00000000" Offset="0.85" /></LinearGradientBrush></DrawingGroup.OpacityMask>
