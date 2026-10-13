@@ -14,7 +14,7 @@
       <ColumnDefinition Width="22" />
       <ColumnDefinition Width="*" />
       <ColumnDefinition Width="Auto" />
-      <ColumnDefinition Width="58" />
+      <ColumnDefinition Width="{DynamicResource TimerWidth}" />
     </Grid.ColumnDefinitions>
 
     <!-- The stripe does two jobs: it carries the workspace colour when more than

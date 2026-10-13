@@ -66,6 +66,13 @@ including those already open; a session with Off or a sound of its own keeps it.
 
 The three bars left of the session clock open the card's settings, saved in `state\settings.json`.
 
+Under Style the settings pick the card's look, applied on the spot: Classic, the card as described
+here, or Terminal, square, flat and monospaced, with denser rows drawn as boxes in the state's colour.
+Each style is a file in `presets\`. Classic holds every colour, size, corner, outline, font and
+shadow the card uses; any other preset holds only what it changes and is laid over Classic, so a new
+one starts as a copy of Terminal with its values changed. Whatever the style, the colours keep their
+meaning.
+
 With "Show Unity editors" on, which is the default, a Unity group below the sessions lists every
 running Unity editor, one row per project: the
 project folder, whether it runs headless (sand stripe) or with a window (grey stripe), its Plastic

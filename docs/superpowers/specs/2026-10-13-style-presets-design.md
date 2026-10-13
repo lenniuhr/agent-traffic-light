@@ -103,6 +103,7 @@ note) keep `Segoe UI Symbol`, which is not a preset key.
 | `HeaderHeight` | 22 | `Height` of `Header.xaml`, `$headerHeight` |
 | `GroupGap` | 8 | `$groupGap` |
 | `CardPadding` | 10 | `$cardPadding`, the row canvas margin |
+| `TimerWidth` (`GridLength`) | 58 | the timer column of `Row.xaml`; Terminal widens it to 68, as "at 14:05" in a monospace font overran 58 |
 
 The window width (404 today), `$cardWidth` (380) and `$ctxBarWidth` (330) are derived from `RowWidth`
 and `CardPadding` instead of written separately: card width = `RowWidth` + 2 × `CardPadding`, window

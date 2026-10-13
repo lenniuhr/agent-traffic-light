@@ -148,4 +148,8 @@
   <sys:Double x:Key="HeaderHeight">22</sys:Double>
   <sys:Double x:Key="GroupGap">8</sys:Double>
   <sys:Double x:Key="CardPadding">10</sys:Double>
+
+  <!-- The timer's column on an agent row, fixed so the times line up down the
+       card, and wide enough for "at 14:05" with the row's right margin. -->
+  <GridLength x:Key="TimerWidth">58</GridLength>
 </ResourceDictionary>

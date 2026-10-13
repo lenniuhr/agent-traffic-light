@@ -25,6 +25,7 @@ foreach ($needed in @($script,
                       (Join-Path $toolDir 'Row.xaml'),
                       (Join-Path $toolDir 'UnityRow.xaml'),
                       (Join-Path $toolDir 'Header.xaml'),
+                      (Join-Path $toolDir 'presets\Classic.xaml'),
                       (Join-Path $hooksDir 'notify.ps1'),
                       (Join-Path $hooksDir 'clear.ps1'))) {
     if (-not (Test-Path $needed)) {
