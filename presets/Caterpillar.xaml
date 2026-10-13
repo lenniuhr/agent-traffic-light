@@ -1,0 +1,173 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Caterpillar: hazard print, after the Caterpillar theme of the Nightjar
+       audio studio. The card is the pre-flight data sheet of a machine that is
+       not awake yet: pale pressed board printed with a register lattice, a
+       frame of near-black bands, and one acid chartreuse tread running along
+       the top. Square everywhere, and nothing moves that Classic does not move.
+       Only what differs from Classic is here.
+
+       A light card, so a row gets louder the more it needs you: pale board
+       while working, the acid tread colour when finished, the black frame
+       colour with amber when blocked. Blue stays the "wants you" dot; there is
+       no red. -->
+
+  <SolidColorBrush x:Key="BrushCard"        Color="#E2E5DA" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#14170D" />
+
+  <!-- The frame: near-black bands on three sides. The top band is drawn in
+       the card art, with the tread inside it, so the border leaves it out. -->
+  <Thickness x:Key="CardEdgeThickness">3,0,3,3</Thickness>
+  <Thickness x:Key="CardInnerThickness">0</Thickness>
+
+  <SolidColorBrush x:Key="BrushText"        Color="#171A10" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#414632" />
+
+  <!-- Blue only for the dot, deep enough to read on the acid fill. -->
+  <SolidColorBrush x:Key="BrushWorking"     Color="#1F4FD8" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#B5E51D" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#14170D" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#7AA2FF" />
+
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#F5F6EF" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#171A10" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#E6B54A" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#3F4C06" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#A9AE97" />
+
+  <!-- Rows are printed panels with an ink keyline. Finished takes a firmer
+       ink line round the acid, blocked an amber one round the black. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#4D171A10" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#8C171A10" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#E0A53C" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+
+  <!-- Workspaces are told apart by the icon on their heading: machine and
+       print marks, none of them a circle, which is the dot, or a warning
+       sign, which is blocked. The swatch it replaces keeps the frame black. -->
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#14170D" />
+  <sys:String x:Key="WorkspaceIcons">&#x2699; &#x2B22; &#x271A; &#x25C6; &#x25B2; &#x2316; &#x2731; &#x2691; &#x2708; &#x2693;</sys:String>
+
+  <!-- Every stripe is the frame's black band, and each session prints its own
+       pattern on it in white, so a session can be found again at a glance.
+       The model's name leaves the stripe and shows on hovering it. -->
+  <SolidColorBrush x:Key="BrushWs0"         Color="#14170D" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#14170D" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#14170D" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#14170D" />
+  <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
+  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker rails plain</sys:String>
+  <SolidColorBrush x:Key="BrushStripePattern" Color="#E6F2F4E8" />
+
+  <!-- Unity editors in green, the colour for what is always there: a bright
+       one for an editor with a window, a pale wash of it for a headless one,
+       the light version of the same editor. -->
+  <SolidColorBrush x:Key="BrushUnityEditor" Color="#8DBA0B" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#DCE8B4" />
+
+  <!-- A mid grey that reads on the pale row, the acid row and the black one. -->
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#33838A70" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#7D836A" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#C98200" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#F5F6EF" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#171A10" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#8CB5E51D" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#3F4C06" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#414632" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#3D171A10" />
+  <Thickness x:Key="MenuEdgeThickness">2</Thickness>
+
+  <CornerRadius x:Key="CardCorner">0</CornerRadius>
+  <CornerRadius x:Key="CardInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="StripeCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuItemCorner">0</CornerRadius>
+  <sys:Double x:Key="SwatchRadius">0</sys:Double>
+
+  <DropShadowEffect x:Key="CardShadow" Color="#171A10" BlurRadius="16" ShadowDepth="4" Opacity="0.3" Direction="270" />
+  <DropShadowEffect x:Key="MenuShadow" Color="#171A10" BlurRadius="12" ShadowDepth="4" Opacity="0.25" Direction="270" />
+
+  <!-- The corner wedge of the studio's cards: a small ink triangle in each
+       row's top right corner. A hard stop on a gradient along the diagonal,
+       in row pixels; the row's inside is RowWidth less its two edge lines,
+       358 wide, so the corner is at 358,0 and the wedge's legs are 10. -->
+  <LinearGradientBrush x:Key="RowGloss" MappingMode="Absolute" StartPoint="353,5" EndPoint="358,0">
+    <GradientStop Color="#00171A10" Offset="0" />
+    <GradientStop Color="#CC171A10" Offset="0" />
+    <GradientStop Color="#CC171A10" Offset="1" />
+  </LinearGradientBrush>
+
+  <!-- A data sheet's lettering: Bahnschrift is DIN, the engineering face. -->
+  <FontFamily x:Key="FontText">Bahnschrift, Segoe UI</FontFamily>
+
+  <!-- The board, drawn from the card's top left in card pixels, taller than
+       any card and cut off at its bottom: a 2 px register dot every 22 px, a
+       registration cross on the lattice every 220 px, and across the top the
+       frame's black band with the acid tread, 10 on and 6 off, inside it.
+       Both patterns are tiles cached once, so the board costs nothing per
+       frame. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <DrawingGroup ClipGeometry="M0,0 H380 V1600 H0 Z">
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,1600" /></GeometryDrawing.Geometry></GeometryDrawing>
+
+        <!-- Register dots. -->
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,9,380,1591" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <DrawingBrush TileMode="Tile" Viewport="0,0,22,22" ViewportUnits="Absolute"
+                          Viewbox="0,0,22,22" ViewboxUnits="Absolute" RenderOptions.CachingHint="Cache">
+              <DrawingBrush.Drawing>
+                <DrawingGroup>
+                  <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,22,22" /></GeometryDrawing.Geometry></GeometryDrawing>
+                  <GeometryDrawing Brush="#24171A10"><GeometryDrawing.Geometry><RectangleGeometry Rect="10,10,2,2" /></GeometryDrawing.Geometry></GeometryDrawing>
+                </DrawingGroup>
+              </DrawingBrush.Drawing>
+            </DrawingBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+
+        <!-- Registration crosses, 11 px, on the lattice point at each tile's centre. -->
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,9,380,1591" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <DrawingBrush TileMode="Tile" Viewport="0,0,220,220" ViewportUnits="Absolute"
+                          Viewbox="0,0,220,220" ViewboxUnits="Absolute" RenderOptions.CachingHint="Cache">
+              <DrawingBrush.Drawing>
+                <DrawingGroup>
+                  <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,220,220" /></GeometryDrawing.Geometry></GeometryDrawing>
+                  <GeometryDrawing Brush="#40171A10">
+                    <GeometryDrawing.Geometry>
+                      <GeometryGroup>
+                        <RectangleGeometry Rect="115,120,11,1" />
+                        <RectangleGeometry Rect="120,115,1,11" />
+                      </GeometryGroup>
+                    </GeometryDrawing.Geometry>
+                  </GeometryDrawing>
+                </DrawingGroup>
+              </DrawingBrush.Drawing>
+            </DrawingBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+
+        <!-- The top band of the frame, and the tread in it. A dash is measured
+             in pen widths, so 10 on and 6 off at 3 px is 3.333 and 2. -->
+        <GeometryDrawing Brush="#14170D"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,9" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Pen>
+            <Pen Brush="#B5E51D" Thickness="3">
+              <Pen.DashStyle><DashStyle Dashes="3.3333 2" /></Pen.DashStyle>
+            </Pen>
+          </GeometryDrawing.Pen>
+          <GeometryDrawing.Geometry><LineGeometry StartPoint="0,4.5" EndPoint="380,4.5" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>

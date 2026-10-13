@@ -73,10 +73,45 @@
   <SolidColorBrush x:Key="BrushWs2"         Color="#5FC8D8" />
   <SolidColorBrush x:Key="BrushWs3"         Color="#B8B4C8" />
 
+  <!-- Icons that tell the workspace headings apart in place of the coloured
+       square, as symbols separated by spaces. Each workspace draws one by its
+       name, so it keeps the same icon from one start to the next, and no two
+       open workspaces share one. None here: Classic tells them apart by the
+       hues above. A preset that sets icons usually gives every stripe one
+       colour, since the heading now carries the difference. -->
+  <sys:String x:Key="WorkspaceIcons"></sys:String>
+
+  <!-- What the stripe's colour says. Workspace: the hues above, matching the
+       heading's swatch. Model: the session's model, in the brushes below,
+       which only a preset that picks Model uses. -->
+  <sys:String x:Key="StripeColour">Workspace</sys:String>
+  <SolidColorBrush x:Key="BrushModelOpus"   Color="#9AA3B2" />
+  <SolidColorBrush x:Key="BrushModelFable"  Color="#9AA3B2" />
+  <SolidColorBrush x:Key="BrushModelSonnet" Color="#9AA3B2" />
+  <SolidColorBrush x:Key="BrushModelHaiku"  Color="#9AA3B2" />
+  <SolidColorBrush x:Key="BrushModelOther"  Color="#9AA3B2" />
+
+  <!-- Patterns over the stripe, one per session, so a session can be found
+       again at a glance: names separated by spaces, from hatch, crosshatch,
+       plus, dots, bars, chevron, checker, rails and plain. No two open
+       sessions share one while there are enough, and a session keeps its
+       pattern while its window stays open. None here. -->
+  <sys:String x:Key="StripePatterns"></sys:String>
+  <SolidColorBrush x:Key="BrushStripePattern" Color="#8016181D" />
+
+  <!-- Whether the stripe carries the model's name. A preset that says the
+       model by colour can leave it out; the name then shows on hovering the
+       stripe. -->
+  <sys:Boolean x:Key="StripeModelName">True</sys:Boolean>
+
   <!-- Stripe of a Unity editor that runs headless. A warm sand, because every
        hue above already means a workspace or a state, and an editor row must
        not read as either. An editor with a window keeps the neutral stripe. -->
   <SolidColorBrush x:Key="BrushHeadless"    Color="#D9C38C" />
+
+  <!-- Stripe of a Unity editor with a window. The neutral grey here, a key of
+       its own so a preset can colour it without touching the agents' stripes. -->
+  <SolidColorBrush x:Key="BrushUnityEditor" Color="#9AA3B2" />
 
   <!-- An outline round each row, in the colour of its state. None here: the
        fill carries the state on this card. A preset that draws its rows as
