@@ -14,10 +14,15 @@
       <ColumnDefinition Width="72" />
     </Grid.ColumnDefinitions>
 
-    <!-- The preset's sheen over the row, as on an agent row. -->
+    <!-- The preset's sheen and inner line, as on an agent row. -->
     <Border Grid.ColumnSpan="3"
-            CornerRadius="{DynamicResource RowCorner}"
+            CornerRadius="{DynamicResource RowInnerCorner}"
             Background="{DynamicResource RowGloss}"
+            IsHitTestVisible="False" />
+    <Border Grid.ColumnSpan="3"
+            CornerRadius="{DynamicResource RowInnerCorner}"
+            BorderThickness="{DynamicResource RowInnerEdgeThickness}"
+            BorderBrush="{DynamicResource BrushRowInnerEdge}"
             IsHitTestVisible="False" />
 
     <!-- Same shape and place as an agent row's stripe, so the group reads as part
@@ -28,6 +33,7 @@
             Width="14"
             HorizontalAlignment="Left"
             VerticalAlignment="Stretch"
+            Margin="{DynamicResource StripeMargin}"
             CornerRadius="{DynamicResource StripeCorner}"
             Background="{DynamicResource BrushWsNeutral}" />
 
@@ -35,6 +41,7 @@
          tell two checkouts of the same project apart, the branch does. -->
     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0">
       <TextBlock x:Name="Label"
+                 Effect="{DynamicResource TextGlow}"
                  FontFamily="{DynamicResource FontText}"
                  FontWeight="{DynamicResource LabelWeight}"
                  FontSize="{DynamicResource SizeLabelWithDetail}"
@@ -42,6 +49,7 @@
                  TextTrimming="CharacterEllipsis"
                  Text="" />
       <TextBlock x:Name="Detail"
+                 Effect="{DynamicResource TextGlow}"
                  FontFamily="{DynamicResource FontText}"
                  FontSize="{DynamicResource SizeDetail}"
                  Foreground="{DynamicResource BrushTextDim}"
@@ -53,6 +61,7 @@
          CPU under it as a share of the whole machine, as Task Manager shows it. -->
     <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
       <TextBlock x:Name="Memory"
+                 Effect="{DynamicResource TextGlow}"
                  HorizontalAlignment="Right"
                  FontFamily="{DynamicResource FontText}"
                  FontSize="{DynamicResource SizeTimer}"
@@ -60,6 +69,7 @@
                  Typography.NumeralAlignment="Tabular"
                  Text="" />
       <TextBlock x:Name="Cpu"
+                 Effect="{DynamicResource TextGlow}"
                  HorizontalAlignment="Right"
                  FontFamily="{DynamicResource FontText}"
                  FontSize="{DynamicResource SizeDetail}"

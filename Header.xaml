@@ -12,6 +12,7 @@
                RadiusX="{DynamicResource SwatchRadius}" RadiusY="{DynamicResource SwatchRadius}"
                VerticalAlignment="Center" />
     <TextBlock x:Name="HeaderLabel"
+                 Effect="{DynamicResource TextGlow}"
                Margin="8,0,0,0"
                VerticalAlignment="Center"
                FontFamily="{DynamicResource FontText}"

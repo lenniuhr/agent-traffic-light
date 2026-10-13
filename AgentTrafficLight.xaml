@@ -209,19 +209,19 @@
               <StackPanel HorizontalAlignment="Left"
                           VerticalAlignment="Bottom"
                           Margin="24,0,0,4">
-                <TextBlock Text="VIBING SESSION"
+                <TextBlock Text="VIBING SESSION" Effect="{DynamicResource TextGlow}"
                            FontFamily="{DynamicResource FontClock}"
                            FontWeight="SemiBold"
                            FontSize="{DynamicResource SizeClockCaption}"
                            Foreground="{DynamicResource BrushText}" />
-                <TextBlock x:Name="WorkClockSub"
+                <TextBlock x:Name="WorkClockSub" Effect="{DynamicResource TextGlow}"
                            Text=""
                            FontFamily="{DynamicResource FontClock}"
                            FontSize="{DynamicResource SizeClockCaption}"
                            Typography.NumeralAlignment="Tabular"
                            Foreground="{DynamicResource BrushTextDim}" />
               </StackPanel>
-              <TextBlock x:Name="WorkClockText"
+              <TextBlock x:Name="WorkClockText" Effect="{DynamicResource TextGlow}"
                          Text="0:00:00"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Bottom"
@@ -239,7 +239,7 @@
                lets us animate Top. The script sets the margin from CardPadding. -->
           <Canvas x:Name="RowCanvas" Grid.Row="1" Margin="10,10,10,0" />
 
-          <TextBlock x:Name="WarnText"
+          <TextBlock x:Name="WarnText" Effect="{DynamicResource TextGlow}"
                      Grid.Row="2"
                      Margin="14,2,14,8"
                      FontFamily="{DynamicResource FontText}"

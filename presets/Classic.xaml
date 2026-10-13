@@ -87,6 +87,18 @@
   <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="Transparent" />
   <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="Transparent" />
 
+  <!-- A second, lighter line just inside the row's outline, as Aero drew its
+       buttons: a dark edge with a highlight inside it. None here. The corner
+       is one less than the row's, since the line sits one pixel in. -->
+  <Thickness x:Key="RowInnerEdgeThickness">0</Thickness>
+  <SolidColorBrush x:Key="BrushRowInnerEdge"   Color="Transparent" />
+  <CornerRadius x:Key="RowInnerCorner">7</CornerRadius>
+
+  <!-- How far the stripe reaches past the row's inside. A preset with outlines
+       pulls it out over them, so the stripe is the row's left side instead of
+       a block framed by the outline. -->
+  <Thickness x:Key="StripeMargin">0</Thickness>
+
   <!-- The "wants you" dot on a blocked row. Elsewhere it is the working blue;
        a preset that fills a blocked row with that same colour sets this so the
        dot does not vanish into the fill. -->
@@ -128,10 +140,19 @@
   <DropShadowEffect x:Key="MenuShadow" Color="#000000" BlurRadius="14" ShadowDepth="3" Opacity="0.45" Direction="270" />
 
   <!-- A glow round everything drawn on the card: text, outlines and filled
-       rows, but not the card's own background. None here. It traces whatever
-       is opaque, so a preset that glows leaves its rows unfilled where the
-       text is meant to glow. -->
-  <DropShadowEffect x:Key="ContentGlow" Color="#000000" BlurRadius="0" ShadowDepth="0" Opacity="0" />
+       rows, but not the card's own background. It traces whatever is opaque,
+       so a preset that glows leaves its rows unfilled where the text is meant
+       to glow.
+
+       None here, and none means null, not a glow of no strength: an effect
+       costs its drawing on every frame whether it shows or not, and on every
+       text it took the card from a fifth of a core to half. A preset that
+       glows sets one; a null here is the one place a null is allowed. -->
+  <x:Null x:Key="ContentGlow" />
+
+  <!-- A halo behind the text alone, where ContentGlow lights up the rows too.
+       None here, as null for the same reason. -->
+  <x:Null x:Key="TextGlow" />
 
   <!-- A sheen laid over the card and over every row, under their text: the
        gloss of a glass look. None here. Gradients, so a preset can light the

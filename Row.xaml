@@ -17,10 +17,17 @@
       <ColumnDefinition Width="{DynamicResource TimerWidth}" />
     </Grid.ColumnDefinitions>
 
-    <!-- The preset's sheen over the row's fill, under its text and stripe. -->
+    <!-- The preset's sheen over the row's fill, under its text and stripe, and
+         the second line just inside the row's outline. Both sit inside the
+         outline, so they take the inner corner. -->
     <Border Grid.ColumnSpan="5"
-            CornerRadius="{DynamicResource RowCorner}"
+            CornerRadius="{DynamicResource RowInnerCorner}"
             Background="{DynamicResource RowGloss}"
+            IsHitTestVisible="False" />
+    <Border Grid.ColumnSpan="5"
+            CornerRadius="{DynamicResource RowInnerCorner}"
+            BorderThickness="{DynamicResource RowInnerEdgeThickness}"
+            BorderBrush="{DynamicResource BrushRowInnerEdge}"
             IsHitTestVisible="False" />
 
     <!-- The stripe does two jobs: it carries the workspace colour when more than
@@ -40,6 +47,7 @@
             Width="14"
             HorizontalAlignment="Left"
             VerticalAlignment="Stretch"
+            Margin="{DynamicResource StripeMargin}"
             CornerRadius="{DynamicResource StripeCorner}">
       <TextBlock x:Name="Model"
                  HorizontalAlignment="Center"
@@ -117,6 +125,7 @@
                  FontFamily="{DynamicResource FontText}"
                  FontWeight="{DynamicResource LabelWeight}"
                  Foreground="{DynamicResource BrushText}"
+                 Effect="{DynamicResource TextGlow}"
                  TextTrimming="CharacterEllipsis"
                  Text="">
         <TextBlock.Style>
@@ -135,6 +144,7 @@
                  FontFamily="{DynamicResource FontText}"
                  FontSize="{DynamicResource SizeDetail}"
                  Foreground="{DynamicResource BrushTextDim}"
+                 Effect="{DynamicResource TextGlow}"
                  TextTrimming="CharacterEllipsis"
                  Visibility="Collapsed"
                  Text="" />
@@ -167,6 +177,7 @@
                FontFamily="{DynamicResource FontText}"
                FontSize="{DynamicResource SizeTimer}"
                Foreground="{DynamicResource BrushTextDim}"
+               Effect="{DynamicResource TextGlow}"
                Typography.NumeralAlignment="Tabular"
                Text="" />
 

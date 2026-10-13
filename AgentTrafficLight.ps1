@@ -1186,7 +1186,8 @@ $presetDir = Join-Path $PSScriptRoot 'presets'
 # Every value is checked against Classic's before the preset can touch the
 # card. A value of the wrong type would otherwise throw half way through a
 # switch, or quietly draw nothing where the template expected it, and a null
-# counts as not set, so Classic's value would show through.
+# counts as not set, so Classic's value would show through. Where Classic has
+# no effect at all, which costs nothing to draw, a preset may set any effect.
 function Import-Preset {
     param([string]$Name)
     if ($Name -eq 'Classic') { return $null }
@@ -1195,7 +1196,8 @@ function Import-Preset {
     $classic = $window.Resources.MergedDictionaries[0]
     foreach ($key in @($dict.Keys)) {
         if (-not $classic.Contains($key)) { throw "presets\$Name.xaml sets $key, which Classic does not have" }
-        $want = $classic[$key].GetType()
+        $want = [System.Windows.Media.Effects.Effect]
+        if ($null -ne $classic[$key]) { $want = $classic[$key].GetType() }
         if ($null -eq $dict[$key] -or -not $want.IsInstanceOfType($dict[$key])) {
             throw "presets\$Name.xaml sets $key to something other than a $($want.Name)"
         }

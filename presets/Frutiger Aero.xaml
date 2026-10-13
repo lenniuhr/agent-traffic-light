@@ -32,10 +32,18 @@
   <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#2D5E22" />
   <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#7A4A10" />
 
+  <!-- Every row is sealed like a Windows 7 button: a darker outline in the
+       row's own colour and a white highlight line just inside it. The stripe
+       reaches out over both, so it is the row's left side rather than a block
+       framed by them. -->
   <Thickness x:Key="RowEdgeThickness">1</Thickness>
-  <SolidColorBrush x:Key="BrushRowEdge"        Color="#B0FFFFFF" />
-  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#FF3E8E22" />
-  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFC77A00" />
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#A06C8FB0" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#FF2F7A1A" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFB06A00" />
+  <Thickness x:Key="RowInnerEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowInnerEdge"   Color="#B0FFFFFF" />
+  <Thickness x:Key="StripeMargin">-2,-2,0,-2</Thickness>
+  <CornerRadius x:Key="StripeCorner">8,0,0,8</CornerRadius>
 
   <SolidColorBrush x:Key="BrushStripeText"  Color="#FFFFFF" />
   <SolidColorBrush x:Key="BrushWsNeutral"   Color="#5C8FB8" />
@@ -73,8 +81,9 @@
     <GradientStop Color="#40FFFFFF" Offset="1" />
   </LinearGradientBrush>
 
-  <!-- The white halo Vista put behind the text on its glass. -->
-  <DropShadowEffect x:Key="ContentGlow" Color="#FFFFFF" BlurRadius="10" ShadowDepth="0" Opacity="0.7" />
+  <!-- The white halo Vista put behind the text on its glass, and only behind
+       the text: a glow over the whole card haloed the green rows white too. -->
+  <DropShadowEffect x:Key="TextGlow" Color="#FFFFFF" BlurRadius="8" ShadowDepth="0" Opacity="0.85" />
 
   <FontFamily x:Key="FontClock">Segoe UI</FontFamily>
 </ResourceDictionary>
