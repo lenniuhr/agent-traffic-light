@@ -1,0 +1,111 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Draxon: Frutiger Aero's glass over the Draxon picture. Frutiger Aero's
+       card, edges and row shapes, whose values are copied here: a preset
+       builds on Classic only, so a change to Frutiger Aero does not reach this
+       one by itself. Unlike it, the rows are clear glass that shows the
+       picture through, state colours included, and the text is white with a
+       dark halo, which reads over the picture where dark text could not. The
+       picture is Draxon.jpg, next to this file. -->
+
+  <!-- The card: the picture's navy, a dark blue edge and a white one inside
+       it, which is exactly the double stroke of an Aero window frame. -->
+  <SolidColorBrush x:Key="BrushCard"        Color="#0D185A" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#E0145A96" />
+  <SolidColorBrush x:Key="BrushCardInner"   Color="#D0FFFFFF" />
+
+  <SolidColorBrush x:Key="BrushText"        Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#E6EEF5" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#0E8CF0" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#3348C82E" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#38FF9A1F" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#0E6FE0" />
+
+  <!-- Rows are clear glass over the picture, tinted with the state colour. -->
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#14FFFFFF" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#E6EEF5" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#E6EEF5" />
+
+  <!-- Every row is sealed like a Windows 7 button: a darker outline in the
+       row's own colour and a white highlight line just inside it. The stripe
+       is the row's left side rather than a block framed by them: it covers
+       the inner line where it lies, and reaches out over the outline by its
+       thickness and no further, or it sticks out past the row. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#A05F8FBF" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#FF2A8A14" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFC06A00" />
+  <Thickness x:Key="RowInnerEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowInnerEdge"   Color="#60FFFFFF" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+  <CornerRadius x:Key="StripeCorner">8,0,0,8</CornerRadius>
+
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#4C86C0" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#8E5BD9" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#E0559B" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#12A8C8" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#4C86C0" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#C9A03A" />
+
+  <!-- The context bar in Aero's own solid blue, the blue of its selections:
+       a translucent one was lost on the white and green rows. The mark past
+       80 % is a dark amber, so it does not vanish into an orange blocked row. -->
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#38103050" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#FF0E7AE0" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#B35C00" />
+
+  <!-- The menus are dark glass, for the white text. -->
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#F2101A33" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#0E7AE0" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#40FFFFFF" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#4DB2FF" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#C0D0E0" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#40FFFFFF" />
+
+  <!-- The card under the picture: the picture's own navy at the top running to
+       the dark of its bottom edge, so the gaps a tall card leaves above and
+       below the picture carry on its edges. No white band under the header,
+       where the white text would vanish. The rows keep only a faint sheen,
+       cut off halfway down, so the picture behind them stays clear. -->
+  <LinearGradientBrush x:Key="CardGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#FF0D185A" Offset="0" />
+    <GradientStop Color="#FF1C1B29" Offset="1" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="RowGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#30FFFFFF" Offset="0" />
+    <GradientStop Color="#14FFFFFF" Offset="0.48" />
+    <GradientStop Color="#00FFFFFF" Offset="0.5" />
+    <GradientStop Color="#00FFFFFF" Offset="0.8" />
+    <GradientStop Color="#10FFFFFF" Offset="1" />
+  </LinearGradientBrush>
+
+  <!-- A dark halo behind the white text, so it reads over light and dark
+       parts of the picture alike. -->
+
+  <DropShadowEffect x:Key="TextGlow" Color="#000814" BlurRadius="6" ShadowDepth="0" Opacity="0.9" />
+
+  <FontFamily x:Key="FontClock">Segoe UI</FontFamily>
+
+  <!-- The decoration: the picture alone, behind the header and the rows,
+       always exactly as wide as the card, 380, and centred top to bottom. A
+       short card cuts it off above and below; a tall one leaves a gap above
+       and below, where the card's own colours carry on the picture's edges. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Center" AlignmentY="Center">
+    <DrawingBrush.Drawing>
+      <!-- Read whole when loaded, so the file is let go: held open, it kept
+           git from updating it while the card ran. -->
+      <ImageDrawing Rect="0,0,380,380">
+        <ImageDrawing.ImageSource>
+          <BitmapImage UriSource="Draxon.jpg" CacheOption="OnLoad" />
+        </ImageDrawing.ImageSource>
+      </ImageDrawing>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>

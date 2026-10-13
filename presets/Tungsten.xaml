@@ -89,7 +89,12 @@
   <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
     <DrawingBrush.Drawing>
       <DrawingGroup ClipGeometry="M0,0 H380 V760 H0 Z">
-        <ImageDrawing ImageSource="art/Tungsten.jpg" Rect="-486,0,1352,760" />
+        <!-- Read whole on load, so the card does not hold the file open. -->
+        <ImageDrawing Rect="-486,0,1352,760">
+          <ImageDrawing.ImageSource>
+            <BitmapImage UriSource="art/Tungsten.jpg" CacheOption="OnLoad" />
+          </ImageDrawing.ImageSource>
+        </ImageDrawing>
       </DrawingGroup>
     </DrawingBrush.Drawing>
   </DrawingBrush>
