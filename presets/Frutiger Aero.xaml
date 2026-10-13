@@ -34,15 +34,16 @@
 
   <!-- Every row is sealed like a Windows 7 button: a darker outline in the
        row's own colour and a white highlight line just inside it. The stripe
-       reaches out over both, so it is the row's left side rather than a block
-       framed by them. -->
+       is the row's left side rather than a block framed by them: it covers
+       the inner line where it lies, and reaches out over the outline by its
+       thickness and no further, or it sticks out past the row. -->
   <Thickness x:Key="RowEdgeThickness">1</Thickness>
   <SolidColorBrush x:Key="BrushRowEdge"        Color="#A05F8FBF" />
   <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#FF2A8A14" />
   <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFC06A00" />
   <Thickness x:Key="RowInnerEdgeThickness">1</Thickness>
   <SolidColorBrush x:Key="BrushRowInnerEdge"   Color="#C8FFFFFF" />
-  <Thickness x:Key="StripeMargin">-2,-2,0,-2</Thickness>
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
   <CornerRadius x:Key="StripeCorner">8,0,0,8</CornerRadius>
 
   <SolidColorBrush x:Key="BrushStripeText"  Color="#FFFFFF" />
