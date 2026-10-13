@@ -1,0 +1,269 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Draxon: Frutiger Aero's glass over the Draxon picture. The
+       same glass rows, gloss, double edges and halo as Frutiger Aero, whose
+       values are copied here: a preset builds on Classic only, so a change to
+       Frutiger Aero does not reach this one by itself. The picture is
+       Draxon.jpg, next to this file. -->
+
+  <!-- The card: a third sky blue, so the desktop shows through, a dark blue
+       edge and a white one inside it, which is exactly the double stroke of an
+       Aero window frame. -->
+  <SolidColorBrush x:Key="BrushCard"        Color="#553FA6E0" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#E0145A96" />
+  <SolidColorBrush x:Key="BrushCardInner"   Color="#D0FFFFFF" />
+
+  <SolidColorBrush x:Key="BrushText"        Color="#072642" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#24506F" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#0E8CF0" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#E848C82E" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#F0FF9A1F" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#0E6FE0" />
+
+  <!-- Rows are white glass on the blue, with the state colour as their fill. -->
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#60FFFFFF" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#08300C" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#4A2600" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#1F5A12" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#7A4A10" />
+
+  <!-- Every row is sealed like a Windows 7 button: a darker outline in the
+       row's own colour and a white highlight line just inside it. The stripe
+       is the row's left side rather than a block framed by them: it covers
+       the inner line where it lies, and reaches out over the outline by its
+       thickness and no further, or it sticks out past the row. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#A05F8FBF" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#FF2A8A14" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFC06A00" />
+  <Thickness x:Key="RowInnerEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowInnerEdge"   Color="#C8FFFFFF" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+  <CornerRadius x:Key="StripeCorner">8,0,0,8</CornerRadius>
+
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#4C86C0" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#8E5BD9" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#E0559B" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#12A8C8" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#4C86C0" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#C9A03A" />
+
+  <!-- The context bar in Aero's own solid blue, the blue of its selections:
+       a translucent one was lost on the white and green rows. The mark past
+       80 % is a dark amber, so it does not vanish into an orange blocked row. -->
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#38103050" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#FF0E7AE0" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#B35C00" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#F2EAF6FD" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#6A9CC4" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#CDE6F7" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#1F8FE5" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#3D6585" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#30000000" />
+
+  <!-- The card's colour lives here rather than in BrushCard: sky blue to aqua
+       to green down the card. The white sheen across the top is drawn with
+       the decoration below, in pixels, so it ends where the rows begin at any
+       card height. The rows get their own sheen, cut off halfway down, with
+       light rising again from their bottom edge. -->
+  <LinearGradientBrush x:Key="CardGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#505FC4F5" Offset="0" />
+    <GradientStop Color="#4A3FD0E6" Offset="0.5" />
+    <GradientStop Color="#5868D27A" Offset="0.85" />
+    <GradientStop Color="#9078E070" Offset="1" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="RowGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#C0FFFFFF" Offset="0" />
+    <GradientStop Color="#50FFFFFF" Offset="0.48" />
+    <GradientStop Color="#00FFFFFF" Offset="0.5" />
+    <GradientStop Color="#00FFFFFF" Offset="0.8" />
+    <GradientStop Color="#40FFFFFF" Offset="1" />
+  </LinearGradientBrush>
+
+  <!-- The white halo Vista put behind the text on its glass, and only behind
+       the text: a glow over the whole card haloed the green rows white too. -->
+  <DropShadowEffect x:Key="TextGlow" Color="#FFFFFF" BlurRadius="8" ShadowDepth="0" Opacity="0.85" />
+
+  <FontFamily x:Key="FontClock">Segoe UI</FontFamily>
+
+  <!-- The decoration, in card pixels from the top left corner: the white band
+       behind the header, 52 high so it ends where the rows begin and the
+       header (10 down, 32 high) sits in its middle; glass bubbles along the
+       edges, each a clear disc with a bright rim and a highlight; two swooshes
+       of light across the middle; and a soft glare in the top left corner.
+       Mostly behind the rows; it shows in the gaps between them.
+
+       A drawing is pinned to the card's corner by its top left bound, not by
+       0,0, so the whole thing is clipped to a frame from 0,0. The glare once
+       reached 70 left and 60 up past the corner and so moved everything by
+       that much; the decoration was liked as it looked then, so it keeps that
+       place by an explicit move, and only the band sits where it was meant. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <DrawingGroup ClipGeometry="M0,0 H380 V600 H0 Z">
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,600" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <!-- The picture, wide enough to cover the card with the face in the
+             middle; a card taller than it shows the glass gradient below. At
+             70 % the light glass shows through it, which keeps the group
+             headings readable on its darker parts. -->
+        <DrawingGroup Opacity="0.7">
+          <ImageDrawing ImageSource="Draxon.jpg" Rect="-38,0,456,456" />
+        </DrawingGroup>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,52" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+              <GradientStop Color="#B8FFFFFF" Offset="0" /><GradientStop Color="#48FFFFFF" Offset="1" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <DrawingGroup>
+        <DrawingGroup.Transform><TranslateTransform X="70" Y="60" /></DrawingGroup.Transform>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="335,34" RadiusX="20" RadiusY="20" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="328,25.6" RadiusX="5.6" RadiusY="3.2" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="306,66" RadiusX="9" RadiusY="9" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="302.85,62.22" RadiusX="2.52" RadiusY="1.44" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="360,92" RadiusX="12" RadiusY="12" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="355.8,86.96" RadiusX="3.36" RadiusY="1.92" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="30,392" RadiusX="24" RadiusY="24" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="21.6,381.92" RadiusX="6.72" RadiusY="3.84" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="12,344" RadiusX="10" RadiusY="10" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="8.5,339.8" RadiusX="2.8" RadiusY="1.6" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="362,318" RadiusX="16" RadiusY="16" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="356.4,311.28" RadiusX="4.48" RadiusY="2.56" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Geometry="M0,175 C120,125 250,145 380,75 L380,98 C250,170 120,152 0,205 Z">
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+              <GradientStop Color="#00FFFFFF" Offset="0" /><GradientStop Color="#60FFFFFF" Offset="0.55" /><GradientStop Color="#00FFFFFF" Offset="1" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="250,22" RadiusX="13" RadiusY="13" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="245.45,16.54" RadiusX="3.64" RadiusY="2.08" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="70,360" RadiusX="15" RadiusY="15" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="64.75,353.7" RadiusX="4.2" RadiusY="2.4" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="330,380" RadiusX="30" RadiusY="30" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="319.5,367.4" RadiusX="8.4" RadiusY="4.8" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="24,260" RadiusX="9" RadiusY="9" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush>
+            <RadialGradientBrush GradientOrigin="0.35,0.3">
+              <GradientStop Color="#38FFFFFF" Offset="0" /><GradientStop Color="#0AFFFFFF" Offset="0.65" />
+              <GradientStop Color="#45FFFFFF" Offset="0.9" /><GradientStop Color="#90FFFFFF" Offset="1" />
+            </RadialGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing Brush="#B0FFFFFF">
+          <GeometryDrawing.Geometry><EllipseGeometry Center="20.85,256.22" RadiusX="2.52" RadiusY="1.44" /></GeometryDrawing.Geometry>
+        </GeometryDrawing>
+        <GeometryDrawing Geometry="M0,250 C140,215 240,240 380,180 L380,196 C240,262 140,238 0,272 Z">
+          <GeometryDrawing.Brush>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,0">
+              <GradientStop Color="#00FFFFFF" Offset="0" /><GradientStop Color="#50E8FFD8" Offset="0.55" /><GradientStop Color="#00FFFFFF" Offset="1" />
+            </LinearGradientBrush>
+          </GeometryDrawing.Brush>
+        </GeometryDrawing>
+        <GeometryDrawing>
+          <GeometryDrawing.Geometry><EllipseGeometry Center="40,10" RadiusX="110" RadiusY="70" /></GeometryDrawing.Geometry>
+          <GeometryDrawing.Brush><RadialGradientBrush><GradientStop Color="#70FFFFFF" Offset="0" /><GradientStop Color="#00FFFFFF" Offset="1" /></RadialGradientBrush></GeometryDrawing.Brush>
+        </GeometryDrawing>
+        </DrawingGroup>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>

@@ -1271,11 +1271,16 @@ try { [TlNative]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch
 
 [TlNative]::ShowWindow([TlNative]::GetConsoleWindow(), $SW_HIDE) | Out-Null
 
+# XAML is read from the tool's folder. Each file is read with its own folder as
+# its base, so a preset can name an image that sits next to it.
+$xamlRoot = $PSScriptRoot
 function Import-Xaml {
     param([string]$Name)
-    $path = Join-Path $PSScriptRoot $Name
+    $path = Join-Path $xamlRoot $Name
+    $context = New-Object System.Windows.Markup.ParserContext
+    $context.BaseUri = New-Object System.Uri ((Split-Path $path -Parent) + '\')
     $stream = [System.IO.File]::OpenRead($path)
-    try { return [System.Windows.Markup.XamlReader]::Load($stream) }
+    try { return [System.Windows.Markup.XamlReader]::Load($stream, $context) }
     finally { $stream.Dispose() }
 }
 
