@@ -99,7 +99,13 @@
        and below, where the card's own colours carry on the picture's edges. -->
   <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Center" AlignmentY="Center">
     <DrawingBrush.Drawing>
-      <ImageDrawing ImageSource="Draxon.jpg" Rect="0,0,380,380" />
+      <!-- Read whole when loaded, so the file is let go: held open, it kept
+           git from updating it while the card ran. -->
+      <ImageDrawing Rect="0,0,380,380">
+        <ImageDrawing.ImageSource>
+          <BitmapImage UriSource="Draxon.jpg" CacheOption="OnLoad" />
+        </ImageDrawing.ImageSource>
+      </ImageDrawing>
     </DrawingBrush.Drawing>
   </DrawingBrush>
 </ResourceDictionary>
