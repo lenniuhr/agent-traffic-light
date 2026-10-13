@@ -21,12 +21,12 @@
   <SolidColorBrush x:Key="BrushTextDim"     Color="#E6EEF5" />
 
   <SolidColorBrush x:Key="BrushWorking"     Color="#0E8CF0" />
-  <SolidColorBrush x:Key="BrushWaiting"     Color="#4D48C82E" />
-  <SolidColorBrush x:Key="BrushBlocked"     Color="#4DFF9A1F" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#3348C82E" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#38FF9A1F" />
   <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#0E6FE0" />
 
   <!-- Rows are clear glass over the picture, tinted with the state colour. -->
-  <SolidColorBrush x:Key="BrushRowBase"     Color="#26FFFFFF" />
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#14FFFFFF" />
   <SolidColorBrush x:Key="BrushTextOnWait"  Color="#FFFFFF" />
   <SolidColorBrush x:Key="BrushTextOnBlock" Color="#FFFFFF" />
   <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#E6EEF5" />
@@ -42,7 +42,7 @@
   <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#FF2A8A14" />
   <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFC06A00" />
   <Thickness x:Key="RowInnerEdgeThickness">1</Thickness>
-  <SolidColorBrush x:Key="BrushRowInnerEdge"   Color="#C8FFFFFF" />
+  <SolidColorBrush x:Key="BrushRowInnerEdge"   Color="#60FFFFFF" />
   <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
   <CornerRadius x:Key="StripeCorner">8,0,0,8</CornerRadius>
 
@@ -61,17 +61,19 @@
   <SolidColorBrush x:Key="BrushCtxFill"      Color="#FF0E7AE0" />
   <SolidColorBrush x:Key="BrushCtxHigh"      Color="#B35C00" />
 
-  <SolidColorBrush x:Key="BrushMenu"          Color="#F2EAF6FD" />
-  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#6A9CC4" />
-  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#CDE6F7" />
-  <SolidColorBrush x:Key="BrushMenuTick"      Color="#1F8FE5" />
-  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#3D6585" />
-  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#30000000" />
+  <!-- The menus are dark glass, for the white text. -->
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#F2101A33" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#0E7AE0" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#40FFFFFF" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#4DB2FF" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#C0D0E0" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#40FFFFFF" />
 
   <!-- The glass tint under the picture: sky blue to aqua to green down the
        card. No white band under the header, where the white text would
-       vanish. The rows keep a sheen cut off halfway down, at half Frutiger
-       Aero's strength, so it does not wash the picture out. -->
+       vanish. The rows keep only a faint sheen, cut off halfway down, so the
+       picture behind them stays clear. -->
   <LinearGradientBrush x:Key="CardGloss" StartPoint="0,0" EndPoint="0,1">
     <GradientStop Color="#505FC4F5" Offset="0" />
     <GradientStop Color="#4A3FD0E6" Offset="0.5" />
@@ -79,11 +81,11 @@
     <GradientStop Color="#9078E070" Offset="1" />
   </LinearGradientBrush>
   <LinearGradientBrush x:Key="RowGloss" StartPoint="0,0" EndPoint="0,1">
-    <GradientStop Color="#60FFFFFF" Offset="0" />
-    <GradientStop Color="#28FFFFFF" Offset="0.48" />
+    <GradientStop Color="#30FFFFFF" Offset="0" />
+    <GradientStop Color="#14FFFFFF" Offset="0.48" />
     <GradientStop Color="#00FFFFFF" Offset="0.5" />
     <GradientStop Color="#00FFFFFF" Offset="0.8" />
-    <GradientStop Color="#20FFFFFF" Offset="1" />
+    <GradientStop Color="#10FFFFFF" Offset="1" />
   </LinearGradientBrush>
 
   <!-- A dark halo behind the white text, so it reads over light and dark
@@ -95,14 +97,14 @@
 
   <!-- The decoration: the picture alone, filling the card behind the header
        and the rows, wide enough to cover the card with the face in the
-       middle, at 70 % so the glass tint shows through it. A card taller than
-       it shows the glass gradient below. The frame from 0,0 pins it to the
+       middle, at full strength. A card taller than it shows the glass
+       gradient below. The frame from 0,0 pins it to the
        card's corner. -->
   <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
     <DrawingBrush.Drawing>
       <DrawingGroup ClipGeometry="M0,0 H380 V600 H0 Z">
         <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,600" /></GeometryDrawing.Geometry></GeometryDrawing>
-        <DrawingGroup Opacity="0.7">
+        <DrawingGroup>
           <ImageDrawing ImageSource="Draxon.jpg" Rect="-38,0,456,456" />
         </DrawingGroup>
       </DrawingGroup>
