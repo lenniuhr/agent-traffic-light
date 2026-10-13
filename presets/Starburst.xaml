@@ -46,18 +46,16 @@
     <GradientStop Color="#1F000000" Offset="1" />
   </LinearGradientBrush>
 
-  <!-- Stripes are the navy of the page's bubble wallpaper, each session's
-       pattern on it in highlighter yellow. Workspaces take a homepage icon
-       on their heading; the model's name shows on hovering the stripe. -->
-  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#000080" />
-  <SolidColorBrush x:Key="BrushWs0"         Color="#000080" />
-  <SolidColorBrush x:Key="BrushWs1"         Color="#000080" />
-  <SolidColorBrush x:Key="BrushWs2"         Color="#000080" />
-  <SolidColorBrush x:Key="BrushWs3"         Color="#000080" />
+  <!-- Stripes in the loudest colours a 1999 page owned, one per workspace,
+       with the model's name on them in Comic Sans. Workspaces take a
+       homepage icon on their heading. -->
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#000000" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#00FFFF" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#FF00FF" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#00FFFF" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#FF8000" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#C080FF" />
   <sys:String x:Key="WorkspaceIcons">&#x2605; &#x2709; &#x263A; &#x266B; &#x273F; &#x263C; &#x260E; &#x2708; &#x2665; &#x272A;</sys:String>
-  <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
-  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker</sys:String>
-  <SolidColorBrush x:Key="BrushStripePattern" Color="#FFFF00" />
 
   <!-- Unity editors in link blue with a window, a visited-link lavender
        headless, the light version of the same editor. -->

@@ -50,18 +50,16 @@
     <GradientStop Color="#00FFFFFF" Offset="0.72" />
   </LinearGradientBrush>
 
-  <!-- Stripes are the fader slots, a dark warm grey, with each session's
-       pattern engraved on them in the cap's cream. Workspaces take an icon on
-       their heading; the model's name shows on hovering the stripe. -->
-  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#625948" />
-  <SolidColorBrush x:Key="BrushWs0"         Color="#625948" />
-  <SolidColorBrush x:Key="BrushWs1"         Color="#625948" />
-  <SolidColorBrush x:Key="BrushWs2"         Color="#625948" />
-  <SolidColorBrush x:Key="BrushWs3"         Color="#625948" />
-  <sys:String x:Key="WorkspaceIcons">&#x2699; &#x2B22; &#x271A; &#x25C6; &#x25B2; &#x2316; &#x2731; &#x2691; &#x2708; &#x2693;</sys:String>
-  <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
-  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker</sys:String>
-  <SolidColorBrush x:Key="BrushStripePattern" Color="#D9E6E1D4" />
+  <!-- Stripes are the coloured fader caps a desk gives each group of
+       channels, one per workspace, matching the swatch on its heading, with
+       the model's name engraved on them. None is green, amber or the lamp's
+       orange, which mean a state or the dot. -->
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#1C1811" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#B5AC97" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#7F93A8" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#EDE6D3" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#8FA7A1" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#A39A86" />
 
   <!-- Unity editors on the orange lamp with a window, a pale tint of it
        headless, the light version of the same editor. -->

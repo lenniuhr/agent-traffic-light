@@ -80,14 +80,16 @@ black, each session prints a white pattern of its own on its stripe, so it can b
 glance, and the model's name shows on hovering the stripe; Unity editors are green, pale when
 headless.
 
-Five more come from the themes of the Nightjar audio studio and share Caterpillar's stripes,
-patterns and heading icons, each in its own inks: Emulsion, a two colour print in key black and
+Five more come from the themes of the Nightjar audio studio. Two of them share Caterpillar's
+stripes, patterns and heading icons in their own inks: Emulsion, a two colour print in key black and
 fluorescent pink on lilac stock, with a hard pink offset for a shadow and registration crosses down
-the margins, where finished is the pink plate rather than green; Office, a 1970s mixing desk in
-warm aluminium with lit push buttons and an orange lamp for the dot; Blueprint, a cyanotype on
-ruled paper with every row drawn as an outline in its state's colour; Starburst, a 1999 homepage in
-Windows 98 grey with bevelled rows, Comic Sans, an Impact clock and a rainbow under the title bar;
-and Tungsten, the game's main menu render behind smoked panes, with white hairlines and a serif.
+the margins, where finished is the pink plate rather than green; and Blueprint, a cyanotype on ruled
+paper with every row drawn as an outline in its state's colour. The other three colour their
+stripes by workspace and keep the model's name on them: Office, a 1970s mixing desk in warm
+aluminium with lit push buttons, fader cap stripes and an orange lamp for the dot; Starburst, a
+1999 homepage in Windows 98 grey with bevelled rows, loud web colours, homepage icons, Comic Sans,
+an Impact clock and a rainbow under the title bar; and Tungsten, the game's main menu render
+behind smoked panes, with white hairlines, grey stripes and a serif.
 
 Frutiger Aero costs noticeably more CPU than the others, for the halo on every text.
 Each style is a file in `presets\`, and a picture a style draws, such as Tungsten's backdrop, sits

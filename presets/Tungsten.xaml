@@ -37,18 +37,15 @@
   <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#AC8A2A" />
   <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
 
-  <!-- Stripes are black, each session's pattern on them in the game's white.
-       Workspaces take an icon on their heading; the model's name shows on
-       hovering the stripe. -->
-  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#000000" />
-  <SolidColorBrush x:Key="BrushWs0"         Color="#000000" />
-  <SolidColorBrush x:Key="BrushWs1"         Color="#000000" />
-  <SolidColorBrush x:Key="BrushWs2"         Color="#000000" />
-  <SolidColorBrush x:Key="BrushWs3"         Color="#000000" />
-  <sys:String x:Key="WorkspaceIcons">&#x2699; &#x2B22; &#x271A; &#x25C6; &#x25B2; &#x2316; &#x2731; &#x2691; &#x2708; &#x2693;</sys:String>
-  <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
-  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker</sys:String>
-  <SolidColorBrush x:Key="BrushStripePattern" Color="#E6FFFFFF" />
+  <!-- The game invents nothing, so the stripes are its own greys, white to
+       dark, one per workspace and matching the swatch on its heading, with
+       the model's name in black. -->
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#0C0C0C" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#BCBCBC" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#BCBCBC" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#8F8F8F" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#767676" />
 
   <!-- Unity editors in the game's white with a window, its grey headless,
        the light version of the same editor. -->
