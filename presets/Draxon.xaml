@@ -10,10 +10,9 @@
        dark halo, which reads over the picture where dark text could not. The
        picture is Draxon.jpg, next to this file. -->
 
-  <!-- The card: a third sky blue, so the desktop shows through, a dark blue
-       edge and a white one inside it, which is exactly the double stroke of an
-       Aero window frame. -->
-  <SolidColorBrush x:Key="BrushCard"        Color="#553FA6E0" />
+  <!-- The card: the picture's navy, a dark blue edge and a white one inside
+       it, which is exactly the double stroke of an Aero window frame. -->
+  <SolidColorBrush x:Key="BrushCard"        Color="#0D185A" />
   <SolidColorBrush x:Key="BrushCardEdge"    Color="#E0145A96" />
   <SolidColorBrush x:Key="BrushCardInner"   Color="#D0FFFFFF" />
 
@@ -70,15 +69,14 @@
   <SolidColorBrush x:Key="BrushMenuArrow"     Color="#C0D0E0" />
   <SolidColorBrush x:Key="BrushMenuSeparator" Color="#40FFFFFF" />
 
-  <!-- The glass tint under the picture: sky blue to aqua to green down the
-       card. No white band under the header, where the white text would
-       vanish. The rows keep only a faint sheen, cut off halfway down, so the
-       picture behind them stays clear. -->
+  <!-- The card under the picture: the picture's own navy at the top running to
+       the dark of its bottom edge, so the gaps a tall card leaves above and
+       below the picture carry on its edges. No white band under the header,
+       where the white text would vanish. The rows keep only a faint sheen,
+       cut off halfway down, so the picture behind them stays clear. -->
   <LinearGradientBrush x:Key="CardGloss" StartPoint="0,0" EndPoint="0,1">
-    <GradientStop Color="#505FC4F5" Offset="0" />
-    <GradientStop Color="#4A3FD0E6" Offset="0.5" />
-    <GradientStop Color="#5868D27A" Offset="0.85" />
-    <GradientStop Color="#9078E070" Offset="1" />
+    <GradientStop Color="#FF0D185A" Offset="0" />
+    <GradientStop Color="#FF1C1B29" Offset="1" />
   </LinearGradientBrush>
   <LinearGradientBrush x:Key="RowGloss" StartPoint="0,0" EndPoint="0,1">
     <GradientStop Color="#30FFFFFF" Offset="0" />
@@ -95,19 +93,13 @@
 
   <FontFamily x:Key="FontClock">Segoe UI</FontFamily>
 
-  <!-- The decoration: the picture alone, filling the card behind the header
-       and the rows, wide enough to cover the card with the face in the
-       middle, at full strength. A card taller than it shows the glass
-       gradient below. The frame from 0,0 pins it to the
-       card's corner. -->
-  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+  <!-- The decoration: the picture alone, behind the header and the rows,
+       always exactly as wide as the card, 380, and centred top to bottom. A
+       short card cuts it off above and below; a tall one leaves a gap above
+       and below, where the card's own colours carry on the picture's edges. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Center" AlignmentY="Center">
     <DrawingBrush.Drawing>
-      <DrawingGroup ClipGeometry="M0,0 H380 V600 H0 Z">
-        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,600" /></GeometryDrawing.Geometry></GeometryDrawing>
-        <DrawingGroup>
-          <ImageDrawing ImageSource="Draxon.jpg" Rect="-38,0,456,456" />
-        </DrawingGroup>
-      </DrawingGroup>
+      <ImageDrawing ImageSource="Draxon.jpg" Rect="0,0,380,380" />
     </DrawingBrush.Drawing>
   </DrawingBrush>
 </ResourceDictionary>
