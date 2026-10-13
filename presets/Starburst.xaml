@@ -87,12 +87,24 @@
   <DropShadowEffect x:Key="CardShadow" Color="#000000" BlurRadius="0" ShadowDepth="3" Opacity="0.6" Direction="315" />
   <DropShadowEffect x:Key="MenuShadow" Color="#000000" BlurRadius="0" ShadowDepth="2" Opacity="0.6" Direction="315" />
 
+  <!-- As many faces as a 1999 page could fit: Comic Sans for the words, a
+       shaded WordArt display face for the clock, a script for the two lines
+       beside it, comic book capitals for the headings and a terminal face for
+       the timers, the last four free fonts in presets\fonts\. -->
   <FontFamily x:Key="FontText">Comic Sans MS</FontFamily>
-  <FontFamily x:Key="FontClock">Impact, Arial Black</FontFamily>
+  <FontFamily x:Key="FontClock">fonts/#Bungee Shade, Impact</FontFamily>
+  <FontFamily x:Key="FontCaption">fonts/#Lobster, Comic Sans MS</FontFamily>
+  <FontFamily x:Key="FontHeader">fonts/#Bangers, Impact</FontFamily>
+  <FontFamily x:Key="FontTimer">fonts/#VT323, Courier New</FontFamily>
   <FontWeight x:Key="LabelWeight">Normal</FontWeight>
   <sys:Double x:Key="SizeLabel">14</sys:Double>
   <sys:Double x:Key="SizeLabelWithDetail">12</sys:Double>
-  <GridLength x:Key="TimerWidth">66</GridLength>
+  <sys:Double x:Key="SizeClock">24</sys:Double>
+  <sys:Double x:Key="SizeClockCaption">13</sys:Double>
+  <sys:Double x:Key="SizeHeader">14</sys:Double>
+  <sys:Double x:Key="SizeTimer">17</sys:Double>
+  <sys:Double x:Key="HeaderHeight">24</sys:Double>
+  <GridLength x:Key="TimerWidth">70</GridLength>
 
   <!-- The active title bar of Windows 98, navy into blue, and the page's
        rainbow rule under it. -->

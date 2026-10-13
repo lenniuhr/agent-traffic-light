@@ -1313,6 +1313,11 @@ function Import-Preset {
             throw "presets\$Name.xaml sets $key to something other than a $($want.Name)"
         }
     }
+    # The faces split out of FontText and FontClock follow them in a preset
+    # that does not set them itself, so it looks as it did before the split.
+    foreach ($pair in @(@('FontHeader', 'FontText'), @('FontTimer', 'FontText'), @('FontCaption', 'FontClock'))) {
+        if (-not $dict.Contains($pair[0]) -and $dict.Contains($pair[1])) { $dict[$pair[0]] = $dict[$pair[1]] }
+    }
     return $dict
 }
 

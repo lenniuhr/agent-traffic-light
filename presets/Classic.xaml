@@ -219,6 +219,15 @@
        digits so it does not shift sideways as it counts. -->
   <FontFamily x:Key="FontText">Segoe UI</FontFamily>
   <FontFamily x:Key="FontClock">Bahnschrift</FontFamily>
+
+  <!-- Faces of their own for the group headings, the timers and the two lines
+       beside the clock, for a preset that wants more faces than two. A preset
+       that leaves them out gets its own FontText for the headings and timers
+       and its own FontClock for the two lines, as before these keys. A face
+       can also come from presets\fonts\ by a relative path, fonts/#Name. -->
+  <FontFamily x:Key="FontHeader">Segoe UI</FontFamily>
+  <FontFamily x:Key="FontTimer">Segoe UI</FontFamily>
+  <FontFamily x:Key="FontCaption">Bahnschrift</FontFamily>
   <FontWeight x:Key="LabelWeight">SemiBold</FontWeight>
 
   <!-- With Marshal's detail line showing, the label takes the Unity row's

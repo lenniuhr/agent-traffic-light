@@ -29,7 +29,7 @@
                  Effect="{DynamicResource TextGlow}"
                Margin="8,0,0,0"
                VerticalAlignment="Center"
-               FontFamily="{DynamicResource FontText}"
+               FontFamily="{DynamicResource FontHeader}"
                FontSize="{DynamicResource SizeHeader}"
                FontWeight="SemiBold"
                Foreground="{DynamicResource BrushTextDim}"

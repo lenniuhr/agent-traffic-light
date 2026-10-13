@@ -87,13 +87,15 @@ the margins, where finished is the pink plate rather than green; and Blueprint, 
 paper with every row drawn as an outline in its state's colour. The other three colour their
 stripes by workspace and keep the model's name on them: Office, a 1970s mixing desk in warm
 aluminium with lit push buttons, fader cap stripes and an orange lamp for the dot; Starburst, a
-1999 homepage in Windows 98 grey with bevelled rows, loud web colours, homepage icons, Comic Sans,
-an Impact clock and a rainbow under the title bar; and Tungsten, the game's main menu render
-behind smoked panes, with white hairlines, grey stripes and a serif.
+1999 homepage in Windows 98 grey with bevelled rows, loud web colours, homepage icons, a rainbow
+under the title bar and five clashing faces: Comic Sans, a shaded WordArt clock, a script, comic
+book capitals and a terminal face; and Tungsten, the game's main menu render behind smoked panes,
+in black and white only, with white hairlines, grey stripes, a serif, and blocked rows in photo
+negative.
 
 Frutiger Aero costs noticeably more CPU than the others, for the halo on every text.
-Each style is a file in `presets\`, and a picture a style draws, such as Tungsten's backdrop, sits
-in `presets\art\`. Classic holds every colour, size, corner, outline, font and
+Each style is a file in `presets\`, a picture a style draws, such as Tungsten's backdrop, sits
+in `presets\art\`, and a free font a style uses sits in `presets\fonts\` with its licence. Classic holds every colour, size, corner, outline, font and
 shadow the card uses; any other preset holds only what it changes and is laid over Classic, so a new
 one starts as a copy of Terminal with its values changed. Whatever the style, the colours keep their
 meaning, except where a style says otherwise.

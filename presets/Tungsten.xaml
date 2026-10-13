@@ -8,9 +8,11 @@
        corners and a serif, from the game's UI style guide. Only what differs
        from Classic is here.
 
-       The colours keep their meaning in the game's own muted palette: its
-       green for finished, its amber for blocked. The "wants you" dot is the
-       game's white, since it has no blue. There is no red. -->
+       Black and white only, like the game, so a row gets louder the more it
+       needs you instead of changing colour: a smoked pane while working, a
+       lit pane in a full white hairline when finished, and the game's photo
+       negative, white with black type, when blocked. The "wants you" dot is
+       white, and black on the negative. -->
 
   <SolidColorBrush x:Key="BrushCard"        Color="#050506" />
   <SolidColorBrush x:Key="BrushCardEdge"    Color="#2EFFFFFF" />
@@ -20,21 +22,21 @@
   <SolidColorBrush x:Key="BrushTextDim"     Color="#BCBCBC" />
 
   <SolidColorBrush x:Key="BrushWorking"     Color="#FFFFFF" />
-  <SolidColorBrush x:Key="BrushWaiting"     Color="#B82F6B52" />
-  <SolidColorBrush x:Key="BrushBlocked"     Color="#CC3A2F0E" />
-  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#3DFFFFFF" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#F2FFFFFF" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#0C0C0C" />
 
   <SolidColorBrush x:Key="BrushRowBase"     Color="#B8060607" />
   <SolidColorBrush x:Key="BrushTextOnWait"  Color="#FFFFFF" />
-  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#E3C26A" />
-  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#83C9A8" />
-  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#C2A659" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#0C0C0C" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#D8D8D8" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#3A3A3A" />
 
-  <!-- White hairlines, firmer round what wants you. -->
+  <!-- White hairlines, at full strength round what wants you. -->
   <Thickness x:Key="RowEdgeThickness">1</Thickness>
   <SolidColorBrush x:Key="BrushRowEdge"        Color="#2EFFFFFF" />
-  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#38725A" />
-  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#AC8A2A" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFFFFF" />
   <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
 
   <!-- The game invents nothing, so the stripes are its own greys, white to
@@ -54,7 +56,7 @@
 
   <SolidColorBrush x:Key="BrushCtxTrack"     Color="#2EFFFFFF" />
   <SolidColorBrush x:Key="BrushCtxFill"      Color="#99FFFFFF" />
-  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#E3C26A" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#FFFFFF" />
 
   <SolidColorBrush x:Key="BrushMenu"          Color="#0E0E10" />
   <SolidColorBrush x:Key="BrushMenuEdge"      Color="#8CFFFFFF" />
