@@ -1313,13 +1313,13 @@ try { [TlNative]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch
 
 [TlNative]::ShowWindow([TlNative]::GetConsoleWindow(), $SW_HIDE) | Out-Null
 
-# XAML is read from the tool's folder. Each file is read with its own folder as
-# its base, so a preset can name an image or a font by a path relative to it,
-# such as presets\art\ and presets\fonts\.
+# XAML is read from the tool's folder, or from another root given. Each file is
+# read with its own folder as its base, so a preset can name an image or a font
+# by a path relative to it, such as art\ and fonts\.
 $xamlRoot = $PSScriptRoot
 function Import-Xaml {
-    param([string]$Name)
-    $path = Join-Path $xamlRoot $Name
+    param([string]$Name, [string]$Root = $xamlRoot)
+    $path = Join-Path $Root $Name
     $context = New-Object System.Windows.Markup.ParserContext
     $context.BaseUri = New-Object System.Uri ((Split-Path $path -Parent) + '\')
     $stream = [System.IO.File]::OpenRead($path)
@@ -1334,6 +1334,41 @@ $window    = Import-Xaml 'AgentTrafficLight.xaml'
 # find them.
 $presetDir = Join-Path $PSScriptRoot 'presets'
 
+# Presets are loaded from a copy of the presets folder the card keeps for
+# itself, never from the folder in the repository. A font in use is read from
+# its file again whenever Windows rebuilds it, minutes after it was first drawn,
+# and a pull, merge or branch switch rewrites the repository's files, if only
+# with a new time: the next rebuild then found no file it knew, and the card
+# fell over in the middle of drawing, with nothing to catch. Git never touches
+# the copy.
+#
+# The copy is named by what the folder holds, its files' paths, sizes and
+# times, so a style switch after a change in the repository takes a new copy
+# and sees the change, and an unchanged folder is not copied again. Earlier
+# copies stay, since fonts already loaded may still read from them, until the
+# card next starts.
+$snapshotRoot = Join-Path $env:LOCALAPPDATA 'AgentTrafficLight\presets'
+Get-ChildItem $snapshotRoot -Directory -ErrorAction SilentlyContinue |
+    ForEach-Object { Remove-Item $_.FullName -Recurse -Force -ErrorAction SilentlyContinue }
+
+function Get-PresetSnapshot {
+    $files = @(Get-ChildItem $presetDir -Recurse -File | Sort-Object FullName | ForEach-Object {
+        '{0}|{1}|{2}' -f $_.FullName.Substring($presetDir.Length), $_.Length, $_.LastWriteTimeUtc.Ticks })
+    $sha = [System.Security.Cryptography.SHA1]::Create()
+    $hash = $sha.ComputeHash([System.Text.Encoding]::UTF8.GetBytes(($files -join "`n")))
+    $name = (($hash[0..5] | ForEach-Object { $_.ToString('x2') }) -join '')
+    $dir = Join-Path $snapshotRoot $name
+    if (-not (Test-Path $dir)) {
+        # Copied under another name first, so a copy cut short is never used.
+        $partial = "$dir.partial"
+        Remove-Item $partial -Recurse -Force -ErrorAction SilentlyContinue
+        New-Item -ItemType Directory -Force $partial | Out-Null
+        Copy-Item (Join-Path $presetDir '*') $partial -Recurse -Force
+        Rename-Item $partial $name
+    }
+    return $dir
+}
+
 # The chosen preset's dictionary, or null for Classic, which is the base and
 # needs no second layer. Throws if the file is missing or is not a preset, so
 # the caller decides what a failure means.
@@ -1346,7 +1381,7 @@ $presetDir = Join-Path $PSScriptRoot 'presets'
 function Import-Preset {
     param([string]$Name)
     if ($Name -eq 'Classic') { return $null }
-    $dict = Import-Xaml (Join-Path 'presets' "$Name.xaml")
+    $dict = Import-Xaml -Name "$Name.xaml" -Root (Get-PresetSnapshot)
     if (-not ($dict -is [System.Windows.ResourceDictionary])) { throw "presets\$Name.xaml is not a ResourceDictionary" }
     $classic = $window.Resources.MergedDictionaries[0]
     foreach ($key in @($dict.Keys)) {
@@ -1382,7 +1417,7 @@ function Get-PresetNames {
     return @('Classic') + $others
 }
 
-[void]$window.Resources.MergedDictionaries.Add((Import-Xaml 'presets\Classic.xaml'))
+[void]$window.Resources.MergedDictionaries.Add((Import-Xaml -Name 'Classic.xaml' -Root (Get-PresetSnapshot)))
 $script:preset = 'Classic'
 try {
     Use-PresetLayer -Dict (Import-Preset -Name $script:settings.Preset)
