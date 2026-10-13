@@ -81,12 +81,12 @@
   <sys:Double x:Key="SizeLabel">13</sys:Double>
   <sys:Double x:Key="SizeLabelWithDetail">12</sys:Double>
   <sys:Double x:Key="SizeClock">22</sys:Double>
-  <sys:Double x:Key="SizeClockCaption">10</sys:Double>
+  <sys:Double x:Key="SizeClockCaption">12</sys:Double>
 
   <!-- Terminal's density: monospaced figures need the wider timer column, and
        rows under 36 put the context bar against the label's descenders. -->
   <sys:Double x:Key="RowHeight">36</sys:Double>
-  <sys:Double x:Key="RowGap">2</sys:Double>
+  <sys:Double x:Key="RowGap">4</sys:Double>
   <sys:Double x:Key="CardPadding">8</sys:Double>
   <GridLength x:Key="TimerWidth">68</GridLength>
 </ResourceDictionary>

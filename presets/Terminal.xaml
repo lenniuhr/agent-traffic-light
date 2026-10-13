@@ -65,7 +65,7 @@
   <sys:Double x:Key="SizeLabel">13</sys:Double>
   <sys:Double x:Key="SizeLabelWithDetail">12</sys:Double>
   <sys:Double x:Key="SizeClock">22</sys:Double>
-  <sys:Double x:Key="SizeClockCaption">10</sys:Double>
+  <sys:Double x:Key="SizeClockCaption">12</sys:Double>
 
   <!-- Monospaced figures are wider: in Classic's column "at 11:33" overran
        to the left and slid under the sound note. -->
@@ -75,6 +75,6 @@
        when the style changes. Not lower than 36: at 32 the context bar sat
        against the descenders of the label. -->
   <sys:Double x:Key="RowHeight">36</sys:Double>
-  <sys:Double x:Key="RowGap">2</sys:Double>
+  <sys:Double x:Key="RowGap">4</sys:Double>
   <sys:Double x:Key="CardPadding">8</sys:Double>
 </ResourceDictionary>
