@@ -57,9 +57,12 @@
   <SolidColorBrush x:Key="BrushWs3"         Color="#4C86C0" />
   <SolidColorBrush x:Key="BrushHeadless"    Color="#C9A03A" />
 
-  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#26103050" />
-  <SolidColorBrush x:Key="BrushCtxFill"      Color="#8C1F6FB0" />
-  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#E08A00" />
+  <!-- The context bar in Aero's own solid blue, the blue of its selections:
+       a translucent one was lost on the white and green rows. The mark past
+       80 % is a dark amber, so it does not vanish into an orange blocked row. -->
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#38103050" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#FF0E7AE0" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#B35C00" />
 
   <SolidColorBrush x:Key="BrushMenu"          Color="#F2EAF6FD" />
   <SolidColorBrush x:Key="BrushMenuEdge"      Color="#6A9CC4" />
