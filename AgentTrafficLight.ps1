@@ -1237,9 +1237,11 @@ $menuButton    = $window.FindName('MenuButton')
 # presets. Run at start and after every switch of preset; everything bound in
 # the templates follows a switch by itself, these do not.
 #
-# The card's width follows the rows: a row, its padding either side, and the
-# shadow's room round the card. The context bar starts after the stripe and
-# stops short of the timer's margin, 30 in all.
+# The card's width follows the rows: a row, its padding either side, the
+# card's two border lines either side, and the shadow's room round the card.
+# Leaving the border lines out took them off the padding on the right and at
+# the bottom, which then sat narrower than on the left. The context bar starts
+# after the stripe and stops short of the timer's margin, 30 in all.
 function Read-StyleValues {
     $script:brush = @{
         Working        = $window.FindResource('BrushWorking')
@@ -1273,7 +1275,11 @@ function Read-StyleValues {
     $script:groupGap     = [double]$window.FindResource('GroupGap')
     $script:cardPadding  = [double]$window.FindResource('CardPadding')
     $rowWidth            = [double]$window.FindResource('RowWidth')
-    $script:cardWidth    = $rowWidth + 2 * $script:cardPadding
+    $edge  = $window.FindResource('CardEdgeThickness')
+    $inner = $window.FindResource('CardInnerThickness')
+    $script:cardBorder   = New-Object System.Windows.Thickness(($edge.Left + $inner.Left), ($edge.Top + $inner.Top),
+                                                               ($edge.Right + $inner.Right), ($edge.Bottom + $inner.Bottom))
+    $script:cardWidth    = $rowWidth + 2 * $script:cardPadding + $script:cardBorder.Left + $script:cardBorder.Right
     $script:ctxBarWidth  = $rowWidth - 30
     $window.Width = $script:cardWidth + 2 * $shadowMargin
     $rowCanvas.Margin = New-Object System.Windows.Thickness($script:cardPadding, $script:cardPadding, $script:cardPadding, 0)
@@ -2693,6 +2699,17 @@ function Update-Card {
 # Places every row and heading, fills the stripes and bars, and sizes the window
 # to fit. Split out of the poll so a drag can re-lay the card the moment a row
 # changes slot instead of waiting for the next poll.
+# The window's height for this much content: the rows, their padding above
+# and below, the warning line when it shows, the clock above them, the card's
+# border lines top and bottom, and the shadow's room round the card.
+function Get-CardHeight {
+    param([double]$ContentHeight)
+    $body = $ContentHeight + $script:cardPadding * 2 + $script:cardBorder.Top + $script:cardBorder.Bottom
+    if ($warnText.Visibility -eq 'Visible') { $body += 20 }
+    $body += $workClock.Height + $workClock.Margin.Top
+    return $body + $shadowMargin * 2
+}
+
 function Update-Layout {
     $ordered = @($rows.Values)
 
@@ -2849,10 +2866,7 @@ function Update-Layout {
     } else {
         $contentHeight = $rowHeight
     }
-    $bodyHeight = $contentHeight + $cardPadding * 2
-    if ($warnText.Visibility -eq 'Visible') { $bodyHeight += 20 }
-    $bodyHeight += $workClock.Height + $workClock.Margin.Top
-    $window.Height = $bodyHeight + $shadowMargin * 2
+    $window.Height = Get-CardHeight -ContentHeight $contentHeight
 }
 
 function Sweep-Windows {
