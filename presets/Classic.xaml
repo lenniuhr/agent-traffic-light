@@ -87,6 +87,11 @@
   <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="Transparent" />
   <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="Transparent" />
 
+  <!-- The "wants you" dot on a blocked row. Elsewhere it is the working blue;
+       a preset that fills a blocked row with that same colour sets this so the
+       dot does not vanish into the fill. -->
+  <SolidColorBrush x:Key="BrushDotOnBlock"     Color="#4C9BE8" />
+
   <!-- The card's menus. The text and the caption take BrushText and
        BrushTextDim; these are the menu's own surface. The tick is the working
        blue, the one accent the card uses. -->
@@ -121,6 +126,12 @@
        shadow's room, so it stays either way. -->
   <DropShadowEffect x:Key="CardShadow" Color="#000000" BlurRadius="20" ShadowDepth="2" Opacity="0.35" Direction="270" />
   <DropShadowEffect x:Key="MenuShadow" Color="#000000" BlurRadius="14" ShadowDepth="3" Opacity="0.45" Direction="270" />
+
+  <!-- A glow round everything drawn on the card: text, outlines and filled
+       rows, but not the card's own background. None here. It traces whatever
+       is opaque, so a preset that glows leaves its rows unfilled where the
+       text is meant to glow. -->
+  <DropShadowEffect x:Key="ContentGlow" Color="#000000" BlurRadius="0" ShadowDepth="0" Opacity="0" />
 
   <!-- Type. Sentence case, never caps, in the rows: word shape is what you
        actually read at a glance. The clock has a face of its own, with tabular

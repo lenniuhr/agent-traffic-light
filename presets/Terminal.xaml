@@ -31,6 +31,7 @@
   <SolidColorBrush x:Key="BrushRowEdge"        Color="#2A2A2A" />
   <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#16C60C" />
   <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#C19C00" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"     Color="#3B78FF" />
 
   <!-- Workspace hues from the terminal palette, leaving out its blue, green
        and yellow, which mean a state here. -->

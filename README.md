@@ -67,7 +67,10 @@ including those already open; a session with Off or a sound of its own keeps it.
 The three bars left of the session clock open the card's settings, saved in `state\settings.json`.
 
 Under Style the settings pick the card's look, applied on the spot: Classic, the card as described
-here, or Terminal, square, flat and monospaced, with denser rows drawn as boxes in the state's colour.
+here; Terminal, square, flat and monospaced, with denser rows drawn as boxes in the state's colour; or
+Phosphor, a glowing green monochrome screen where, with one colour to work with, a row gets louder
+the more it needs you: plain text while working, a bright box when finished, inverse video when
+blocked.
 Each style is a file in `presets\`. Classic holds every colour, size, corner, outline, font and
 shadow the card uses; any other preset holds only what it changes and is laid over Classic, so a new
 one starts as a copy of Terminal with its values changed. Whatever the style, the colours keep their

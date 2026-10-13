@@ -1247,6 +1247,7 @@ function Read-StyleValues {
         RowEdge        = $window.FindResource('BrushRowEdge')
         RowEdgeOnWait  = $window.FindResource('BrushRowEdgeOnWait')
         RowEdgeOnBlock = $window.FindResource('BrushRowEdgeOnBlock')
+        DotOnBlock     = $window.FindResource('BrushDotOnBlock')
         Text           = $window.FindResource('BrushText')
         TextDim        = $window.FindResource('BrushTextDim')
         TextOnWait     = $window.FindResource('BrushTextOnWait')
@@ -1641,6 +1642,9 @@ function Set-RowLook {
             $Rec.Bg.Opacity           = 1.0
         }
     }
+    # The dot shows on finished and blocked rows. A preset may fill a blocked
+    # row with the dot's own colour, so that row gets a dot of its own.
+    $Rec.Dot.Fill = $(if ($Rec.State -eq 'Blocked') { $brush.DotOnBlock } else { $brush.Working })
     # The note takes the timer's colour, which each state already picks to read
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
