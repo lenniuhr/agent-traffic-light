@@ -133,6 +133,17 @@
        text is meant to glow. -->
   <DropShadowEffect x:Key="ContentGlow" Color="#000000" BlurRadius="0" ShadowDepth="0" Opacity="0" />
 
+  <!-- A sheen laid over the card and over every row, under their text: the
+       gloss of a glass look. None here. Gradients, so a preset can light the
+       top and let it fall away; a row's state colour stays its fill
+       underneath, which is what the script animates. -->
+  <LinearGradientBrush x:Key="CardGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#00FFFFFF" Offset="0" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="RowGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#00FFFFFF" Offset="0" />
+  </LinearGradientBrush>
+
   <!-- Type. Sentence case, never caps, in the rows: word shape is what you
        actually read at a glance. The clock has a face of its own, with tabular
        digits so it does not shift sideways as it counts. -->

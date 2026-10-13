@@ -17,6 +17,12 @@
       <ColumnDefinition Width="{DynamicResource TimerWidth}" />
     </Grid.ColumnDefinitions>
 
+    <!-- The preset's sheen over the row's fill, under its text and stripe. -->
+    <Border Grid.ColumnSpan="5"
+            CornerRadius="{DynamicResource RowCorner}"
+            Background="{DynamicResource RowGloss}"
+            IsHitTestVisible="False" />
+
     <!-- The stripe does two jobs: it carries the workspace colour when more than
          one is open, and it holds the model name, turned on its side.
 

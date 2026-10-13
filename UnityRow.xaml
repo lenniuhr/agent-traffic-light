@@ -14,6 +14,12 @@
       <ColumnDefinition Width="72" />
     </Grid.ColumnDefinitions>
 
+    <!-- The preset's sheen over the row, as on an agent row. -->
+    <Border Grid.ColumnSpan="3"
+            CornerRadius="{DynamicResource RowCorner}"
+            Background="{DynamicResource RowGloss}"
+            IsHitTestVisible="False" />
+
     <!-- Same shape and place as an agent row's stripe, so the group reads as part
          of the same card. Its colour says headless or not: a headless editor is
          the one with no window to find, which is why this group exists. -->

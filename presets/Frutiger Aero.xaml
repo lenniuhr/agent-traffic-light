@@ -1,0 +1,80 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Frutiger Aero, the glossy optimism of Windows Vista and 7: light sky-blue
+       glass, a bright sheen cut off halfway down every surface, fresh green,
+       white halos behind the text. Only what differs from Classic is here.
+
+       The glass is tinted, not blurred: Windows only blurs behind a window as
+       frosted acrylic, which also breaks this card's transparent corners. A
+       light tint keeps the desktop showing through, and the gloss and the
+       double edge do what made Aero look like glass. -->
+
+  <!-- The card: translucent sky blue, a dark blue edge and a white one inside
+       it, which is exactly the double stroke of an Aero window frame. -->
+  <SolidColorBrush x:Key="BrushCard"        Color="#B8CFE8F7" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#D01C4A73" />
+  <SolidColorBrush x:Key="BrushCardInner"   Color="#C0FFFFFF" />
+
+  <SolidColorBrush x:Key="BrushText"        Color="#0B2B4A" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#3D6585" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#1F8FE5" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#E05BC236" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#E8FFA42E" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#1F6FE5" />
+
+  <!-- Rows are white glass on the blue, with the state colour as their fill. -->
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#70FFFFFF" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#0E3311" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#4A2600" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#2D5E22" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#7A4A10" />
+
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#B0FFFFFF" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#FF3E8E22" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#FFC77A00" />
+
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#5C8FB8" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#8E5BD9" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#E0559B" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#1FA5B8" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#5C8FB8" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#C9A03A" />
+
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#26103050" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#8C1F6FB0" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#E08A00" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#F2EAF6FD" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#6A9CC4" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#CDE6F7" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#1F8FE5" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#3D6585" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#30000000" />
+
+  <!-- The gloss: bright at the top, cut off sharply halfway down, with a
+       faint light rising again from the bottom edge. -->
+  <LinearGradientBrush x:Key="CardGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#90FFFFFF" Offset="0" />
+    <GradientStop Color="#28FFFFFF" Offset="0.11" />
+    <GradientStop Color="#00FFFFFF" Offset="0.12" />
+    <GradientStop Color="#00FFFFFF" Offset="0.85" />
+    <GradientStop Color="#3080E8FF" Offset="1" />
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="RowGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#C0FFFFFF" Offset="0" />
+    <GradientStop Color="#50FFFFFF" Offset="0.48" />
+    <GradientStop Color="#00FFFFFF" Offset="0.5" />
+    <GradientStop Color="#00FFFFFF" Offset="0.8" />
+    <GradientStop Color="#40FFFFFF" Offset="1" />
+  </LinearGradientBrush>
+
+  <!-- The white halo Vista put behind the text on its glass. -->
+  <DropShadowEffect x:Key="ContentGlow" Color="#FFFFFF" BlurRadius="10" ShadowDepth="0" Opacity="0.7" />
+
+  <FontFamily x:Key="FontClock">Segoe UI</FontFamily>
+</ResourceDictionary>
