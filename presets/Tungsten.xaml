@@ -1,0 +1,97 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Tungsten: the game itself, after the Tungsten theme of the Nightjar
+       audio studio. The backdrop is a render of the game's own main menu, in
+       art\Tungsten.jpg, seen through smoked panes; white hairlines, square
+       corners and a serif, from the game's UI style guide. Only what differs
+       from Classic is here.
+
+       The colours keep their meaning in the game's own muted palette: its
+       green for finished, its amber for blocked. The "wants you" dot is the
+       game's white, since it has no blue. There is no red. -->
+
+  <SolidColorBrush x:Key="BrushCard"        Color="#050506" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#2EFFFFFF" />
+  <Thickness x:Key="CardInnerThickness">0</Thickness>
+
+  <SolidColorBrush x:Key="BrushText"        Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#BCBCBC" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#B82F6B52" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#CC3A2F0E" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#FFFFFF" />
+
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#B8060607" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#E3C26A" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#83C9A8" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#C2A659" />
+
+  <!-- White hairlines, firmer round what wants you. -->
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#2EFFFFFF" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#38725A" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#AC8A2A" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+
+  <!-- Stripes are black, each session's pattern on them in the game's white.
+       Workspaces take an icon on their heading; the model's name shows on
+       hovering the stripe. -->
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#000000" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#000000" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#000000" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#000000" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#000000" />
+  <sys:String x:Key="WorkspaceIcons">&#x2699; &#x2B22; &#x271A; &#x25C6; &#x25B2; &#x2316; &#x2731; &#x2691; &#x2708; &#x2693;</sys:String>
+  <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
+  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker</sys:String>
+  <SolidColorBrush x:Key="BrushStripePattern" Color="#E6FFFFFF" />
+
+  <!-- Unity editors in the game's white with a window, its grey headless,
+       the light version of the same editor. -->
+  <SolidColorBrush x:Key="BrushUnityEditor" Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#8F8F8F" />
+
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#2EFFFFFF" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#99FFFFFF" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#E3C26A" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#0E0E10" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#8CFFFFFF" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#24FFFFFF" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#FFFFFF" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#BCBCBC" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#2EFFFFFF" />
+
+  <CornerRadius x:Key="CardCorner">0</CornerRadius>
+  <CornerRadius x:Key="CardInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowCorner">0</CornerRadius>
+  <CornerRadius x:Key="RowInnerCorner">0</CornerRadius>
+  <CornerRadius x:Key="StripeCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuCorner">0</CornerRadius>
+  <CornerRadius x:Key="MenuItemCorner">0</CornerRadius>
+  <sys:Double x:Key="SwatchRadius">0</sys:Double>
+
+  <DropShadowEffect x:Key="CardShadow" Color="#000000" BlurRadius="14" ShadowDepth="4" Opacity="0.85" Direction="270" />
+  <DropShadowEffect x:Key="MenuShadow" Color="#000000" BlurRadius="12" ShadowDepth="3" Opacity="0.85" Direction="270" />
+
+  <!-- The game's serif, Crimson Text, with Georgia where it is not installed. -->
+  <FontFamily x:Key="FontText">Crimson Text, Crimson Pro, Georgia</FontFamily>
+  <FontFamily x:Key="FontClock">Crimson Text, Crimson Pro, Georgia</FontFamily>
+  <FontWeight x:Key="LabelWeight">Normal</FontWeight>
+  <GridLength x:Key="TimerWidth">64</GridLength>
+
+  <!-- The main menu render, cut to the card the way a cover fit would: the
+       height of a tall card, centred across. Drawn from the card's top left;
+       a taller card shows plain black below it. -->
+  <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
+    <DrawingBrush.Drawing>
+      <DrawingGroup ClipGeometry="M0,0 H380 V760 H0 Z">
+        <ImageDrawing ImageSource="art/Tungsten.jpg" Rect="-486,0,1352,760" />
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+</ResourceDictionary>

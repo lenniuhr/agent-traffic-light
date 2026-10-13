@@ -1,0 +1,98 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+  <!-- Office: a 1970s hardware mixing desk in warm aluminium, after the Office
+       theme of the Nightjar audio studio. A soft lift of light from the top
+       instead of a photographed brush, a lit lip along the top of every key,
+       compact shadows, and one burnt orange lamp. Only what differs from
+       Classic is here.
+
+       Finished and blocked are the desk's own lit push buttons: its green and
+       its amber, with cream legends. The "wants you" dot is the orange lamp,
+       since the desk has no blue. There is no red. -->
+
+  <SolidColorBrush x:Key="BrushCard"        Color="#D2CCBD" />
+  <SolidColorBrush x:Key="BrushCardEdge"    Color="#9D947F" />
+  <SolidColorBrush x:Key="BrushCardInner"   Color="#B8FFFFFF" />
+
+  <SolidColorBrush x:Key="BrushText"        Color="#1C1811" />
+  <SolidColorBrush x:Key="BrushTextDim"     Color="#514839" />
+
+  <SolidColorBrush x:Key="BrushWorking"     Color="#C2560E" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#43603F" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#95630B" />
+  <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#FFE2C2" />
+
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#E6E1D4" />
+  <SolidColorBrush x:Key="BrushTextOnWait"  Color="#F4F1E8" />
+  <SolidColorBrush x:Key="BrushTextOnBlock" Color="#FFF8EA" />
+  <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#C3D1BE" />
+  <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#F0DDB6" />
+
+  <Thickness x:Key="RowEdgeThickness">1</Thickness>
+  <SolidColorBrush x:Key="BrushRowEdge"        Color="#4D3A3022" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnWait"  Color="#2F452C" />
+  <SolidColorBrush x:Key="BrushRowEdgeOnBlock" Color="#684104" />
+  <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
+
+  <!-- The lit lip along the top of every key: one pixel of light, then the
+       face. In row pixels, so it stays one pixel whatever the row's height. -->
+  <LinearGradientBrush x:Key="RowGloss" MappingMode="Absolute" StartPoint="0,0" EndPoint="0,2">
+    <GradientStop Color="#BFFFFFFF" Offset="0" />
+    <GradientStop Color="#BFFFFFFF" Offset="0.5" />
+    <GradientStop Color="#00FFFFFF" Offset="0.5" />
+  </LinearGradientBrush>
+
+  <!-- The desk's lift: light from above, gone by three quarters down. -->
+  <LinearGradientBrush x:Key="CardGloss" StartPoint="0,0" EndPoint="0,1">
+    <GradientStop Color="#24FFFFFF" Offset="0" />
+    <GradientStop Color="#00FFFFFF" Offset="0.72" />
+  </LinearGradientBrush>
+
+  <!-- Stripes are the fader slots, a dark warm grey, with each session's
+       pattern engraved on them in the cap's cream. Workspaces take an icon on
+       their heading; the model's name shows on hovering the stripe. -->
+  <SolidColorBrush x:Key="BrushWsNeutral"   Color="#625948" />
+  <SolidColorBrush x:Key="BrushWs0"         Color="#625948" />
+  <SolidColorBrush x:Key="BrushWs1"         Color="#625948" />
+  <SolidColorBrush x:Key="BrushWs2"         Color="#625948" />
+  <SolidColorBrush x:Key="BrushWs3"         Color="#625948" />
+  <sys:String x:Key="WorkspaceIcons">&#x2699; &#x2B22; &#x271A; &#x25C6; &#x25B2; &#x2316; &#x2731; &#x2691; &#x2708; &#x2693;</sys:String>
+  <sys:Boolean x:Key="StripeModelName">False</sys:Boolean>
+  <sys:String x:Key="StripePatterns">hatch plus dots bars chevron crosshatch checker</sys:String>
+  <SolidColorBrush x:Key="BrushStripePattern" Color="#D9E6E1D4" />
+
+  <!-- Unity editors on the orange lamp with a window, a pale tint of it
+       headless, the light version of the same editor. -->
+  <SolidColorBrush x:Key="BrushUnityEditor" Color="#C2560E" />
+  <SolidColorBrush x:Key="BrushHeadless"    Color="#EBCDB4" />
+
+  <SolidColorBrush x:Key="BrushCtxTrack"     Color="#409D947F" />
+  <SolidColorBrush x:Key="BrushCtxFill"      Color="#9D947F" />
+  <SolidColorBrush x:Key="BrushCtxHigh"      Color="#C2560E" />
+
+  <SolidColorBrush x:Key="BrushMenu"          Color="#E6E1D4" />
+  <SolidColorBrush x:Key="BrushMenuEdge"      Color="#9D947F" />
+  <SolidColorBrush x:Key="BrushMenuHighlight" Color="#29984006" />
+  <SolidColorBrush x:Key="BrushMenuTick"      Color="#742D03" />
+  <SolidColorBrush x:Key="BrushMenuArrow"     Color="#514839" />
+  <SolidColorBrush x:Key="BrushMenuSeparator" Color="#383A3022" />
+
+  <CornerRadius x:Key="CardCorner">4</CornerRadius>
+  <CornerRadius x:Key="CardInnerCorner">3</CornerRadius>
+  <CornerRadius x:Key="RowCorner">2</CornerRadius>
+  <CornerRadius x:Key="RowInnerCorner">1</CornerRadius>
+  <CornerRadius x:Key="StripeCorner">2,0,0,2</CornerRadius>
+  <CornerRadius x:Key="MenuCorner">3</CornerRadius>
+  <CornerRadius x:Key="MenuItemCorner">2</CornerRadius>
+  <sys:Double x:Key="SwatchRadius">1</sys:Double>
+
+  <DropShadowEffect x:Key="CardShadow" Color="#3A3022" BlurRadius="8" ShadowDepth="3" Opacity="0.35" Direction="315" />
+  <DropShadowEffect x:Key="MenuShadow" Color="#3A3022" BlurRadius="6" ShadowDepth="2" Opacity="0.35" Direction="315" />
+
+  <!-- Engraved legends in the desk's Franklin Gothic. -->
+  <FontFamily x:Key="FontText">Franklin Gothic Medium, Franklin Gothic, Segoe UI</FontFamily>
+  <FontFamily x:Key="FontClock">Franklin Gothic Medium, Franklin Gothic, Bahnschrift</FontFamily>
+  <FontWeight x:Key="LabelWeight">Normal</FontWeight>
+</ResourceDictionary>

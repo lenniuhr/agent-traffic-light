@@ -1271,11 +1271,15 @@ try { [TlNative]::SetProcessDpiAwarenessContext([IntPtr](-4)) | Out-Null } catch
 
 [TlNative]::ShowWindow([TlNative]::GetConsoleWindow(), $SW_HIDE) | Out-Null
 
+# Read with the file's own place as the base, so a preset can name a picture
+# beside it, presets\art\..., by a relative path.
 function Import-Xaml {
     param([string]$Name)
     $path = Join-Path $PSScriptRoot $Name
+    $context = New-Object System.Windows.Markup.ParserContext
+    $context.BaseUri = New-Object System.Uri($path, [System.UriKind]::Absolute)
     $stream = [System.IO.File]::OpenRead($path)
-    try { return [System.Windows.Markup.XamlReader]::Load($stream) }
+    try { return [System.Windows.Markup.XamlReader]::Load($stream, $context) }
     finally { $stream.Dispose() }
 }
 

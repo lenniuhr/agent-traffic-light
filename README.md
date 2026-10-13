@@ -79,11 +79,22 @@ blocked, and an icon on each workspace heading in place of the coloured square. 
 black, each session prints a white pattern of its own on its stripe, so it can be found again at a
 glance, and the model's name shows on hovering the stripe; Unity editors are green, pale when
 headless.
+
+Five more come from the themes of the Nightjar audio studio and share Caterpillar's stripes,
+patterns and heading icons, each in its own inks: Emulsion, a two colour print in key black and
+fluorescent pink on lilac stock, with a hard pink offset for a shadow and registration crosses down
+the margins, where finished is the pink plate rather than green; Office, a 1970s mixing desk in
+warm aluminium with lit push buttons and an orange lamp for the dot; Blueprint, a cyanotype on
+ruled paper with every row drawn as an outline in its state's colour; Starburst, a 1999 homepage in
+Windows 98 grey with bevelled rows, Comic Sans, an Impact clock and a rainbow under the title bar;
+and Tungsten, the game's main menu render behind smoked panes, with white hairlines and a serif.
+
 Frutiger Aero costs noticeably more CPU than the others, for the halo on every text.
-Each style is a file in `presets\`. Classic holds every colour, size, corner, outline, font and
+Each style is a file in `presets\`, and a picture a style draws, such as Tungsten's backdrop, sits
+in `presets\art\`. Classic holds every colour, size, corner, outline, font and
 shadow the card uses; any other preset holds only what it changes and is laid over Classic, so a new
 one starts as a copy of Terminal with its values changed. Whatever the style, the colours keep their
-meaning.
+meaning, except where a style says otherwise.
 
 With "Show Unity editors" on, which is the default, a Unity group below the sessions lists every
 running Unity editor, one row per project: the
