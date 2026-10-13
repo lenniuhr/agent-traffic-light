@@ -11,8 +11,10 @@
        outlines of working rows; there is no red.
 
        The glow traces whatever is opaque inside the card, so the sky is the
-       card's own flat colour, outside the glow, and the rows are left mostly
-       clear: their text and outlines glow, not their rectangles. -->
+       card's own flat colour, outside the glow, and the rows are only half
+       dark: dark enough that the sun and the grid behind the bottom rows do
+       not crowd their text, clear enough that the scene shows through and the
+       outlines glow rather than the rectangles. -->
 
   <SolidColorBrush x:Key="BrushCard"        Color="#F2140A26" />
   <SolidColorBrush x:Key="BrushCardEdge"    Color="#FF2E97" />
@@ -22,11 +24,11 @@
   <SolidColorBrush x:Key="BrushTextDim"     Color="#B48CD9" />
 
   <SolidColorBrush x:Key="BrushWorking"     Color="#00E5FF" />
-  <SolidColorBrush x:Key="BrushWaiting"     Color="#3339FF14" />
-  <SolidColorBrush x:Key="BrushBlocked"     Color="#40FFD319" />
+  <SolidColorBrush x:Key="BrushWaiting"     Color="#8C0E2E14" />
+  <SolidColorBrush x:Key="BrushBlocked"     Color="#8C3A300A" />
   <SolidColorBrush x:Key="BrushDotOnBlock"  Color="#00E5FF" />
 
-  <SolidColorBrush x:Key="BrushRowBase"     Color="#80140726" />
+  <SolidColorBrush x:Key="BrushRowBase"     Color="#8C140726" />
   <SolidColorBrush x:Key="BrushTextOnWait"  Color="#F0FFF0" />
   <SolidColorBrush x:Key="BrushTextOnBlock" Color="#FFF8DC" />
   <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#8CFF7A" />
@@ -71,8 +73,11 @@
   <DropShadowEffect x:Key="ContentGlow" Color="#FF2E97" BlurRadius="10" ShadowDepth="0" Opacity="0.75" />
   <DropShadowEffect x:Key="CardShadow" Color="#FF2E97" BlurRadius="18" ShadowDepth="0" Opacity="0.45" />
 
+  <!-- The clock keeps Classic's Bahnschrift, narrowed on the clock alone; a
+       condensed family here narrowed the two lines beside it too, past
+       reading. Those lines are a size up for the glow round them. -->
   <FontFamily x:Key="FontText">Bahnschrift, Segoe UI</FontFamily>
-  <FontFamily x:Key="FontClock">Bahnschrift Condensed, Bahnschrift</FontFamily>
+  <sys:Double x:Key="SizeClockCaption">12</sys:Double>
 
   <!-- The scene, anchored to the card's bottom edge so the horizon is always
        at the bottom, however tall the card: stars high up in the sky, a pink
@@ -117,7 +122,7 @@
              behind the horizon at 460, in the middle as Outrun has it. It sits
              behind the last rows, so it is dimmed to a backlight: at full
              strength a yellow timer in front of it disappeared. -->
-        <DrawingGroup Opacity="0.6">
+        <DrawingGroup Opacity="0.55">
         <GeometryDrawing>
           <GeometryDrawing.Geometry>
             <CombinedGeometry GeometryCombineMode="Exclude">
