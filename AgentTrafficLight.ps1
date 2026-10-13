@@ -1178,6 +1178,9 @@ function Import-Xaml {
 }
 
 $window    = Import-Xaml 'AgentTrafficLight.xaml'
+# The look comes from the presets folder, Classic first. Merged before anything
+# reads a resource, so the lookups below and every row built later find them.
+[void]$window.Resources.MergedDictionaries.Add((Import-Xaml 'presets\Classic.xaml'))
 $rowCanvas = $window.FindName('RowCanvas')
 $warnText  = $window.FindName('WarnText')
 $workClock     = $window.FindName('WorkClock')
@@ -1200,6 +1203,9 @@ $brush = @{
     CtxFill      = $window.FindResource('BrushCtxFill')
     CtxHigh      = $window.FindResource('BrushCtxHigh')
     Headless     = $window.FindResource('BrushHeadless')
+    RowEdge      = $window.FindResource('BrushRowEdge')
+    RowEdgeOnWait  = $window.FindResource('BrushRowEdgeOnWait')
+    RowEdgeOnBlock = $window.FindResource('BrushRowEdgeOnBlock')
     Ws           = @(
         $window.FindResource('BrushWs0'),
         $window.FindResource('BrushWs1'),
@@ -1207,6 +1213,9 @@ $brush = @{
         $window.FindResource('BrushWs3')
     )
 }
+[void]$window.FindResource('RowGap')
+[void]$window.FindResource('GroupGap')
+[void]$window.FindResource('CardPadding')
 
 # One rotation shared by every working row's ring, turning on one clock. Each
 # indicator used to start its own animation the moment its row began working,

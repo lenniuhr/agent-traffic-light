@@ -1,9 +1,11 @@
 <Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Name="RowBg"
-        Width="360"
-        Height="42"
-        CornerRadius="8"
+        Width="{DynamicResource RowWidth}"
+        Height="{DynamicResource RowHeight}"
+        CornerRadius="{DynamicResource RowCorner}"
+        BorderThickness="{DynamicResource RowEdgeThickness}"
+        BorderBrush="{DynamicResource BrushRowEdge}"
         Background="{DynamicResource BrushRowBase}"
         Cursor="Hand">
   <Grid>
@@ -32,12 +34,12 @@
             Width="14"
             HorizontalAlignment="Left"
             VerticalAlignment="Stretch"
-            CornerRadius="6,0,0,6">
+            CornerRadius="{DynamicResource StripeCorner}">
       <TextBlock x:Name="Model"
                  HorizontalAlignment="Center"
                  VerticalAlignment="Center"
-                 FontFamily="Segoe UI"
-                 FontSize="9"
+                 FontFamily="{DynamicResource FontText}"
+                 FontSize="{DynamicResource SizeModel}"
                  FontWeight="SemiBold"
                  Foreground="{DynamicResource BrushStripeText}"
                  Text="">
@@ -106,17 +108,17 @@
            in the style rather than on the element, because a value set on the
            element would win over the trigger. -->
       <TextBlock x:Name="Label"
-                 FontFamily="Segoe UI"
-                 FontWeight="SemiBold"
+                 FontFamily="{DynamicResource FontText}"
+                 FontWeight="{DynamicResource LabelWeight}"
                  Foreground="{DynamicResource BrushText}"
                  TextTrimming="CharacterEllipsis"
                  Text="">
         <TextBlock.Style>
           <Style TargetType="TextBlock">
-            <Setter Property="FontSize" Value="15" />
+            <Setter Property="FontSize" Value="{DynamicResource SizeLabel}" />
             <Style.Triggers>
               <DataTrigger Binding="{Binding Visibility, ElementName=Detail}" Value="Visible">
-                <Setter Property="FontSize" Value="13" />
+                <Setter Property="FontSize" Value="{DynamicResource SizeLabelWithDetail}" />
               </DataTrigger>
             </Style.Triggers>
           </Style>
@@ -124,8 +126,8 @@
       </TextBlock>
 
       <TextBlock x:Name="Detail"
-                 FontFamily="Segoe UI"
-                 FontSize="11"
+                 FontFamily="{DynamicResource FontText}"
+                 FontSize="{DynamicResource SizeDetail}"
                  Foreground="{DynamicResource BrushTextDim}"
                  TextTrimming="CharacterEllipsis"
                  Visibility="Collapsed"
@@ -156,8 +158,8 @@
                VerticalAlignment="Center"
                HorizontalAlignment="Right"
                Margin="0,0,10,0"
-               FontFamily="Segoe UI"
-               FontSize="12"
+               FontFamily="{DynamicResource FontText}"
+               FontSize="{DynamicResource SizeTimer}"
                Foreground="{DynamicResource BrushTextDim}"
                Typography.NumeralAlignment="Tabular"
                Text="" />

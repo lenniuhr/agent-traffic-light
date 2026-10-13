@@ -13,91 +13,25 @@
         Left="40"
         Top="40">
 
-  <!-- All colour and size decisions live here. Editing this file and restarting
-       the widget is the whole restyling loop; nothing below is hardcoded in the
-       PowerShell. The keys are looked up by name from the script. -->
+  <!-- Every colour, size, corner, outline, font and shadow comes from the
+       presets folder: Classic.xaml first, then the chosen preset over it, both
+       merged into these resources by the script before anything is drawn.
+       Editing a preset and restarting the widget, or picking it again under
+       Style, is the whole restyling loop. The width above is only the start;
+       the script sets it from the preset's RowWidth. -->
   <Window.Resources>
-    <SolidColorBrush x:Key="BrushCard"        Color="#14161A" />
-    <SolidColorBrush x:Key="BrushCardEdge"    Color="#0A0B0E" />
-    <SolidColorBrush x:Key="BrushCardInner"   Color="#1AFFFFFF" />
-    <SolidColorBrush x:Key="BrushText"        Color="#E8EBEF" />
-    <SolidColorBrush x:Key="BrushTextDim"     Color="#8B94A1" />
-
-    <!-- Row states. Blue is the calm one on purpose: it has the lowest salience
-         of the three, so a card full of working sessions stays quiet.
-
-         The two fills are deliberately dark and desaturated. A saturated block
-         of colour on a dark card reads as an alarm even when the news is good,
-         and a finished session is good news. These sit on the card rather than
-         glowing off it, and the signal is carried by the fill covering the whole
-         row and by where the row sorts to, not by shouting.
-
-         Green for finished, amber for blocked, and no red anywhere: green
-         against red is the one pair roughly one man in twelve cannot separate,
-         and dropping red entirely is what frees green to mean "done". -->
-    <SolidColorBrush x:Key="BrushWorking"     Color="#4C9BE8" />
-    <SolidColorBrush x:Key="BrushWaiting"     Color="#2C6650" />
-    <SolidColorBrush x:Key="BrushBlocked"     Color="#9A6526" />
-
-    <!-- A working row is not transparent. Left as nothing it dissolved into the
-         card and you could not see where one row ended and the next began; a
-         lift of a few points over the card background is enough to give every
-         row a visible shape without putting colour on a session that is simply
-         getting on with its work. -->
-    <SolidColorBrush x:Key="BrushRowBase"     Color="#1E222A" />
-    <SolidColorBrush x:Key="BrushTextOnWait"  Color="#E6F3EC" />
-    <SolidColorBrush x:Key="BrushTextOnBlock" Color="#FBEEDD" />
-
-    <!-- The timer is secondary information on a filled row exactly as it is on
-         a dark one, so it gets the same treatment: the row's text colour pulled
-         back towards the fill underneath it. Full-strength white on the fill
-         made the number compete with the label. -->
-    <SolidColorBrush x:Key="BrushTimerOnWait"  Color="#9CBBAE" />
-    <SolidColorBrush x:Key="BrushTimerOnBlock" Color="#D4B794" />
-
-    <!-- The model name is set into the stripe, so it needs to read against a
-         workspace hue rather than against the row. All the stripe colours are
-         light, so it is near-black. -->
-    <SolidColorBrush x:Key="BrushStripeText"   Color="#16181D" />
-
-    <!-- The stripe when only one workspace is open and there is nothing to tell
-         apart. It still has to hold the model name, so it stays light. -->
-    <SolidColorBrush x:Key="BrushWsNeutral"    Color="#9AA3B2" />
-
-    <!-- Context bar. Translucent white rather than a fixed colour, so the same
-         two brushes read correctly on the dark row and on both fills. The high
-         mark is a bright amber, which is the only moment this bar is meant to
-         be looked at rather than merely noticed. -->
-    <SolidColorBrush x:Key="BrushCtxTrack"     Color="#24FFFFFF" />
-    <SolidColorBrush x:Key="BrushCtxFill"      Color="#8CFFFFFF" />
-    <SolidColorBrush x:Key="BrushCtxHigh"      Color="#E8A33D" />
-
-    <!-- Workspace hues for the stripe and the heading swatch. Assigned by a
-         stable hash of the folder path, so a workspace keeps its colour across
-         restarts and does not swap when sessions open in a different order.
-         Deliberately violet and pink first: neither can be mistaken for the
-         blue working dot or for either of the two state fills. -->
-    <SolidColorBrush x:Key="BrushWs0"         Color="#9B8CF0" />
-    <SolidColorBrush x:Key="BrushWs1"         Color="#E48FB8" />
-    <SolidColorBrush x:Key="BrushWs2"         Color="#5FC8D8" />
-    <SolidColorBrush x:Key="BrushWs3"         Color="#B8B4C8" />
-
-    <!-- Stripe of a Unity editor that runs headless. A warm sand, because every
-         hue above already means a workspace or a state, and an editor row must
-         not read as either. An editor with a window keeps the neutral stripe. -->
-    <SolidColorBrush x:Key="BrushHeadless"    Color="#D9C38C" />
 
     <!-- The card's menus: the settings menu and a row's right-click menu. Without
          these they draw in the system's light classic style, which sits badly
          against the dark card. A menu opens in a popup outside this window, so
-         dynamic lookups of the brushes above would not reach it: the colours are
-         written out here, each one matching a brush above. -->
+         lookups from it do not reach the window's resources: New-CardMenu hands
+         each menu the window's presets, and these styles read them by key. -->
     <Style x:Key="CardMenu" TargetType="ContextMenu">
       <Setter Property="OverridesDefaultStyle" Value="True" />
       <Setter Property="SnapsToDevicePixels" Value="True" />
-      <Setter Property="FontFamily" Value="Segoe UI" />
-      <Setter Property="FontSize" Value="13" />
-      <Setter Property="Foreground" Value="#E8EBEF" />
+      <Setter Property="FontFamily" Value="{DynamicResource FontText}" />
+      <Setter Property="FontSize" Value="{DynamicResource SizeMenu}" />
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="ContextMenu">
@@ -105,13 +39,11 @@
             <Border Margin="0,0,10,10"
                     Padding="4"
                     MinWidth="200"
-                    Background="#1E222A"
-                    BorderBrush="#2E333D"
-                    BorderThickness="1"
-                    CornerRadius="8">
-              <Border.Effect>
-                <DropShadowEffect Color="#000000" BlurRadius="14" ShadowDepth="3" Opacity="0.45" Direction="270" />
-              </Border.Effect>
+                    Background="{DynamicResource BrushMenu}"
+                    BorderBrush="{DynamicResource BrushMenuEdge}"
+                    BorderThickness="{DynamicResource MenuEdgeThickness}"
+                    CornerRadius="{DynamicResource MenuCorner}"
+                    Effect="{DynamicResource MenuShadow}">
               <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
             </Border>
           </ControlTemplate>
@@ -126,20 +58,19 @@
          without room on the right, WPF opens it to the left. -->
     <Style x:Key="CardMenuItem" TargetType="MenuItem">
       <Setter Property="OverridesDefaultStyle" Value="True" />
-      <Setter Property="Foreground" Value="#E8EBEF" />
+      <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
       <Setter Property="Cursor" Value="Hand" />
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="MenuItem">
             <Grid>
-              <Border x:Name="ItemBg" Background="Transparent" CornerRadius="5" Padding="6,6,14,6">
+              <Border x:Name="ItemBg" Background="Transparent" CornerRadius="{DynamicResource MenuItemCorner}" Padding="6,6,14,6">
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="22" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                   </Grid.ColumnDefinitions>
-                  <!-- The tick is the working blue, the one accent the card uses. -->
                   <TextBlock x:Name="Tick"
                              Text="&#x2713;"
                              Visibility="Hidden"
@@ -147,7 +78,7 @@
                              VerticalAlignment="Center"
                              FontFamily="Segoe UI Symbol"
                              FontSize="12"
-                             Foreground="#4C9BE8" />
+                             Foreground="{DynamicResource BrushMenuTick}" />
                   <ContentPresenter Grid.Column="1"
                                     ContentSource="Header"
                                     RecognizesAccessKey="True"
@@ -159,7 +90,7 @@
                              Margin="16,0,0,0"
                              VerticalAlignment="Center"
                              FontSize="15"
-                             Foreground="#8B94A1" />
+                             Foreground="{DynamicResource BrushMenuArrow}" />
                 </Grid>
               </Border>
               <Popup x:Name="PART_Popup"
@@ -173,13 +104,11 @@
                 <Border Margin="0,0,10,10"
                         Padding="4"
                         MinWidth="200"
-                        Background="#1E222A"
-                        BorderBrush="#2E333D"
-                        BorderThickness="1"
-                        CornerRadius="8">
-                  <Border.Effect>
-                    <DropShadowEffect Color="#000000" BlurRadius="14" ShadowDepth="3" Opacity="0.45" Direction="270" />
-                  </Border.Effect>
+                        Background="{DynamicResource BrushMenu}"
+                        BorderBrush="{DynamicResource BrushMenuEdge}"
+                        BorderThickness="{DynamicResource MenuEdgeThickness}"
+                        CornerRadius="{DynamicResource MenuCorner}"
+                        Effect="{DynamicResource MenuShadow}">
                   <StackPanel IsItemsHost="True" KeyboardNavigation.DirectionalNavigation="Cycle" />
                 </Border>
               </Popup>
@@ -192,16 +121,16 @@
                 <Setter TargetName="Tick" Property="Visibility" Value="Visible" />
               </Trigger>
               <Trigger Property="IsHighlighted" Value="True">
-                <Setter TargetName="ItemBg" Property="Background" Value="#2A303A" />
+                <Setter TargetName="ItemBg" Property="Background" Value="{DynamicResource BrushMenuHighlight}" />
               </Trigger>
               <!-- Kept lit while its submenu is open, so it is clear which item the
                    submenu belongs to once the pointer has moved into it. -->
               <Trigger Property="IsSubmenuOpen" Value="True">
-                <Setter TargetName="ItemBg" Property="Background" Value="#2A303A" />
+                <Setter TargetName="ItemBg" Property="Background" Value="{DynamicResource BrushMenuHighlight}" />
               </Trigger>
               <!-- A disabled item is the menu's caption, not a dead option. -->
               <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Foreground" Value="#8B94A1" />
+                <Setter Property="Foreground" Value="{DynamicResource BrushTextDim}" />
                 <Setter Property="FontSize" Value="11" />
                 <Setter Property="Cursor" Value="Arrow" />
               </Trigger>
@@ -216,7 +145,7 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="Separator">
-            <Border Height="1" Margin="8,4,8,4" Background="#24FFFFFF" />
+            <Border Height="1" Margin="8,4,8,4" Background="{DynamicResource BrushMenuSeparator}" />
           </ControlTemplate>
         </Setter.Value>
       </Setter>
@@ -229,18 +158,16 @@
     <Border x:Name="Card"
             Background="{DynamicResource BrushCard}"
             BorderBrush="{DynamicResource BrushCardEdge}"
-            BorderThickness="1"
-            CornerRadius="10">
-      <Border.Effect>
-        <DropShadowEffect Color="#000000" BlurRadius="20" ShadowDepth="2" Opacity="0.35" Direction="270" />
-      </Border.Effect>
+            BorderThickness="{DynamicResource CardEdgeThickness}"
+            CornerRadius="{DynamicResource CardCorner}"
+            Effect="{DynamicResource CardShadow}">
 
       <!-- Second, lighter stroke just inside the dark one. Together they keep the
            card's edge visible whether it is sitting on a grey editor or on a white
            browser window. -->
       <Border BorderBrush="{DynamicResource BrushCardInner}"
-              BorderThickness="1"
-              CornerRadius="9">
+              BorderThickness="{DynamicResource CardInnerThickness}"
+              CornerRadius="{DynamicResource CardInnerCorner}">
         <Grid>
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -275,14 +202,14 @@
                           VerticalAlignment="Bottom"
                           Margin="24,0,0,4">
                 <TextBlock Text="VIBING SESSION"
-                           FontFamily="Bahnschrift"
+                           FontFamily="{DynamicResource FontClock}"
                            FontWeight="SemiBold"
-                           FontSize="11"
+                           FontSize="{DynamicResource SizeClockCaption}"
                            Foreground="{DynamicResource BrushText}" />
                 <TextBlock x:Name="WorkClockSub"
                            Text=""
-                           FontFamily="Bahnschrift"
-                           FontSize="11"
+                           FontFamily="{DynamicResource FontClock}"
+                           FontSize="{DynamicResource SizeClockCaption}"
                            Typography.NumeralAlignment="Tabular"
                            Foreground="{DynamicResource BrushTextDim}" />
               </StackPanel>
@@ -290,10 +217,10 @@
                          Text="0:00:00"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Bottom"
-                         FontFamily="Bahnschrift"
+                         FontFamily="{DynamicResource FontClock}"
                          FontWeight="SemiBold"
                          FontStretch="Condensed"
-                         FontSize="26"
+                         FontSize="{DynamicResource SizeClock}"
                          Typography.NumeralAlignment="Tabular"
                          Foreground="{DynamicResource BrushText}" />
             </Grid>
@@ -301,14 +228,14 @@
 
           <!-- Rows are positioned by hand on a Canvas rather than stacked, because
                a row that changes state slides to its new place and only a Canvas
-               lets us animate Top. -->
+               lets us animate Top. The script sets the margin from CardPadding. -->
           <Canvas x:Name="RowCanvas" Grid.Row="1" Margin="10,10,10,0" />
 
           <TextBlock x:Name="WarnText"
                      Grid.Row="2"
                      Margin="14,2,14,8"
-                     FontFamily="Segoe UI"
-                     FontSize="11"
+                     FontFamily="{DynamicResource FontText}"
+                     FontSize="{DynamicResource SizeHeader}"
                      Foreground="{DynamicResource BrushBlocked}"
                      TextTrimming="CharacterEllipsis"
                      Visibility="Collapsed" />

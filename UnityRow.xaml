@@ -1,9 +1,11 @@
 <Border xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Name="RowBg"
-        Width="360"
-        Height="42"
-        CornerRadius="8"
+        Width="{DynamicResource RowWidth}"
+        Height="{DynamicResource RowHeight}"
+        CornerRadius="{DynamicResource RowCorner}"
+        BorderThickness="{DynamicResource RowEdgeThickness}"
+        BorderBrush="{DynamicResource BrushRowEdge}"
         Background="{DynamicResource BrushRowBase}">
   <Grid>
     <Grid.ColumnDefinitions>
@@ -20,22 +22,22 @@
             Width="14"
             HorizontalAlignment="Left"
             VerticalAlignment="Stretch"
-            CornerRadius="6,0,0,6"
+            CornerRadius="{DynamicResource StripeCorner}"
             Background="{DynamicResource BrushWsNeutral}" />
 
     <!-- Two lines where an agent row has one: the project folder alone does not
          tell two checkouts of the same project apart, the branch does. -->
     <StackPanel Grid.Column="1" VerticalAlignment="Center" Margin="4,0,0,0">
       <TextBlock x:Name="Label"
-                 FontFamily="Segoe UI"
-                 FontWeight="SemiBold"
-                 FontSize="13"
+                 FontFamily="{DynamicResource FontText}"
+                 FontWeight="{DynamicResource LabelWeight}"
+                 FontSize="{DynamicResource SizeLabelWithDetail}"
                  Foreground="{DynamicResource BrushText}"
                  TextTrimming="CharacterEllipsis"
                  Text="" />
       <TextBlock x:Name="Detail"
-                 FontFamily="Segoe UI"
-                 FontSize="11"
+                 FontFamily="{DynamicResource FontText}"
+                 FontSize="{DynamicResource SizeDetail}"
                  Foreground="{DynamicResource BrushTextDim}"
                  TextTrimming="CharacterEllipsis"
                  Text="" />
@@ -46,15 +48,15 @@
     <StackPanel Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="0,0,10,0">
       <TextBlock x:Name="Memory"
                  HorizontalAlignment="Right"
-                 FontFamily="Segoe UI"
-                 FontSize="12"
+                 FontFamily="{DynamicResource FontText}"
+                 FontSize="{DynamicResource SizeTimer}"
                  Foreground="{DynamicResource BrushText}"
                  Typography.NumeralAlignment="Tabular"
                  Text="" />
       <TextBlock x:Name="Cpu"
                  HorizontalAlignment="Right"
-                 FontFamily="Segoe UI"
-                 FontSize="11"
+                 FontFamily="{DynamicResource FontText}"
+                 FontSize="{DynamicResource SizeDetail}"
                  Foreground="{DynamicResource BrushTextDim}"
                  Typography.NumeralAlignment="Tabular"
                  Text="" />
