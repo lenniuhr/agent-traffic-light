@@ -4348,9 +4348,42 @@ function Update-UnityRows {
     } catch { Write-ErrorLog -Where 'unity' -Problem $_ }
 }
 
+# The card's menu items read "_" as an access key, so a repo named with one
+# would lose it.
+function ConvertTo-MenuHeader {
+    param([string]$Text)
+    return ($Text -replace '_', '__')
+}
+
+# New session, first in the card's own menu: the same list the tray offers.
+function New-LaunchMenu {
+    $parent = New-CardMenuItem -Header 'New session'
+    $repos = @(Get-LaunchMenuRepos)
+    if ($repos.Count -eq 0) {
+        $none = New-CardMenuItem -Header 'No recent repos'
+        $none.IsEnabled = $false
+        [void]$parent.Items.Add($none)
+        return $parent
+    }
+    foreach ($repo in $repos) {
+        [void](Add-CardMenuAction -Parent $parent -Header (ConvertTo-MenuHeader $repo.Name) -Where 'launch' -Arg $repo.Path `
+            -Action { param($path) Start-ClaudeSession -Folder $path })
+    }
+    [void]$parent.Items.Add((New-CardMenuSeparator))
+    $hide = New-CardMenuItem -Header 'Hide from this list'
+    foreach ($repo in $repos) {
+        [void](Add-CardMenuAction -Parent $hide -Header (ConvertTo-MenuHeader $repo.Name) -Where 'launch' -Arg $repo.Path `
+            -Action { param($path) Hide-LaunchRepo -Path $path })
+    }
+    [void]$parent.Items.Add($hide)
+    return $parent
+}
+
 # The card's own menu, behind the three bars left of the session clock.
 function Show-SettingsMenu {
     $menu = New-CardMenu
+    [void]$menu.Items.Add((New-LaunchMenu))
+    [void]$menu.Items.Add((New-CardMenuSeparator))
 
     $unityItem = New-CardMenuItem -Header 'Show Unity editors'
     $unityItem.IsCheckable = $true
