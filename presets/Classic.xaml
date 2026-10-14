@@ -318,12 +318,6 @@
   <SolidColorBrush x:Key="BrushKillHoverBg"          Color="#D9363E" />
   <SolidColorBrush x:Key="BrushKillHoverIcon"        Color="#FFFFFF" />
   <SolidColorBrush x:Key="BrushKillHoverEdge"        Color="Transparent" />
-  <!-- The "+" at a repo heading's right end, starting a new session there. On
-       whole pixels, so it stays sharp where a preset draws icons aliased. -->
-  <PathGeometry x:Key="IconNew" Figures="M7,3 H9 V7 H13 V9 H9 V13 H7 V9 H3 V7 H7 Z" />
-  <SolidColorBrush x:Key="BrushNewHoverBg"           Color="#3A4250" />
-  <SolidColorBrush x:Key="BrushNewHoverIcon"         Color="#E8EBEF" />
-  <SolidColorBrush x:Key="BrushNewHoverEdge"         Color="Transparent" />
   <CornerRadius x:Key="IconButtonCorner">5</CornerRadius>
   <Thickness x:Key="IconButtonEdgeThickness">0</Thickness>
   <EdgeMode x:Key="IconEdgeMode">Unspecified</EdgeMode>

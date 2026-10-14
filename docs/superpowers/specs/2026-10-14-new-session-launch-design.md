@@ -57,17 +57,18 @@ day starts here.
 above the existing settings. Both menus are filled from one list; the tray's is Windows Forms, the
 card's WPF, so each has a small builder of its own.
 
-**Card, repo headers.** Hovering a group header fades in a small "+" at its right end; a click starts
+**Card, repo headers.** Hovering a group header fades in a small "+" right after its name; a click starts
 a session in the folder the header names, tooltip "New session in <name>". That folder is the one
 its rows' sessions started in, or, with "Group by working repository" on, that repo's root. Only on
 headers whose rows have such a folder on this PC: not on remote groups (an ssh host) and not on
 Unity editor rows, where "new session" has no single meaning. It does not depend on the list, so it
 works for a hidden repo too.
 
-The "+" is drawn from a new preset key, `IconNew`, a `PathGeometry` in a 16 by 16 box, like
-`IconDisconnect` and `IconKill`. At rest it takes `BrushIconButton` like the row icons; under the
-pointer `BrushNewHoverBg`, `BrushNewHoverIcon` and `BrushNewHoverEdge`, as Disconnect has its own.
-Classic defines all four new keys, so every preset has a plus; a preset may draw its own.
+The "+" is a character written in the heading's own font, size, weight, glow and colour
+(`FontHeader`, `SizeHeader`, `HeaderWeight`, `TextGlow`, `BrushTextDim`), so it reads as part of the
+heading in every preset and needs no keys of its own. Under the pointer it takes `BrushText`. (An
+icon at the heading's right end, in the row icons' grey, was tried first: it sat where nobody looked
+for it, and on Frutiger Aero's pale glass it could hardly be seen.)
 
 Repo names go into menus as they are: an underscore is doubled in the card's menu, which reads one
 as an access key, and an ampersand in the tray's.

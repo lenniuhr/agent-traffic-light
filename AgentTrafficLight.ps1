@@ -3609,7 +3609,16 @@ function Write-LayoutDump {
     [void]$lines.Add(('usage  panel={0}  opacity={1}  {2}' -f $usagePanel.Visibility, $usagePanel.Opacity,
         (($usageBars | ForEach-Object { '{0}={1} {2} "{3}" "{4}"' -f $_.Field, $_.Row.Visibility, $_.Used.Width, $_.Pct.Text, $_.Reset.Text }) -join '  ')))
     foreach ($name in @($script:groupOrder.Keys)) {
-        [void]$lines.Add("group $name  new=$($script:groupNew[$name])")
+        # The "+" and how far it sits from the end of the name, which it follows.
+        $header = $script:groupNew[$name]
+        if ($null -eq $header) {
+            [void]$lines.Add("group $name  new=Collapsed")
+        } else {
+            $label = $header.Label
+            $gap = $header.NewButton.TranslatePoint((New-Object System.Windows.Point 0, 0), $header.Element).X -
+                ($label.TranslatePoint((New-Object System.Windows.Point 0, 0), $header.Element).X + $label.ActualWidth)
+            [void]$lines.Add(('group {0}  new={1}  gap={2}' -f $name, $header.NewButton.Visibility, [Math]::Round($gap, 1)))
+        }
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
             [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} tmux={12}' -f
@@ -4254,7 +4263,7 @@ function Update-Layout {
             $header.NewButton.Tag = $folder
             $header.NewButton.Visibility = $(if ($folder) { 'Visible' } else { 'Collapsed' })
             $header.NewButton.ToolTip = $(if ($folder) { 'New session in ' + $g.Name } else { $null })
-            $script:groupNew[$g.Name] = $header.NewButton.Visibility
+            $script:groupNew[$g.Name] = $header
             $header.Element.Visibility = 'Visible'
             [System.Windows.Controls.Canvas]::SetTop($header.Element, $y)
             $y += $headerHeight

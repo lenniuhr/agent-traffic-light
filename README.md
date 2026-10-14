@@ -81,8 +81,8 @@ weeks, most used first, at most five: found in `~/.claude/projects`, with folder
 gone or older left out. Each opens a new Windows Terminal window in that repo running
 `claude --permission-mode auto`. "Hide from this list" leaves one out for good; it is kept as
 `HiddenLaunchRepos` in `state\settings.json`, and taken out of there to bring it back. Pointing at a
-repo's heading also shows a "+" at its right end, which opens a session in that folder. A preset
-draws it as `IconNew`. `-Probe -Launch` prints the list and why each other folder was left out.
+repo's heading also shows a "+" right after its name, in the name's own style, which opens a
+session in that folder. `-Probe -Launch` prints the list and why each other folder was left out.
 
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
