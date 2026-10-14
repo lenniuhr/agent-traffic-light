@@ -49,7 +49,9 @@
   <Thickness x:Key="StripeMargin">-1,-1,0,-1</Thickness>
   <CornerRadius x:Key="StripeCorner">8,0,0,8</CornerRadius>
 
-  <SolidColorBrush x:Key="BrushStripeText"  Color="#FFFFFF" />
+  <!-- The model name on the stripe in the text's own navy: white, turned on
+       its side at nine pixels, went soft on the mid blues and the aqua. -->
+  <SolidColorBrush x:Key="BrushStripeText"  Color="#072642" />
   <SolidColorBrush x:Key="BrushWsNeutral"   Color="#4C86C0" />
   <SolidColorBrush x:Key="BrushWs0"         Color="#8E5BD9" />
   <SolidColorBrush x:Key="BrushWs1"         Color="#E0559B" />
@@ -96,6 +98,11 @@
 
   <FontFamily x:Key="FontClock">Segoe UI</FontFamily>
 
+  <!-- The repo names and the caption by the clock a size up: through the
+       halo and the glass they read small at Classic's 11. -->
+  <sys:Double x:Key="SizeHeader">13</sys:Double>
+  <sys:Double x:Key="SizeClockCaption">13</sys:Double>
+
   <!-- The decoration, in card pixels from the top left corner: the white band
        behind the header, 52 high so it ends where the rows begin and the
        header (10 down, 32 high) sits in its middle; glass bubbles along the
@@ -107,11 +114,13 @@
        0,0, so the whole thing is clipped to a frame from 0,0. The glare once
        reached 70 left and 60 up past the corner and so moved everything by
        that much; the decoration was liked as it looked then, so it keeps that
-       place by an explicit move, and only the band sits where it was meant. -->
+       place by an explicit move, and only the band sits where it was meant.
+       The frame is far taller than the art: at 440 it cut the lowest bubbles
+       flat once a card with the limit bars grew past that. -->
   <DrawingBrush x:Key="CardArt" Stretch="None" AlignmentX="Left" AlignmentY="Top">
     <DrawingBrush.Drawing>
-      <DrawingGroup ClipGeometry="M0,0 H380 V440 H0 Z">
-        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,440" /></GeometryDrawing.Geometry></GeometryDrawing>
+      <DrawingGroup ClipGeometry="M0,0 H380 V1200 H0 Z">
+        <GeometryDrawing Brush="Transparent"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,1200" /></GeometryDrawing.Geometry></GeometryDrawing>
         <GeometryDrawing>
           <GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,380,52" /></GeometryDrawing.Geometry>
           <GeometryDrawing.Brush>
