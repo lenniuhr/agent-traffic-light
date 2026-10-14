@@ -40,7 +40,10 @@
     <!-- New session in this group's folder, at the heading's right end where
          the rows have their buttons. Shown by the script only for a group
          whose rows have a folder on this PC, and faded in while the pointer
-         is on the heading, so a calm card shows no extra marks. -->
+         is on the heading, so a calm card shows no extra marks. At rest it
+         takes the heading's own colour, not the row icons' grey: that grey
+         is chosen for dark cards and all but vanished on Frutiger Aero's
+         pale glass, while the heading's colour is readable in every preset. -->
     <Border x:Name="NewButton" Width="24" Height="20" Margin="0,0,8,1" Cursor="Hand"
             HorizontalAlignment="Right" VerticalAlignment="Bottom" Opacity="0" Visibility="Collapsed"
             CornerRadius="{DynamicResource IconButtonCorner}"
@@ -62,7 +65,7 @@
             RenderOptions.EdgeMode="{DynamicResource IconEdgeMode}">
         <Path.Style>
           <Style TargetType="Path">
-            <Setter Property="Fill" Value="{DynamicResource BrushIconButton}" />
+            <Setter Property="Fill" Value="{DynamicResource BrushTextDim}" />
             <Style.Triggers>
               <DataTrigger Binding="{Binding IsMouseOver, ElementName=NewButton}" Value="True">
                 <Setter Property="Fill" Value="{DynamicResource BrushNewHoverIcon}" />
