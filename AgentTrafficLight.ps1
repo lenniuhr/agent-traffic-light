@@ -2015,6 +2015,12 @@ function Get-GroupFolder {
     param([string]$Name, $Recs)
     foreach ($rec in @($Recs)) {
         if (-not $rec.Cwd) { continue }
+        # Grouped by the repository the agent works in, which is often not the
+        # one its terminal opened in: that is what the grouping is for.
+        if ($script:settings.GroupByRepo -and $rec.SessionId -and $script:workState.ContainsKey($rec.SessionId)) {
+            $work = [string]$script:workState[$rec.SessionId].Root
+            if ($work -and (Split-Path -Leaf $work) -ieq $Name -and [System.IO.Directory]::Exists($work)) { return $work }
+        }
         $cwd = ([string]$rec.Cwd).TrimEnd('\')
         if ((Split-Path -Leaf $cwd) -ieq $Name -and [System.IO.Directory]::Exists($cwd)) { return $cwd }
         $root = Get-RepoRoot -Path $cwd
