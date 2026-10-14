@@ -572,7 +572,7 @@ function Get-OutgoingWindows {
 # exactly when they need finding again.
 #
 # state\remotes.txt says where to look, one place per line: an ssh target such
-# as jonathan@office, or "wsl" for this PC's own WSL. Each place is asked for
+# as jonathan@office, or "wsl" or "wsl:Ubuntu" for this PC's own WSL. Each place is asked for
 # its list with "office-sessions --list" every few seconds, in a process of its
 # own so the card never waits on the network. A line of that list is
 #   name|window|state|claude session id|title
@@ -604,18 +604,33 @@ function Get-KeptPlaces {
         ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
 }
 
+# Whether a place is this PC's WSL: "wsl" for the default distribution, or
+# "wsl:<name>" for a named one. The default is not always the one running the
+# sessions; Docker Desktop makes itself the default, for one.
+function Test-WslPlace {
+    param([string]$Place)
+    return ($Place -eq 'wsl' -or $Place -like 'wsl:*')
+}
+
+# The wsl.exe arguments that reach a WSL place's distribution.
+function Get-WslPrefix {
+    param([string]$Place)
+    if ($Place -like 'wsl:*') { return '-d ' + $Place.Substring(4) + ' -e ' }
+    return '-e '
+}
+
 # The name a place goes by on the card: the host of an ssh target, the same
 # name its outgoing windows are grouped under, or "this PC" for WSL.
 function Get-KeptPlaceName {
     param([string]$Place)
-    if ($Place -eq 'wsl') { return 'this PC' }
+    if (Test-WslPlace -Place $Place) { return 'this PC' }
     return ($Place -split '@')[-1]
 }
 
 # The same place in a sentence: "the office PC", or "this PC" for WSL.
 function Get-KeptPlaceLong {
     param([string]$Place)
-    if ($Place -eq 'wsl') { return 'this PC' }
+    if (Test-WslPlace -Place $Place) { return 'this PC' }
     return 'the ' + (Get-KeptPlaceName -Place $Place) + ' PC'
 }
 
@@ -623,9 +638,9 @@ function Get-KeptPlaceLong {
 function Invoke-AtKeptPlace {
     param([string]$Place, [string]$Command)
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    if ($Place -eq 'wsl') {
+    if (Test-WslPlace -Place $Place) {
         $psi.FileName = 'wsl.exe'
-        $psi.Arguments = '-e ' + $Command
+        $psi.Arguments = (Get-WslPrefix -Place $Place) + $Command
     } else {
         $psi.FileName = 'ssh.exe'
         $psi.Arguments = '-o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' ' + $Command
@@ -647,9 +662,9 @@ function Disconnect-KeptSession {
 function Start-KeptPoll {
     param([string]$Place)
     $psi = New-Object System.Diagnostics.ProcessStartInfo
-    if ($Place -eq 'wsl') {
+    if (Test-WslPlace -Place $Place) {
         $psi.FileName = 'wsl.exe'
-        $psi.Arguments = '-e office-sessions --list'
+        $psi.Arguments = (Get-WslPrefix -Place $Place) + 'office-sessions --list'
     } else {
         $psi.FileName = 'ssh.exe'
         $psi.Arguments = '-o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' office-sessions --list'
@@ -758,7 +773,7 @@ function Update-KeptRows {
         }
         foreach ($s in $poll.Sessions) {
             if ($s.SessionId) { $bySession[$s.SessionId] = $s }
-            if ($place -eq 'wsl' -and $s.SessionId) { continue }
+            if ((Test-WslPlace -Place $place) -and $s.SessionId) { continue }
             $byKey[(Get-KeptKey -Id "$place|$($s.Name)")] = $s
         }
     }
@@ -919,8 +934,8 @@ function Open-KeptSession {
         # draws every symbol as "_".
         $remote = @('tmux', '-u', 'attach', '-t', ('=' + $Kept.Name))
     }
-    if ($Kept.Place -eq 'wsl') {
-        $command = @('wsl.exe', '-e') + $remote
+    if (Test-WslPlace -Place $Kept.Place) {
+        $command = @('wsl.exe') + @((Get-WslPrefix -Place $Kept.Place).Trim() -split ' ') + $remote
     } else {
         $command = @('ssh.exe', '-t', $Kept.Place) + $remote
     }

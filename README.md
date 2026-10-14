@@ -59,7 +59,8 @@ Sessions that keep running with no window connected to them stay on the card too
 marked "not connected, still running". Pointing at one shows "Reconnect", and a click opens a
 terminal attached to it; its right-click menu has "End this session". For that the card asks each
 place listed in `state\remotes.txt`, one per line, every few seconds, and at once whenever a window
-to it opens or closes: an ssh target such as `jonathan@office`, or `wsl` for this PC's own WSL. A
+to it opens or closes: an ssh target such as `jonathan@office`, or `wsl` for this PC's own WSL
+(`wsl:Ubuntu` names the distribution, needed when Docker Desktop has made itself the default). A
 place answers with `office-sessions --list`, which lists its tmux sessions as
 `name|window|state|claude session id|title`, and `office-sessions --end <name>` ends one. A place
 that cannot be asked gets a row saying so, or asking for the sign-in Tailscale wants now and then.
