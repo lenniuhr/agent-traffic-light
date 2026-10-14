@@ -4,6 +4,7 @@
         Width="{DynamicResource RowWidth}"
         Height="{DynamicResource HeaderHeight}"
         Background="Transparent">
+  <Grid>
   <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="4,0,0,4">
     <!-- Same hue as the stripe down every row in this group. The swatch is what
          ties the heading to its rows without repeating the name on each one. -->
@@ -36,4 +37,40 @@
                TextTrimming="CharacterEllipsis"
                Text="" />
   </StackPanel>
+    <!-- New session in this group's folder, at the heading's right end where
+         the rows have their buttons. Shown by the script only for a group
+         whose rows have a folder on this PC, and faded in while the pointer
+         is on the heading, so a calm card shows no extra marks. -->
+    <Border x:Name="NewButton" Width="24" Height="20" Margin="0,0,8,1" Cursor="Hand"
+            HorizontalAlignment="Right" VerticalAlignment="Bottom" Opacity="0" Visibility="Collapsed"
+            CornerRadius="{DynamicResource IconButtonCorner}"
+            BorderThickness="{DynamicResource IconButtonEdgeThickness}">
+      <Border.Style>
+        <Style TargetType="Border">
+          <Setter Property="Background" Value="{DynamicResource BrushIconButtonBg}" />
+          <Setter Property="BorderBrush" Value="{DynamicResource BrushIconButtonEdge}" />
+          <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Background" Value="{DynamicResource BrushNewHoverBg}" />
+              <Setter Property="BorderBrush" Value="{DynamicResource BrushNewHoverEdge}" />
+            </Trigger>
+          </Style.Triggers>
+        </Style>
+      </Border.Style>
+      <Path Width="16" Height="16" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"
+            SnapsToDevicePixels="True" Data="{DynamicResource IconNew}"
+            RenderOptions.EdgeMode="{DynamicResource IconEdgeMode}">
+        <Path.Style>
+          <Style TargetType="Path">
+            <Setter Property="Fill" Value="{DynamicResource BrushIconButton}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsMouseOver, ElementName=NewButton}" Value="True">
+                <Setter Property="Fill" Value="{DynamicResource BrushNewHoverIcon}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Path.Style>
+      </Path>
+    </Border>
+  </Grid>
 </Border>

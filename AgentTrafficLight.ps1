@@ -1878,11 +1878,26 @@ function Get-Header {
     while ($script:headerPool.Count -le $Index) {
         $element = Import-Xaml 'Header.xaml'
         $rowCanvas.Children.Add($element) | Out-Null
+        $newButton = $element.FindName('NewButton')
+        # Fades in with the pointer anywhere on the heading, not only on the
+        # button, so it is there by the time the pointer reaches it.
+        $element.Tag = $newButton
+        $element.Add_MouseEnter({ param($sender, $e) if ($sender.Tag.Visibility -eq 'Visible') { Set-Fade -Element $sender.Tag -To 1 } })
+        $element.Add_MouseLeave({ param($sender, $e) Set-Fade -Element $sender.Tag -To 0 })
+        # Its own press, so it neither drags the card nor reaches a row. The
+        # folder rides on the button, set by the layout.
+        $newButton.Add_MouseLeftButtonDown({ param($sender, $e) $e.Handled = $true })
+        $newButton.Add_MouseLeftButtonUp({
+            param($sender, $e)
+            $e.Handled = $true
+            try { if ($sender.Tag) { Start-ClaudeSession -Folder ([string]$sender.Tag) } } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
+        })
         [void]$script:headerPool.Add(@{
-            Element = $element
-            Label   = $element.FindName('HeaderLabel')
-            Swatch  = $element.FindName('Swatch')
-            Icon    = $element.FindName('Icon')
+            Element   = $element
+            Label     = $element.FindName('HeaderLabel')
+            Swatch    = $element.FindName('Swatch')
+            Icon      = $element.FindName('Icon')
+            NewButton = $newButton
         })
     }
     return $script:headerPool[$Index]
@@ -1990,6 +2005,22 @@ function Get-SessionPatterns {
         $patternFor[$key] = $patterns[$i]
     }
     return $patternFor
+}
+
+# The folder a heading's "+" starts a session in: the one its rows' sessions
+# started in, or with GroupByRepo on the repository the heading names. Only a
+# row with a session on this PC has a folder, so a group on another machine
+# gets no "+".
+function Get-GroupFolder {
+    param([string]$Name, $Recs)
+    foreach ($rec in @($Recs)) {
+        if (-not $rec.Cwd) { continue }
+        $cwd = ([string]$rec.Cwd).TrimEnd('\')
+        if ((Split-Path -Leaf $cwd) -ieq $Name -and [System.IO.Directory]::Exists($cwd)) { return $cwd }
+        $root = Get-RepoRoot -Path $cwd
+        if ($root -and (Split-Path -Leaf $root) -ieq $Name) { return $root }
+    }
+    return ''
 }
 
 # A heading shows its icon when it has one, and the swatch otherwise.
@@ -3549,7 +3580,7 @@ function Write-LayoutDump {
     [void]$lines.Add(('usage  panel={0}  opacity={1}  {2}' -f $usagePanel.Visibility, $usagePanel.Opacity,
         (($usageBars | ForEach-Object { '{0}={1} {2} "{3}" "{4}"' -f $_.Field, $_.Row.Visibility, $_.Used.Width, $_.Pct.Text, $_.Reset.Text }) -join '  ')))
     foreach ($name in @($script:groupOrder.Keys)) {
-        [void]$lines.Add("group $name")
+        [void]$lines.Add("group $name  new=$($script:groupNew[$name])")
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
             [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} tmux={12}' -f
@@ -4170,6 +4201,7 @@ function Update-Layout {
     $y = 0.0
     $script:groupSlots = @{}
     $script:groupOrder = @{}
+    $script:groupNew = @{}
     $headerIndex = 0
     $trailingGroupGap = $false
 
@@ -4189,6 +4221,11 @@ function Update-Layout {
             $header.Label.Text = $g.Name
             $header.Swatch.Fill = $wsBrush
             Set-HeaderMark -Header $header -Icon $iconFor[$g.Name]
+            $folder = Get-GroupFolder -Name $g.Name -Recs $g.Group
+            $header.NewButton.Tag = $folder
+            $header.NewButton.Visibility = $(if ($folder) { 'Visible' } else { 'Collapsed' })
+            $header.NewButton.ToolTip = $(if ($folder) { 'New session in ' + $g.Name } else { $null })
+            $script:groupNew[$g.Name] = $header.NewButton.Visibility
             $header.Element.Visibility = 'Visible'
             [System.Windows.Controls.Canvas]::SetTop($header.Element, $y)
             $y += $headerHeight
@@ -4273,6 +4310,8 @@ function Update-Layout {
         $header.Label.Text = 'Unity'
         $header.Swatch.Fill = $brush.WsNeutral
         Set-HeaderMark -Header $header -Icon $null
+        $header.NewButton.Visibility = 'Collapsed'
+        $header.NewButton.Tag = ''
         $header.Element.Visibility = 'Visible'
         [System.Windows.Controls.Canvas]::SetTop($header.Element, $y)
         $y += $headerHeight

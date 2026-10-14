@@ -75,6 +75,15 @@ keeps in `~/.claude/.credentials.json` and asks the endpoint Claude's own `/usag
 three minutes; it never refreshes the login itself. A reading more than 15 minutes old is dimmed.
 Each bar is switched on and off in the settings menu.
 
+New sessions start from the card. "New session" in the tray icon's menu, which is there while the
+card is hidden, and first in the card's own menu, lists the repos Claude ran in over the last two
+weeks, most used first, at most five: found in `~/.claude/projects`, with folders outside any repo,
+gone or older left out. Each opens a new Windows Terminal window in that repo running
+`claude --permission-mode auto`. "Hide from this list" leaves one out for good; it is kept as
+`HiddenLaunchRepos` in `state\settings.json`, and taken out of there to bring it back. Pointing at a
+repo's heading also shows a "+" at its right end, which opens a session in that folder. A preset
+draws it as `IconNew`. `-Probe -Launch` prints the list and why each other folder was left out.
+
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
 
