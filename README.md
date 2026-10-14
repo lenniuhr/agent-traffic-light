@@ -73,7 +73,7 @@ Along the card's bottom, two bars show how much of the Claude subscription's lim
 five-hour window and the week, each with the time it resets. The card reads the login Claude Code
 keeps in `~/.claude/.credentials.json` and asks the endpoint Claude's own `/usage` reads, every
 three minutes; it never refreshes the login itself. A reading more than 15 minutes old is dimmed.
-Each bar is switched on and off in the settings menu.
+Each bar is switched on and off under Settings in the card's menu.
 
 New sessions start from the card. "New session" in the tray icon's menu, which is there while the
 card is hidden, and first in the card's own menu, lists the repos Claude ran in over the last two

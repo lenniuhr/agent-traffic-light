@@ -4462,6 +4462,10 @@ function Show-SettingsMenu {
     [void]$menu.Items.Add((New-LaunchMenu))
     [void]$menu.Items.Add((New-CardMenuSeparator))
 
+    # The switches in a submenu of their own, so the menu itself stays short
+    # and New session stands out at its top.
+    $settingsItem = New-CardMenuItem -Header 'Settings'
+
     $unityItem = New-CardMenuItem -Header 'Show Unity editors'
     $unityItem.IsCheckable = $true
     $unityItem.IsChecked = [bool]$script:settings.ShowUnityEditors
@@ -4474,7 +4478,7 @@ function Show-SettingsMenu {
             Update-Layout
         } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
     })
-    [void]$menu.Items.Add($unityItem)
+    [void]$settingsItem.Items.Add($unityItem)
 
     # Takes effect at once rather than on the next sweep: the extras are read
     # again with the new setting and the poll regroups the rows from them.
@@ -4490,7 +4494,7 @@ function Show-SettingsMenu {
             Update-Card
         } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
     })
-    [void]$menu.Items.Add($repoItem)
+    [void]$settingsItem.Items.Add($repoItem)
 
     # The subscription's limits along the card's bottom, each on its own.
     foreach ($bar in @(@{ Header = 'Show 5-hour limit'; Key = 'ShowUsage5h' },
@@ -4508,10 +4512,10 @@ function Show-SettingsMenu {
                 Update-Layout
             } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
         })
-        [void]$menu.Items.Add($usageItem)
+        [void]$settingsItem.Items.Add($usageItem)
     }
 
-    [void]$menu.Items.Add((New-CardMenuSeparator))
+    [void]$menu.Items.Add($settingsItem)
     [void]$menu.Items.Add((New-DefaultSoundMenu))
     [void]$menu.Items.Add((New-StyleMenu))
 
