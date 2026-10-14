@@ -4665,6 +4665,20 @@ function Request-QuickSweeps {
     $sweepTimer.Interval = [TimeSpan]::FromMilliseconds(750)
 }
 
+# A card started from inside a Claude session, by the installer run there or a
+# restart Claude made, carries that session's markers in its environment, and
+# every session it starts would inherit them: Claude then takes itself for a
+# helper of that session and saves no transcript. Only the Claude variables
+# the user or the machine sets for good are passed on.
+function Clear-InheritedClaudeEnv {
+    foreach ($name in @([Environment]::GetEnvironmentVariables('Process').Keys)) {
+        if ($name -notmatch '^CLAUDE') { continue }
+        if ($null -ne [Environment]::GetEnvironmentVariable($name, 'User')) { continue }
+        if ($null -ne [Environment]::GetEnvironmentVariable($name, 'Machine')) { continue }
+        [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+    }
+}
+
 # A new Claude session in a folder, in a terminal window of its own: never a
 # tab, since the card follows one session per window. -NoExit leaves a prompt
 # in the folder when Claude ends, as typing claude there would.
@@ -4676,6 +4690,7 @@ function Start-ClaudeSession {
         Show-TrayNote -Text "$name no longer exists"
         return
     }
+    Clear-InheritedClaudeEnv
     $claude = @('-NoExit', '-Command', 'claude', '--permission-mode', 'auto')
     try {
         $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
