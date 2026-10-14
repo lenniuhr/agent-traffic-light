@@ -51,7 +51,9 @@
           Cursor="Hand"
           Opacity="0"
           Visibility="Collapsed">
-      <Rectangle RadiusX="4" RadiusY="4">
+      <!-- Clear of the top of the text line by two pixels: the "+" sits low in
+           its line, so this centres the pill on the cross, and keeps it small. -->
+      <Rectangle RadiusX="4" RadiusY="4" Margin="0,2,0,0">
         <Rectangle.Style>
           <Style TargetType="Rectangle">
             <Setter Property="Fill" Value="{DynamicResource BrushTextDim}" />
@@ -59,14 +61,14 @@
             <Style.Triggers>
               <DataTrigger Binding="{Binding IsMouseOver, ElementName=NewButton}" Value="True">
                 <Setter Property="Fill" Value="{DynamicResource BrushMenuHighlight}" />
-                <Setter Property="Opacity" Value="1" />
+                <Setter Property="Opacity" Value="0.6" />
               </DataTrigger>
             </Style.Triggers>
           </Style>
         </Rectangle.Style>
       </Rectangle>
       <TextBlock Text="+"
-                 Margin="5,-1,5,0"
+                 Margin="4,-1,4,0"
                  VerticalAlignment="Center"
                  Effect="{DynamicResource TextGlow}"
                  FontFamily="{DynamicResource FontHeader}"
