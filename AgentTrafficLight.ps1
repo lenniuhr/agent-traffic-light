@@ -4703,18 +4703,59 @@ function Request-QuickSweeps {
     $sweepTimer.Interval = [TimeSpan]::FromMilliseconds(750)
 }
 
-# A card started from inside a Claude session, by the installer run there or a
-# restart Claude made, carries that session's markers in its environment, and
-# every session it starts would inherit them: Claude then takes itself for a
-# helper of that session and saves no transcript. Only the Claude variables
-# the user or the machine sets for good are passed on.
-function Clear-InheritedClaudeEnv {
-    foreach ($name in @([Environment]::GetEnvironmentVariables('Process').Keys)) {
-        if ($name -notmatch '^CLAUDE') { continue }
-        if ($null -ne [Environment]::GetEnvironmentVariable($name, 'User')) { continue }
-        if ($null -ne [Environment]::GetEnvironmentVariable($name, 'Machine')) { continue }
-        [Environment]::SetEnvironmentVariable($name, $null, 'Process')
+# The environment Windows gives a fresh login of this user: the machine's and
+# the user's variables, with PATH joined from both, and nothing any process
+# set on its way. Windows builds it itself, so it is exactly what a terminal
+# opened from the Start menu gets.
+function Get-LoginEnvironment {
+    if (-not ('TlLoginEnv' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+public static class TlLoginEnv {
+    [DllImport("userenv.dll", SetLastError = true)]
+    static extern bool CreateEnvironmentBlock(out IntPtr block, IntPtr token, bool inherit);
+    [DllImport("userenv.dll", SetLastError = true)]
+    static extern bool DestroyEnvironmentBlock(IntPtr block);
+    public static Dictionary<string, string> Get() {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        IntPtr block;
+        using (var id = WindowsIdentity.GetCurrent()) {
+            if (!CreateEnvironmentBlock(out block, id.Token, false)) throw new System.ComponentModel.Win32Exception();
+        }
+        try {
+            IntPtr p = block;
+            while (true) {
+                string entry = Marshal.PtrToStringUni(p);
+                if (string.IsNullOrEmpty(entry)) break;
+                int eq = entry.IndexOf('=', 1);
+                if (eq > 0 && entry[0] != '=') result[entry.Substring(0, eq)] = entry.Substring(eq + 1);
+                p = new IntPtr(p.ToInt64() + (entry.Length + 1) * 2);
+            }
+        } finally { DestroyEnvironmentBlock(block); }
+        return result;
     }
+}
+'@
+    }
+    return [TlLoginEnv]::Get()
+}
+
+# A card started from a shell that is not a fresh login's, as one a Claude
+# session runs commands in when it restarts the card, carries that shell's
+# variables, and every session the card starts would inherit them: Claude's
+# own markers made a new session take itself for a helper and save no
+# transcript, NO_COLOR drew it in grey, and GIT_EDITOR=true would have
+# swallowed every commit message typed in it. So the card takes a fresh
+# login's environment before each launch.
+function Reset-LaunchEnvironment {
+    $fresh = Get-LoginEnvironment
+    foreach ($name in @([Environment]::GetEnvironmentVariables('Process').Keys)) {
+        if (-not $fresh.ContainsKey($name)) { [Environment]::SetEnvironmentVariable($name, $null, 'Process') }
+    }
+    foreach ($name in @($fresh.Keys)) { [Environment]::SetEnvironmentVariable($name, $fresh[$name], 'Process') }
 }
 
 # A new Claude session in a folder, in a terminal window of its own: never a
@@ -4728,7 +4769,7 @@ function Start-ClaudeSession {
         Show-TrayNote -Text "$name no longer exists"
         return
     }
-    Clear-InheritedClaudeEnv
+    try { Reset-LaunchEnvironment } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
     $claude = @('-NoExit', '-Command', 'claude', '--permission-mode', 'auto')
     try {
         $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
