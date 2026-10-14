@@ -859,7 +859,7 @@ function Get-RowKept {
     return $null
 }
 
-# The kept session a row's "End this session" ends, or $null: a row with no
+# The kept session a row's Kill and Disconnect act on, or $null: a row with no
 # window, an incoming row that runs in tmux here, or a window here whose title
 # is that of exactly one of its host's kept sessions.
 function Get-RowEndable {
@@ -905,8 +905,8 @@ function Stop-KeptSession {
     param($Kept)
     $where = Get-KeptPlaceLong -Place $Kept.Place
     $answer = [System.Windows.MessageBox]::Show($window,
-        "End the session $($Kept.Name) on $where?`n`nClaude stops there, and anything it is doing stops with it. Any window showing it closes.",
-        'End session', 'YesNo', 'Warning')
+        "Kill the session $($Kept.Name) on $where?`n`nClaude stops there, and anything it is doing stops with it. Any window showing it closes.",
+        'Kill session', 'YesNo', 'Warning')
     if ($answer -ne 'Yes') { return }
     $script:keptEnding["$($Kept.Place)|$($Kept.Name)"] = Get-Date
     Invoke-AtKeptPlace -Place $Kept.Place -Command ('office-sessions --end ' + $Kept.Name)
@@ -1485,6 +1485,9 @@ $script:unityEditors = @()
 # Preset is the name of a file in the presets folder, laid over Classic. One
 # that has gone missing falls back to Classic when the card starts.
 #
+# ShowUsage5h and ShowUsageWeek show the Claude subscription's five-hour and
+# weekly limits as bars along the card's bottom. Both on by default.
+#
 # Sounds maps a terminal window handle to the sound that window's session plays
 # when it needs you, '' being Off picked on purpose. Keyed by window like the row
 # order, so a sound survives a /clear, a new session in the same window and a
@@ -1493,13 +1496,16 @@ $script:unityEditors = @()
 # from it, so changing it changes every window that follows it.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
-$script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; DefaultSound = ''; Preset = 'Classic'; Sounds = @{} }
+$script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
+                      DefaultSound = ''; Preset = 'Classic'; Sounds = @{} }
 
 function Read-Settings {
     try {
         $saved = Get-Content $settingsFile -Raw -ErrorAction Stop | ConvertFrom-Json
         if ($null -ne $saved.ShowUnityEditors) { $script:settings.ShowUnityEditors = [bool]$saved.ShowUnityEditors }
         if ($null -ne $saved.GroupByRepo) { $script:settings.GroupByRepo = [bool]$saved.GroupByRepo }
+        if ($null -ne $saved.ShowUsage5h) { $script:settings.ShowUsage5h = [bool]$saved.ShowUsage5h }
+        if ($null -ne $saved.ShowUsageWeek) { $script:settings.ShowUsageWeek = [bool]$saved.ShowUsageWeek }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.Sounds) {
@@ -1515,6 +1521,8 @@ function Save-Settings {
         [pscustomobject]@{
             ShowUnityEditors = $script:settings.ShowUnityEditors
             GroupByRepo      = $script:settings.GroupByRepo
+            ShowUsage5h      = $script:settings.ShowUsage5h
+            ShowUsageWeek    = $script:settings.ShowUsageWeek
             DefaultSound     = $script:settings.DefaultSound
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
@@ -1983,6 +1991,15 @@ $workClock     = $window.FindName('WorkClock')
 $workClockText = $window.FindName('WorkClockText')
 $workClockSub  = $window.FindName('WorkClockSub')
 $menuButton    = $window.FindName('MenuButton')
+$usagePanel    = $window.FindName('UsagePanel')
+$usageBars = @(
+    @{ Setting = 'ShowUsage5h'; Field = 'five_hour'; Row = $window.FindName('Usage5h')
+       Used = $window.FindName('Usage5hUsed'); Left = $window.FindName('Usage5hLeft'); Fill = $window.FindName('Usage5hFill')
+       Pct = $window.FindName('Usage5hPct'); Reset = $window.FindName('Usage5hReset') },
+    @{ Setting = 'ShowUsageWeek'; Field = 'seven_day'; Row = $window.FindName('UsageWeek')
+       Used = $window.FindName('UsageWeekUsed'); Left = $window.FindName('UsageWeekLeft'); Fill = $window.FindName('UsageWeekFill')
+       Pct = $window.FindName('UsageWeekPct'); Reset = $window.FindName('UsageWeekReset') }
+)
 
 # The colours and sizes the script works with itself, read from the merged
 # presets. Run at start and after every switch of preset; everything bound in
@@ -2192,9 +2209,10 @@ function New-Row {
         Reconnect     = $element.FindName('Reconnect')
         ReconnectText = $element.FindName('ReconnectText')
         ClickAction   = ''
-        # The End button, shown on a row whose session outlives its window, and
-        # the tmux session a window's title names, when it names one.
-        EndButton = $element.FindName('EndButton')
+        # The Disconnect and Kill buttons, shown on a row whose session outlives
+        # its window, and the tmux session a window's title names, if any.
+        DisconnectButton = $element.FindName('DisconnectButton')
+        KillButton       = $element.FindName('KillButton')
         TmuxName  = ''
     }
 
@@ -2219,23 +2237,26 @@ function New-Row {
         }
     })
 
-    # The End button takes its own press, so it never starts a drag or counts
-    # as a click on the row, and asks before ending the session.
-    $rec.EndButton.Tag = $Handle
-    $rec.EndButton.Add_MouseLeftButtonDown({
-        param($sender, $e)
-        $e.Handled = $true
-    })
-    $rec.EndButton.Add_MouseLeftButtonUp({
-        param($sender, $e)
-        $e.Handled = $true
-        $row = $rows[[string][int64]$sender.Tag]
-        if ($null -eq $row) { return }
-        try {
-            $kept = Get-RowEndable -Element $row.Element
-            if ($null -ne $kept) { Stop-KeptSession -Kept $kept }
-        } catch { Write-ErrorLog -Where 'end' -Problem $_ }
-    })
+    # The two buttons take their own press, so neither starts a drag or counts
+    # as a click on the row. Kill asks before it stops anything.
+    foreach ($button in @($rec.DisconnectButton, $rec.KillButton)) {
+        $button.Tag = $Handle
+        $button.Add_MouseLeftButtonDown({
+            param($sender, $e)
+            $e.Handled = $true
+        })
+        $button.Add_MouseLeftButtonUp({
+            param($sender, $e)
+            $e.Handled = $true
+            $row = $rows[[string][int64]$sender.Tag]
+            if ($null -eq $row) { return }
+            try {
+                $kept = Get-RowEndable -Element $row.Element
+                if ($null -eq $kept) { return }
+                if ($sender.Name -eq 'KillButton') { Stop-KeptSession -Kept $kept } else { Disconnect-KeptSession -Kept $kept }
+            } catch { Write-ErrorLog -Where 'rowbutton' -Problem $_ }
+        })
+    }
 
     $element.Tag = $Handle
     $rec.Spinner.RenderTransform = $script:spinTurn
@@ -2570,7 +2591,7 @@ function Show-RowMenu {
                 Disconnect-KeptSession -Kept $Kept
             } | Out-Null
         }
-        Add-CardMenuAction -Parent $menu -Header "End session: stop Claude on $where" -Arg $kept -Where 'end' -Action {
+        Add-CardMenuAction -Parent $menu -Header "Kill: stop Claude on $where" -Arg $kept -Where 'end' -Action {
             param($Kept)
             Stop-KeptSession -Kept $Kept
         } | Out-Null
@@ -3168,16 +3189,18 @@ function Write-LayoutDump {
     [void]$lines.Add(('{0:o}  drag={1}  order={2}  preset={3}  pitch={4}  height={5}  live={6}  rows={7}  warn={8}' -f (Get-Date), ($null -ne $script:drag),
         ($script:userOrder -join ','), $script:preset, ($script:rowHeight + $rowGap), $window.Height,
         $script:liveSessionCount, $rows.Count, $warnText.Visibility))
+    [void]$lines.Add(('usage  panel={0}  opacity={1}  {2}' -f $usagePanel.Visibility, $usagePanel.Opacity,
+        (($usageBars | ForEach-Object { '{0}={1} {2} "{3}" "{4}"' -f $_.Field, $_.Row.Visibility, $_.Used.Width, $_.Pct.Text, $_.Reset.Text }) -join '  ')))
     foreach ($name in @($script:groupOrder.Keys)) {
         [void]$lines.Add("group $name")
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
-            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} end={11} tmux={12}' -f
+            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} tmux={12}' -f
                 $rec.Top, [Math]::Round($drawn, 1),
                 [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$rec.StartedAt).LocalDateTime,
                 $rec.Seq, [int64]$rec.Handle, $script:orderIndex[[string][int64]$rec.Handle], $rec.Label,
                 $rec.State, $rec.Detail, [Math]::Round($rec.Element.Opacity, 2), $rec.ClickAction,
-                $rec.EndButton.Visibility, $rec.TmuxName))
+                $rec.KillButton.Visibility, $rec.TmuxName, $rec.DisconnectButton.Visibility))
         }
     }
     Set-Content -Path (Join-Path $stateDir 'dump.txt') -Value $lines -Encoding UTF8
@@ -3681,7 +3704,18 @@ function Update-Card {
                 $rec.Reconnect.Visibility = 'Collapsed'
             }
         }
-        $rec.EndButton.Visibility = $(if ($null -ne (Get-RowEndable -Element $rec.Element)) { 'Visible' } else { 'Collapsed' })
+        # Kill on every such row; Disconnect only while a window here shows it.
+        $endable = Get-RowEndable -Element $rec.Element
+        $rec.KillButton.Visibility = $(if ($null -ne $endable) { 'Visible' } else { 'Collapsed' })
+        $rec.DisconnectButton.Visibility = $(if ($null -ne $endable -and [int64]$rec.Handle -gt 0) { 'Visible' } else { 'Collapsed' })
+        if ($null -ne $endable) {
+            $where = Get-KeptPlaceLong -Place $endable.Place
+            $killTip = "Kill: stop Claude on $where"
+            if ([string]$rec.KillButton.ToolTip -ne $killTip) {
+                $rec.KillButton.ToolTip = $killTip
+                $rec.DisconnectButton.ToolTip = "Disconnect: close this window, Claude keeps running on $where"
+            }
+        }
     }
     Update-Needs -Ordered $ordered
 
@@ -3725,6 +3759,10 @@ function Get-CardHeight {
     param([double]$ContentHeight)
     $body = $ContentHeight + $script:cardPadding * 2 + $script:cardBorder.Top + $script:cardBorder.Bottom
     if ($warnText.Visibility -eq 'Visible') { $body += 20 }
+    if ($usagePanel.Visibility -eq 'Visible') {
+        $body += $usagePanel.Margin.Top + $usagePanel.Margin.Bottom
+        foreach ($bar in $usageBars) { if ($bar.Row.Visibility -eq 'Visible') { $body += $bar.Row.Height } }
+    }
     $body += $workClock.Height + $workClock.Margin.Top
     return $body + $shadowMargin * 2
 }
@@ -3984,6 +4022,25 @@ function Show-SettingsMenu {
     })
     [void]$menu.Items.Add($repoItem)
 
+    # The subscription's limits along the card's bottom, each on its own.
+    foreach ($bar in @(@{ Header = 'Show 5-hour limit'; Key = 'ShowUsage5h' },
+                       @{ Header = 'Show weekly limit'; Key = 'ShowUsageWeek' })) {
+        $usageItem = New-CardMenuItem -Header $bar.Header
+        $usageItem.IsCheckable = $true
+        $usageItem.IsChecked = [bool]$script:settings[$bar.Key]
+        $usageItem.Tag = $bar.Key
+        $usageItem.Add_Click({
+            param($sender, $e)
+            try {
+                $script:settings[[string]$sender.Tag] = [bool]$sender.IsChecked
+                Save-Settings
+                Update-UsageBars
+                Update-Layout
+            } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+        })
+        [void]$menu.Items.Add($usageItem)
+    }
+
     [void]$menu.Items.Add((New-CardMenuSeparator))
     [void]$menu.Items.Add((New-DefaultSoundMenu))
     [void]$menu.Items.Add((New-StyleMenu))
@@ -3991,6 +4048,127 @@ function Show-SettingsMenu {
     $menu.PlacementTarget = $menuButton
     $menu.Placement = [System.Windows.Controls.Primitives.PlacementMode]::Bottom
     $menu.IsOpen = $true
+}
+
+# ---------------------------------------------------------------------------
+# The Claude subscription's limits, as bars along the card's bottom: the
+# five-hour window and the week, how much of each is used, and when each resets.
+#
+# Claude Code keeps its login in ~/.claude/.credentials.json and refreshes the
+# token there while it runs. The card only reads that file and never refreshes
+# the token itself, since a refresh would replace the one Claude holds. With it
+# the card asks the endpoint Claude's own /usage reads, every few minutes, and
+# never waits on the network: the request runs as a task the clock collects.
+# A reading that has grown old, because no Claude has run here for a while and
+# the login lapsed, is shown dimmed rather than as current.
+# ---------------------------------------------------------------------------
+$usageEverySec = 180
+$usageStaleMin = 15
+$credentialsFile = Join-Path $env:USERPROFILE '.claude\.credentials.json'
+$script:usage = @{ Task = $null; ReadTask = $null; NextAt = [datetime]::MinValue; Data = $null; At = $null; DrawnAt = [datetime]::MinValue }
+Add-Type -AssemblyName System.Net.Http
+[System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor [System.Net.SecurityProtocolType]::Tls12
+$script:http = New-Object System.Net.Http.HttpClient
+$script:http.Timeout = [TimeSpan]::FromSeconds(20)
+
+# Collects a finished request, or starts the next one when it is due. Runs on
+# the clock, once a second; with nothing finished and nothing due it returns
+# at once.
+function Update-Usage {
+    $u = $script:usage
+    $now = Get-Date
+    if ($null -ne $u.ReadTask) {
+        if (-not $u.ReadTask.IsCompleted) { return }
+        if (-not $u.ReadTask.IsFaulted) {
+            try {
+                $reading = $u.ReadTask.Result | ConvertFrom-Json
+                if ($null -ne $reading.five_hour -or $null -ne $reading.seven_day) { $u.Data = $reading; $u.At = $now }
+            } catch { Write-ErrorLog -Where 'usage' -Problem $_ }
+        }
+        $u.ReadTask = $null
+        Update-UsageBars
+        return
+    }
+    if ($null -ne $u.Task) {
+        if (-not $u.Task.IsCompleted) { return }
+        if (-not $u.Task.IsFaulted -and -not $u.Task.IsCanceled -and $u.Task.Result.IsSuccessStatusCode) {
+            $u.ReadTask = $u.Task.Result.Content.ReadAsStringAsync()
+        }
+        $u.Task = $null
+        return
+    }
+    # A window that has reset since the last reading shows its old use until
+    # asked again, so it is asked as soon as the reset has passed.
+    if ($null -ne $u.Data -and $null -ne $u.At) {
+        foreach ($field in @('five_hour', 'seven_day')) {
+            $resets = ConvertFrom-UsageTime -Value $u.Data.$field.resets_at
+            if ($null -ne $resets -and $resets -lt $now -and $u.At -lt $resets -and $u.NextAt -gt $now.AddSeconds(20)) {
+                $u.NextAt = $now.AddSeconds(20)
+            }
+        }
+    }
+    if ((-not ($script:settings.ShowUsage5h -or $script:settings.ShowUsageWeek)) -or $now -lt $u.NextAt) {
+        if (($now - $u.DrawnAt).TotalSeconds -ge 60) { Update-UsageBars }
+        return
+    }
+    $u.NextAt = $now.AddSeconds($usageEverySec)
+    try {
+        $login = (Get-Content $credentialsFile -Raw -ErrorAction Stop | ConvertFrom-Json).claudeAiOauth
+        if (-not $login.accessToken) { return }
+        if ([int64]$login.expiresAt -lt [DateTimeOffset]::UtcNow.ToUnixTimeMilliseconds()) { return }
+        $request = New-Object System.Net.Http.HttpRequestMessage([System.Net.Http.HttpMethod]::Get, 'https://api.anthropic.com/api/oauth/usage')
+        $request.Headers.Authorization = New-Object System.Net.Http.Headers.AuthenticationHeaderValue('Bearer', [string]$login.accessToken)
+        [void]$request.Headers.TryAddWithoutValidation('anthropic-beta', 'oauth-2025-04-20')
+        $u.Task = $script:http.SendAsync($request)
+    } catch { }
+}
+
+function ConvertFrom-UsageTime {
+    param($Value)
+    if (-not $Value) { return $null }
+    try { return [DateTimeOffset]::Parse([string]$Value, [Globalization.CultureInfo]::InvariantCulture).LocalDateTime } catch { return $null }
+}
+
+# "resets 18:40" today, "resets Mon 18:00" on another day.
+function Format-UsageReset {
+    param($Value)
+    $at = ConvertFrom-UsageTime -Value $Value
+    if ($null -eq $at) { return '' }
+    $inv = [Globalization.CultureInfo]::InvariantCulture
+    if ($at.Date -eq (Get-Date).Date) { return 'resets ' + $at.ToString('HH:mm', $inv) }
+    return 'resets ' + $at.ToString('ddd HH:mm', $inv)
+}
+
+# Draws both bars from the last reading and the two menu switches, and resizes
+# the card when a line comes or goes.
+function Update-UsageBars {
+    $u = $script:usage
+    $u.DrawnAt = Get-Date
+    $before = '' + $usagePanel.Visibility + ($usageBars | ForEach-Object { $_.Row.Visibility })
+    $any = $false
+    foreach ($bar in $usageBars) {
+        $limit = $null
+        if ($null -ne $u.Data) { $limit = $u.Data.($bar.Field) }
+        if (-not $script:settings[$bar.Setting] -or $null -eq $limit -or $null -eq $limit.utilization) {
+            $bar.Row.Visibility = 'Collapsed'
+            continue
+        }
+        $any = $true
+        $bar.Row.Visibility = 'Visible'
+        $used = [Math]::Max(0.0, [Math]::Min(100.0, [double]$limit.utilization))
+        $bar.Used.Width = New-Object System.Windows.GridLength($used, ([System.Windows.GridUnitType]::Star))
+        $bar.Left.Width = New-Object System.Windows.GridLength((100.0 - $used), ([System.Windows.GridUnitType]::Star))
+        # By reference, so a change of style recolours it like everything else.
+        $bar.Fill.SetResourceReference([System.Windows.Controls.Border]::BackgroundProperty, $(if ($used -ge 80) { 'BrushUsageHigh' } else { 'BrushUsageFill' }))
+        $bar.Pct.Text = ('{0:0} %' -f $used)
+        $bar.Reset.Text = Format-UsageReset -Value $limit.resets_at
+    }
+    $usagePanel.Visibility = $(if ($any) { 'Visible' } else { 'Collapsed' })
+    $stale = ($null -ne $u.At -and ((Get-Date) - $u.At).TotalMinutes -gt $usageStaleMin)
+    $usagePanel.Opacity = $(if ($stale) { 0.45 } else { 1 })
+    $usagePanel.ToolTip = $(if ($null -ne $u.At) { 'Claude subscription limits, as of ' + $u.At.ToString('HH:mm', [Globalization.CultureInfo]::InvariantCulture) } else { $null })
+    $after = '' + $usagePanel.Visibility + ($usageBars | ForEach-Object { $_.Row.Visibility })
+    if ($after -ne $before) { Update-Layout }
 }
 
 # ---------------------------------------------------------------------------
@@ -4149,6 +4327,7 @@ $clockTimer.Add_Tick({
     param($sender, $e)
     try { Update-Timers } catch { Write-ErrorLog -Where 'clock' -Problem $_ }
     try { Update-WorkClock } catch { Write-ErrorLog -Where 'workclock' -Problem $_ }
+    try { Update-Usage } catch { Write-ErrorLog -Where 'usage' -Problem $_ }
     $sender.Interval = [TimeSpan]::FromMilliseconds(1015 - (Get-Date).Millisecond)
 })
 

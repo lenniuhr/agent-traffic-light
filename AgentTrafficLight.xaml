@@ -175,37 +175,38 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
           </Grid.RowDefinitions>
 
           <!-- The preset's sheen over the whole card, then its decoration, both
                under everything on it. -->
-          <Border Grid.RowSpan="3"
+          <Border Grid.RowSpan="4"
                   CornerRadius="{DynamicResource CardInnerCorner}"
                   Background="{DynamicResource CardGloss}"
                   IsHitTestVisible="False" />
-          <Border Grid.RowSpan="3"
+          <Border Grid.RowSpan="4"
                   CornerRadius="{DynamicResource CardInnerCorner}"
                   Background="{DynamicResource CardArt}"
                   IsHitTestVisible="False" />
 
           <!-- The preset's corner ornament: drawn once for the top left corner
                and mirrored into the other three, so the four always match. -->
-          <Border Grid.RowSpan="3" HorizontalAlignment="Left" VerticalAlignment="Top"
+          <Border Grid.RowSpan="4" HorizontalAlignment="Left" VerticalAlignment="Top"
                   Width="{DynamicResource CornerArtSize}" Height="{DynamicResource CornerArtSize}"
                   Background="{DynamicResource CardCornerArt}" IsHitTestVisible="False" />
-          <Border Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Top"
+          <Border Grid.RowSpan="4" HorizontalAlignment="Right" VerticalAlignment="Top"
                   Width="{DynamicResource CornerArtSize}" Height="{DynamicResource CornerArtSize}"
                   Background="{DynamicResource CardCornerArt}" IsHitTestVisible="False"
                   RenderTransformOrigin="0.5,0.5">
             <Border.RenderTransform><ScaleTransform ScaleX="-1" /></Border.RenderTransform>
           </Border>
-          <Border Grid.RowSpan="3" HorizontalAlignment="Left" VerticalAlignment="Bottom"
+          <Border Grid.RowSpan="4" HorizontalAlignment="Left" VerticalAlignment="Bottom"
                   Width="{DynamicResource CornerArtSize}" Height="{DynamicResource CornerArtSize}"
                   Background="{DynamicResource CardCornerArt}" IsHitTestVisible="False"
                   RenderTransformOrigin="0.5,0.5">
             <Border.RenderTransform><ScaleTransform ScaleY="-1" /></Border.RenderTransform>
           </Border>
-          <Border Grid.RowSpan="3" HorizontalAlignment="Right" VerticalAlignment="Bottom"
+          <Border Grid.RowSpan="4" HorizontalAlignment="Right" VerticalAlignment="Bottom"
                   Width="{DynamicResource CornerArtSize}" Height="{DynamicResource CornerArtSize}"
                   Background="{DynamicResource CardCornerArt}" IsHitTestVisible="False"
                   RenderTransformOrigin="0.5,0.5">
@@ -283,6 +284,69 @@
                      Foreground="{DynamicResource BrushWarning}"
                      TextTrimming="CharacterEllipsis"
                      Visibility="Collapsed" />
+
+          <!-- How much of the Claude subscription's limits is used: the five-hour
+               window and the week, each with the time it resets. The account is
+               the one the Claude login on this PC belongs to. Each line is switched
+               on and off in the settings menu, and both stay collapsed until the
+               first reading arrives. A bar is two star columns, used and left, so
+               the script sets a share rather than a width. -->
+          <StackPanel x:Name="UsagePanel" Grid.Row="3" Margin="14,2,16,10" Visibility="Collapsed">
+            <Grid x:Name="Usage5h" Height="17">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="58" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="96" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="5 HOURS" VerticalAlignment="Center" Effect="{DynamicResource TextGlow}"
+                         FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
+                         Foreground="{DynamicResource BrushTextDim}" />
+              <Grid Grid.Column="1" Height="{DynamicResource UsageBarHeight}" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition x:Name="Usage5hUsed" Width="0*" />
+                  <ColumnDefinition x:Name="Usage5hLeft" Width="1*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.ColumnSpan="2" Background="{DynamicResource BrushUsageTrack}" CornerRadius="{DynamicResource UsageBarCorner}" />
+                <Border x:Name="Usage5hFill" Background="{DynamicResource BrushUsageFill}" CornerRadius="{DynamicResource UsageBarCorner}" />
+              </Grid>
+              <TextBlock x:Name="Usage5hPct" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center"
+                         Effect="{DynamicResource TextGlow}" Typography.NumeralAlignment="Tabular"
+                         FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
+                         Foreground="{DynamicResource BrushText}" />
+              <TextBlock x:Name="Usage5hReset" Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center"
+                         Effect="{DynamicResource TextGlow}" Typography.NumeralAlignment="Tabular"
+                         FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
+                         Foreground="{DynamicResource BrushTextDim}" />
+            </Grid>
+            <Grid x:Name="UsageWeek" Height="17">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="58" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="44" />
+                <ColumnDefinition Width="96" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="WEEK" VerticalAlignment="Center" Effect="{DynamicResource TextGlow}"
+                         FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
+                         Foreground="{DynamicResource BrushTextDim}" />
+              <Grid Grid.Column="1" Height="{DynamicResource UsageBarHeight}" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition x:Name="UsageWeekUsed" Width="0*" />
+                  <ColumnDefinition x:Name="UsageWeekLeft" Width="1*" />
+                </Grid.ColumnDefinitions>
+                <Border Grid.ColumnSpan="2" Background="{DynamicResource BrushUsageTrack}" CornerRadius="{DynamicResource UsageBarCorner}" />
+                <Border x:Name="UsageWeekFill" Background="{DynamicResource BrushUsageFill}" CornerRadius="{DynamicResource UsageBarCorner}" />
+              </Grid>
+              <TextBlock x:Name="UsageWeekPct" Grid.Column="2" HorizontalAlignment="Right" VerticalAlignment="Center"
+                         Effect="{DynamicResource TextGlow}" Typography.NumeralAlignment="Tabular"
+                         FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
+                         Foreground="{DynamicResource BrushText}" />
+              <TextBlock x:Name="UsageWeekReset" Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center"
+                         Effect="{DynamicResource TextGlow}" Typography.NumeralAlignment="Tabular"
+                         FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
+                         Foreground="{DynamicResource BrushTextDim}" />
+            </Grid>
+          </StackPanel>
         </Grid>
       </Border>
     </Border>

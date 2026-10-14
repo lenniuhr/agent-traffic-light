@@ -103,6 +103,47 @@
     <GradientStop Color="#CC171A10" Offset="1" />
   </LinearGradientBrush>
 
+  <!-- The row buttons as stencilled machine marks: pixel shapes on the 16 grid,
+       drawn with hard edges, in square ink-keyline boxes. Disconnect lights in
+       the acid tread colour, like a safe lever; Kill turns into the black frame
+       band with an amber skull, the hazard plate. -->
+  <PathGeometry x:Key="IconDisconnect"
+                Figures="M0,7h3v2h-3z M3,5h4v6h-4z M7,6h2v1h-2z M7,9h2v1h-2z
+                         M11,5h3v6h-3z M14,7h2v2h-2z
+                         M9,3h1v1h-1z M10,2h1v1h-1z M9,12h1v1h-1z M10,13h1v1h-1z" />
+  <PathGeometry x:Key="IconKill"
+                Figures="M5,3h6v1h-6z M3,4h10v1h-10z M2,5h12v2h-12z
+                         M2,7h2v2h-2z M6,7h4v2h-4z M12,7h2v2h-2z
+                         M2,9h5v1h-5z M9,9h5v1h-5z M3,10h4v1h-4z M9,10h4v1h-4z
+                         M4,11h8v1h-8z M4,12h1v1h-1z M6,12h4v1h-4z M11,12h1v1h-1z M4,13h8v1h-8z" />
+  <SolidColorBrush x:Key="BrushIconButton"           Color="#414632" />
+  <SolidColorBrush x:Key="BrushIconButtonEdge"       Color="#4D171A10" />
+  <SolidColorBrush x:Key="BrushDisconnectHoverBg"    Color="#B5E51D" />
+  <SolidColorBrush x:Key="BrushDisconnectHoverIcon"  Color="#14170D" />
+  <SolidColorBrush x:Key="BrushDisconnectHoverEdge"  Color="#14170D" />
+  <SolidColorBrush x:Key="BrushKillHoverBg"          Color="#14170D" />
+  <SolidColorBrush x:Key="BrushKillHoverIcon"        Color="#E6B54A" />
+  <SolidColorBrush x:Key="BrushKillHoverEdge"        Color="#E0A53C" />
+  <CornerRadius x:Key="IconButtonCorner">0</CornerRadius>
+  <Thickness x:Key="IconButtonEdgeThickness">1</Thickness>
+  <EdgeMode x:Key="IconEdgeMode">Aliased</EdgeMode>
+
+  <!-- The limit bars as the tread: a black band with the acid dashes running
+       through it, square, and amber once past 80 %. -->
+  <sys:Double x:Key="UsageBarHeight">6</sys:Double>
+  <CornerRadius x:Key="UsageBarCorner">0</CornerRadius>
+  <SolidColorBrush x:Key="BrushUsageTrack" Color="#33838A70" />
+  <DrawingBrush x:Key="BrushUsageFill" TileMode="Tile" Viewport="0,0,16,6" ViewportUnits="Absolute"
+                Viewbox="0,0,16,6" ViewboxUnits="Absolute" RenderOptions.CachingHint="Cache">
+    <DrawingBrush.Drawing>
+      <DrawingGroup>
+        <GeometryDrawing Brush="#14170D"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,0,16,6" /></GeometryDrawing.Geometry></GeometryDrawing>
+        <GeometryDrawing Brush="#B5E51D"><GeometryDrawing.Geometry><RectangleGeometry Rect="0,2,10,2" /></GeometryDrawing.Geometry></GeometryDrawing>
+      </DrawingGroup>
+    </DrawingBrush.Drawing>
+  </DrawingBrush>
+  <SolidColorBrush x:Key="BrushUsageHigh"  Color="#E0A53C" />
+
   <!-- A data sheet's lettering: Bahnschrift is DIN, the engineering face. -->
   <FontFamily x:Key="FontText">Bahnschrift, Segoe UI</FontFamily>
 

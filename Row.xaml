@@ -233,47 +233,73 @@
                  Text="Reconnect" />
     </Grid>
 
-    <!-- Ends a session that keeps running on another machine, where closing its
-         window does not end it. Shown only on such rows, and the script asks
-         before it ends anything. Defaults sit in the style, not on the element,
-         so the hover trigger can change them. -->
-    <Border x:Name="EndButton"
-            Grid.Column="5"
-            VerticalAlignment="Center"
-            Margin="0,0,8,0"
-            Padding="8,2,8,3"
-            CornerRadius="9"
-            BorderThickness="1"
-            Cursor="Hand"
-            Visibility="Collapsed"
-            ToolTip="End this session where it runs">
-      <Border.Style>
-        <Style TargetType="Border">
-          <Setter Property="Background" Value="Transparent" />
-          <Setter Property="BorderBrush" Value="{DynamicResource BrushTextDim}" />
-          <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter Property="Background" Value="#D9363E" />
-              <Setter Property="BorderBrush" Value="#D9363E" />
-            </Trigger>
-          </Style.Triggers>
-        </Style>
-      </Border.Style>
-      <TextBlock FontFamily="{DynamicResource FontText}"
-                 FontSize="11"
-                 FontWeight="SemiBold"
-                 Text="End">
-        <TextBlock.Style>
-          <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="{DynamicResource BrushTextDim}" />
+    <!-- The two buttons on a row whose session keeps running on another machine
+         after its window closes. Disconnect, shown only while a window here
+         shows the session, closes that window and leaves Claude running. Kill
+         stops Claude where it runs, and the script asks first. The icons, their
+         colours and the boxes round them come from the preset. Defaults sit in
+         the styles, not on the elements, so the hover triggers can change them. -->
+    <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+      <Border x:Name="DisconnectButton" Width="24" Height="22" Cursor="Hand" Visibility="Collapsed"
+              CornerRadius="{DynamicResource IconButtonCorner}"
+              BorderThickness="{DynamicResource IconButtonEdgeThickness}">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource BrushIconButtonBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushIconButtonEdge}" />
             <Style.Triggers>
-              <DataTrigger Binding="{Binding IsMouseOver, ElementName=EndButton}" Value="True">
-                <Setter Property="Foreground" Value="White" />
-              </DataTrigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource BrushDisconnectHoverBg}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushDisconnectHoverEdge}" />
+              </Trigger>
             </Style.Triggers>
           </Style>
-        </TextBlock.Style>
-      </TextBlock>
-    </Border>
+        </Border.Style>
+        <Path Width="16" Height="16" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"
+              SnapsToDevicePixels="True" Data="{DynamicResource IconDisconnect}"
+              RenderOptions.EdgeMode="{DynamicResource IconEdgeMode}">
+          <Path.Style>
+            <Style TargetType="Path">
+              <Setter Property="Fill" Value="{DynamicResource BrushIconButton}" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, ElementName=DisconnectButton}" Value="True">
+                  <Setter Property="Fill" Value="{DynamicResource BrushDisconnectHoverIcon}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Path.Style>
+        </Path>
+      </Border>
+      <Border x:Name="KillButton" Width="24" Height="22" Margin="4,0,0,0" Cursor="Hand" Visibility="Collapsed"
+              CornerRadius="{DynamicResource IconButtonCorner}"
+              BorderThickness="{DynamicResource IconButtonEdgeThickness}">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource BrushIconButtonBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushIconButtonEdge}" />
+            <Style.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource BrushKillHoverBg}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushKillHoverEdge}" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <Path Width="16" Height="16" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"
+              SnapsToDevicePixels="True" Data="{DynamicResource IconKill}"
+              RenderOptions.EdgeMode="{DynamicResource IconEdgeMode}">
+          <Path.Style>
+            <Style TargetType="Path">
+              <Setter Property="Fill" Value="{DynamicResource BrushIconButton}" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, ElementName=KillButton}" Value="True">
+                  <Setter Property="Fill" Value="{DynamicResource BrushKillHoverIcon}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Path.Style>
+        </Path>
+      </Border>
+    </StackPanel>
   </Grid>
 </Border>

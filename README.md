@@ -57,13 +57,23 @@ from the session's own busy or idle and its label from the session's task title.
 
 Sessions that keep running with no window connected to them stay on the card too, drawn faded and
 marked "not connected, still running". Pointing at one shows "Reconnect", and a click opens a
-terminal attached to it; its right-click menu has "End this session". For that the card asks each
+terminal attached to it. Every such row carries two buttons: Disconnect, while a window here shows
+the session, closes that window and leaves Claude running; Kill, a skull, stops Claude where it
+runs, after asking. The right-click menu offers the same, in words. A preset draws both icons
+(`IconDisconnect`, `IconKill`, each a PathGeometry in a 16 by 16 box) and colours them at rest and
+under the pointer. For that the card asks each
 place listed in `state\remotes.txt`, one per line, every few seconds, and at once whenever a window
 to it opens or closes: an ssh target such as `jonathan@office`, or `wsl` for this PC's own WSL
 (`wsl:Ubuntu` names the distribution, needed when Docker Desktop has made itself the default). A
 place answers with `office-sessions --list`, which lists its tmux sessions as
 `name|window|state|claude session id|title`, and `office-sessions --end <name>` ends one. A place
 that cannot be asked gets a row saying so, or asking for the sign-in Tailscale wants now and then.
+
+Along the card's bottom, two bars show how much of the Claude subscription's limits is used: the
+five-hour window and the week, each with the time it resets. The card reads the login Claude Code
+keeps in `~/.claude/.credentials.json` and asks the endpoint Claude's own `/usage` reads, every
+three minutes; it never refreshes the login itself. A reading more than 15 minutes old is dimmed.
+Each bar is switched on and off in the settings menu.
 
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
