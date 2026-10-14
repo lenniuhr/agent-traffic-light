@@ -4577,7 +4577,97 @@ function Set-TrayState {
     $bmp.Dispose()
 }
 
+# ---------------------------------------------------------------------------
+# New sessions: starting one
+# ---------------------------------------------------------------------------
+function Show-TrayNote {
+    param([string]$Text)
+    $notify.ShowBalloonTip(4000, 'Agent Traffic Light', $Text, [System.Windows.Forms.ToolTipIcon]::None)
+}
+
+# The terminal takes a moment to open its window, so the card looks for it a
+# few times in quick succession instead of on its next three-second sweep.
+$script:quickSweeps = 0
+function Request-QuickSweeps {
+    $script:quickSweeps = 4
+    $sweepTimer.Interval = [TimeSpan]::FromMilliseconds(750)
+}
+
+# A new Claude session in a folder, in a terminal window of its own: never a
+# tab, since the card follows one session per window. -NoExit leaves a prompt
+# in the folder when Claude ends, as typing claude there would.
+function Start-ClaudeSession {
+    param([string]$Folder)
+    $name = Split-Path -Leaf $Folder
+    if (-not [System.IO.Directory]::Exists($Folder)) {
+        $script:launchCache = $null
+        Show-TrayNote -Text "$name no longer exists"
+        return
+    }
+    $claude = @('-NoExit', '-Command', 'claude', '--permission-mode', 'auto')
+    try {
+        $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
+        if ($wt) {
+            # Start-Process joins the arguments with spaces and quotes nothing.
+            Start-Process -FilePath $wt.Source -ArgumentList (@('-w', 'new', '-d', ('"' + $Folder + '"'), 'powershell') + $claude)
+        } else {
+            Start-Process -FilePath 'powershell.exe' -WorkingDirectory $Folder -ArgumentList $claude
+        }
+    } catch {
+        Write-ErrorLog -Where 'launch' -Problem $_
+        Show-TrayNote -Text "Could not open a session in $name"
+        return
+    }
+    Request-QuickSweeps
+}
+
+function Hide-LaunchRepo {
+    param([string]$Path)
+    if (@($script:settings.HiddenLaunchRepos | Where-Object { $_ -ieq $Path }).Count -eq 0) {
+        $script:settings.HiddenLaunchRepos = @($script:settings.HiddenLaunchRepos) + $Path
+        Save-Settings
+    }
+    $script:launchCache = $null
+}
+
+# The tray's New session entry, filled afresh each time the menu opens. A tray
+# menu entry shows "&" as the next letter's shortcut, so it is doubled.
+function Update-TrayLaunchMenu {
+    $newSessionItem.DropDownItems.Clear()
+    $repos = @(Get-LaunchMenuRepos)
+    if ($repos.Count -eq 0) {
+        $none = $newSessionItem.DropDownItems.Add('No recent repos')
+        $none.Enabled = $false
+        return
+    }
+    foreach ($repo in $repos) {
+        $item = $newSessionItem.DropDownItems.Add(($repo.Name -replace '&', '&&'))
+        $item.Tag = $repo.Path
+        $item.Add_Click({
+            param($sender, $e)
+            try { Start-ClaudeSession -Folder ([string]$sender.Tag) } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
+        })
+    }
+    $newSessionItem.DropDownItems.Add('-') | Out-Null
+    $hide = New-Object System.Windows.Forms.ToolStripMenuItem 'Hide from this list'
+    foreach ($repo in $repos) {
+        $item = $hide.DropDownItems.Add(($repo.Name -replace '&', '&&'))
+        $item.Tag = $repo.Path
+        $item.Add_Click({
+            param($sender, $e)
+            try { Hide-LaunchRepo -Path ([string]$sender.Tag) } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
+        })
+    }
+    [void]$newSessionItem.DropDownItems.Add($hide)
+}
+
 $menu = New-Object System.Windows.Forms.ContextMenuStrip
+# New session first: with nothing running the card is hidden, and the tray is
+# then the only place to start the day's first session from.
+$newSessionItem = New-Object System.Windows.Forms.ToolStripMenuItem 'New session'
+[void]$menu.Items.Add($newSessionItem)
+$menu.Items.Add('-') | Out-Null
+$menu.Add_Opening({ try { Update-TrayLaunchMenu } catch { Write-ErrorLog -Where 'launch' -Problem $_ } })
 $showItem = $menu.Items.Add('Show / hide')
 $showItem.Add_Click({ Set-CardVisible -Visible (-not $window.IsVisible) })
 $menu.Items.Add('-') | Out-Null
@@ -4674,6 +4764,10 @@ $sweepTimer = New-Object System.Windows.Threading.DispatcherTimer
 $sweepTimer.Interval = [TimeSpan]::FromMilliseconds($windowSweepMs)
 $sweepTimer.Add_Tick({
     try { Sweep-Windows } catch { Write-ErrorLog -Where 'sweep' -Problem $_ }
+    if ($script:quickSweeps -gt 0) {
+        $script:quickSweeps--
+        if ($script:quickSweeps -eq 0) { $sweepTimer.Interval = [TimeSpan]::FromMilliseconds($windowSweepMs) }
+    }
 })
 
 # Running timers turn over on the wall-clock second. Start times are already cut
