@@ -35,36 +35,54 @@
                Foreground="{DynamicResource BrushTextDim}"
                TextTrimming="CharacterEllipsis"
                Text="" />
-    <!-- New session in this group's folder, right after its name and written
-         in the name's own font, size and colour, so it reads as part of the
-         heading in every preset. Shown by the script only for a group whose
-         rows have a folder on this PC, and faded in while the pointer is on
-         the heading, so a calm card shows no extra marks. Under the pointer
-         it takes the brighter text colour. The padding widens what a click
-         can land on beyond the thin glyph. -->
-    <TextBlock x:Name="NewButton"
-               Text="+"
-               Margin="4,0,0,0"
-               Padding="3,0,3,0"
-               VerticalAlignment="Center"
-               Background="Transparent"
-               Cursor="Hand"
-               Opacity="0"
-               Visibility="Collapsed"
-               Effect="{DynamicResource TextGlow}"
-               FontFamily="{DynamicResource FontHeader}"
-               FontSize="{DynamicResource SizeHeader}"
-               FontWeight="{DynamicResource HeaderWeight}">
-      <TextBlock.Style>
-        <Style TargetType="TextBlock">
-          <Setter Property="Foreground" Value="{DynamicResource BrushTextDim}" />
-          <Style.Triggers>
-            <Trigger Property="IsMouseOver" Value="True">
-              <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
-            </Trigger>
-          </Style.Triggers>
-        </Style>
-      </TextBlock.Style>
-    </TextBlock>
+    <!-- New session in this group's folder, right after its name: a bold "+"
+         in the name's own font and colour on a small pill of that colour, so
+         it reads as part of the heading in every preset and still stands out.
+         Shown by the script only for a group whose rows have a folder on this
+         PC, and faded in while the pointer is on the heading, so a calm card
+         shows no extra marks. Under the pointer it looks like a hovered menu
+         entry, the menu highlight behind the text colour, a pair every preset
+         already makes readable: a deeper tint of the heading's own colour lost
+         the "+" where text and dim text are both dark, as in Frutiger Aero. -->
+    <Grid x:Name="NewButton"
+          Margin="6,0,0,0"
+          VerticalAlignment="Center"
+          Background="Transparent"
+          Cursor="Hand"
+          Opacity="0"
+          Visibility="Collapsed">
+      <Rectangle RadiusX="4" RadiusY="4">
+        <Rectangle.Style>
+          <Style TargetType="Rectangle">
+            <Setter Property="Fill" Value="{DynamicResource BrushTextDim}" />
+            <Setter Property="Opacity" Value="0.18" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsMouseOver, ElementName=NewButton}" Value="True">
+                <Setter Property="Fill" Value="{DynamicResource BrushMenuHighlight}" />
+                <Setter Property="Opacity" Value="1" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Rectangle.Style>
+      </Rectangle>
+      <TextBlock Text="+"
+                 Margin="5,-1,5,0"
+                 VerticalAlignment="Center"
+                 Effect="{DynamicResource TextGlow}"
+                 FontFamily="{DynamicResource FontHeader}"
+                 FontSize="{DynamicResource SizeHeader}"
+                 FontWeight="Bold">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextDim}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsMouseOver, ElementName=NewButton}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource BrushText}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+    </Grid>
   </StackPanel>
 </Border>
