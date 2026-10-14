@@ -58,14 +58,19 @@ above the existing settings. Both menus are filled from one list; the tray's is 
 card's WPF, so each has a small builder of its own.
 
 **Card, repo headers.** Hovering a group header fades in a small "+" at its right end; a click starts
-a session in that group's repo, tooltip "New session in <name>". Only on headers whose group is a
-local repo: not on remote groups (an ssh host) and not on Unity editor rows, where "new session" has
-no single meaning. It does not depend on the list, so it works for a hidden repo too.
+a session in the folder the header names, tooltip "New session in <name>". That folder is the one
+its rows' sessions started in, or, with "Group by working repository" on, that repo's root. Only on
+headers whose rows have such a folder on this PC: not on remote groups (an ssh host) and not on
+Unity editor rows, where "new session" has no single meaning. It does not depend on the list, so it
+works for a hidden repo too.
 
 The "+" is drawn from a new preset key, `IconNew`, a `PathGeometry` in a 16 by 16 box, like
-`IconDisconnect` and `IconKill`, with `BrushIconNew` and `BrushIconNewHover` for its colour at rest
-and under the pointer. Classic defines all three, so every preset has a plus; a preset may draw its
-own.
+`IconDisconnect` and `IconKill`. At rest it takes `BrushIconButton` like the row icons; under the
+pointer `BrushNewHoverBg`, `BrushNewHoverIcon` and `BrushNewHoverEdge`, as Disconnect has its own.
+Classic defines all four new keys, so every preset has a plus; a preset may draw its own.
+
+Repo names go into menus as they are: an underscore is doubled in the card's menu, which reads one
+as an access key, and an ampersand in the tray's.
 
 **No repos to offer** (a fresh install, or all hidden or old): "New session" stays in both menus,
 holding one disabled entry, "No recent repos".
