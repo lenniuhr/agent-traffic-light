@@ -13,7 +13,13 @@
 param(
     [switch]$Probe,
     # Probe passes to run before exiting. 0 runs until Ctrl+C.
-    [int]$Passes = 0
+    [int]$Passes = 0,
+    # With -Probe: print the repos the New session menus offer, and every
+    # project folder left out and why, instead of the windows.
+    [switch]$Launch,
+    # With -Probe -Launch: read this folder in place of ~/.claude/projects, so
+    # the list can be checked against a made-up one.
+    [string]$ProjectsDir = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -1602,10 +1608,13 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 # CpuLimits maps a Unity project folder, in lower case, to the CPU limit its
 # editor's row picked, 0 being No limit picked on purpose. A project with no
 # entry follows the default for its kind of editor.
+#
+# HiddenLaunchRepos lists repo folders the New session menus leave out. Added
+# from those menus; taken out again only by editing this file.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
-                      DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{} }
+                      DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @() }
 
 function Read-Settings {
     try {
@@ -1616,6 +1625,7 @@ function Read-Settings {
         if ($null -ne $saved.ShowUsageWeek) { $script:settings.ShowUsageWeek = [bool]$saved.ShowUsageWeek }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
+        if ($null -ne $saved.HiddenLaunchRepos) { $script:settings.HiddenLaunchRepos = @($saved.HiddenLaunchRepos | ForEach-Object { [string]$_ }) }
         if ($null -ne $saved.Sounds) {
             foreach ($entry in $saved.Sounds.PSObject.Properties) {
                 $script:settings.Sounds[[string]$entry.Name] = [string]$entry.Value
@@ -1640,6 +1650,7 @@ function Save-Settings {
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
             CpuLimits        = [pscustomobject]$script:settings.CpuLimits
+            HiddenLaunchRepos = @($script:settings.HiddenLaunchRepos)
         } | ConvertTo-Json -Depth 4 | Set-Content -Path $settingsFile -Encoding UTF8
     } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
 }
@@ -1995,10 +2006,101 @@ function Set-HeaderMark {
 }
 
 # ---------------------------------------------------------------------------
+# New sessions: the repos the New session menus offer
+#
+# Claude Code keeps one folder per working directory in ~/.claude/projects,
+# each holding that directory's transcripts. A repo is offered when a session
+# ran in it in the last two weeks, most used first, so the list keeps itself:
+# a repo worked in shows up, one left alone drops off, and a folder that is no
+# repo at all, as system32 or the Desktop, never shows. Only the file dates are
+# looked at for the count; the folder is read from the newest transcript's
+# first lines, since a project folder's own name is a lossy spelling of it.
+# ---------------------------------------------------------------------------
+$launchDays     = 14
+$launchMax      = 5
+$launchCacheSec = 60
+$launchCwdBytes = 20480
+$claudeProjects = Join-Path $env:USERPROFILE '.claude\projects'
+$script:launchCache = $null
+
+# The folder a transcript's session ran in, or '' when its first lines do not
+# say. Shared for writing, since the newest transcript is often one a live
+# session is still writing.
+function Read-TranscriptCwd {
+    param([string]$Path)
+    $stream = $null
+    try {
+        $stream = [System.IO.File]::Open($Path, 'Open', 'Read', 'ReadWrite, Delete')
+        $buffer = New-Object byte[] $launchCwdBytes
+        $read = $stream.Read($buffer, 0, $buffer.Length)
+        $text = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $read)
+        $m = [regex]::Match($text, '"cwd":"((?:[^"\\]|\\.)*)"')
+        if ($m.Success) { return [regex]::Unescape($m.Groups[1].Value) }
+    } catch { } finally { if ($stream) { $stream.Dispose() } }
+    return ''
+}
+
+# The repos to offer, and every project folder left out with why. A folder
+# that is gone is told apart before the repo lookup, which would otherwise
+# walk up from it to a repo it once sat in.
+function Get-LaunchRepos {
+    param([string]$ProjectsDir = $claudeProjects, [string[]]$Hidden = @(), [datetime]$Now = (Get-Date))
+    $since = $Now.AddDays(-$launchDays)
+    $byRoot = @{}
+    $skipped = New-Object System.Collections.ArrayList
+    foreach ($dir in @(Get-ChildItem -LiteralPath $ProjectsDir -Directory -ErrorAction SilentlyContinue)) {
+        $recent = @(Get-ChildItem -LiteralPath $dir.FullName -Filter '*.jsonl' -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.LastWriteTime -ge $since } | Sort-Object LastWriteTime -Descending)
+        $why = ''
+        $root = ''
+        if ($recent.Count -eq 0) { $why = 'old' }
+        else {
+            $cwd = Read-TranscriptCwd -Path $recent[0].FullName
+            if (-not $cwd) { $why = 'no cwd' }
+            elseif (-not [System.IO.Directory]::Exists($cwd)) { $why = 'gone' }
+            else {
+                $root = Get-RepoRoot -Path $cwd
+                if (-not $root) { $why = 'not a repo' }
+                elseif (@($Hidden | Where-Object { $_ -ieq $root }).Count -gt 0) { $why = 'hidden' }
+            }
+        }
+        if ($why) { [void]$skipped.Add(@{ Folder = $dir.Name; Why = $why }); continue }
+        $key = $root.ToLowerInvariant()
+        if (-not $byRoot.ContainsKey($key)) { $byRoot[$key] = @{ Path = $root; Name = (Split-Path -Leaf $root); Count = 0 } }
+        $byRoot[$key].Count += $recent.Count
+    }
+    $sorted = @($byRoot.Values | Sort-Object @{ Expression = { $_.Count }; Descending = $true }, @{ Expression = { $_.Name } })
+    foreach ($extra in @($sorted | Select-Object -Skip $launchMax)) { [void]$skipped.Add(@{ Folder = $extra.Name; Why = 'over limit' }) }
+    return @{ Repos = @($sorted | Select-Object -First $launchMax); Skipped = @($skipped) }
+}
+
+# The list as the menus show it, built at most once a minute: menus open in
+# bursts, and the list changes over days.
+function Get-LaunchMenuRepos {
+    $cache = $script:launchCache
+    if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge $launchCacheSec) {
+        $repos = @()
+        try { $repos = @((Get-LaunchRepos -Hidden @($script:settings.HiddenLaunchRepos)).Repos) }
+        catch { Write-ErrorLog -Where 'launch' -Problem $_ }
+        $cache = @{ At = Get-Date; Repos = $repos }
+        $script:launchCache = $cache
+    }
+    return @($cache.Repos)
+}
+
+# ---------------------------------------------------------------------------
 # Stage 1: console probe. Kept in the shipping script so the parsing can always
 # be checked against reality without the UI in the way.
 # ---------------------------------------------------------------------------
 if ($Probe) {
+    if ($Launch) {
+        $dir = $(if ($ProjectsDir) { $ProjectsDir } else { $claudeProjects })
+        $list = Get-LaunchRepos -ProjectsDir $dir -Hidden @($script:settings.HiddenLaunchRepos)
+        # Written to the output, not the host, so a check script can capture it.
+        foreach ($r in $list.Repos) { Write-Output ('  {0,4}  {1,-28} {2}' -f $r.Count, $r.Name, $r.Path) }
+        foreach ($s in $list.Skipped) { Write-Output ('  skip  {0,-10}  {1}' -f $s.Why, $s.Folder) }
+        return
+    }
     $pass = 0
     while ($true) {
         $pass++
