@@ -118,17 +118,25 @@ public class TlNative {
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode)] public static extern bool Process32NextW(IntPtr snap, ref PROCESSENTRY32W pe);
     [DllImport("kernel32.dll")] public static extern bool CloseHandle(IntPtr h);
 
-    public static System.Collections.Generic.Dictionary<int, int> ParentsOf(string exeName) {
-        var map = new System.Collections.Generic.Dictionary<int, int>();
+    // Every process with its parent and exe name, from one snapshot. The whole
+    // table rather than claude.exe alone, because what a remote session is can
+    // only be told from its ancestry: one started over ssh or through WSL
+    // descends from a service, and an ssh client in a terminal sits under that
+    // terminal's shell.
+    public class ProcEntry { public int Parent; public string Name; }
+
+    public static System.Collections.Generic.Dictionary<int, ProcEntry> ProcessTable() {
+        var map = new System.Collections.Generic.Dictionary<int, ProcEntry>();
         IntPtr snap = CreateToolhelp32Snapshot(0x00000002, 0); // TH32CS_SNAPPROCESS
         if (snap == new IntPtr(-1)) { return map; }
         PROCESSENTRY32W pe = new PROCESSENTRY32W();
         pe.dwSize = (uint)Marshal.SizeOf(typeof(PROCESSENTRY32W));
         if (Process32FirstW(snap, ref pe)) {
             do {
-                if (string.Equals(pe.szExeFile, exeName, StringComparison.OrdinalIgnoreCase)) {
-                    map[(int)pe.th32ProcessID] = (int)pe.th32ParentProcessID;
-                }
+                ProcEntry e = new ProcEntry();
+                e.Parent = (int)pe.th32ParentProcessID;
+                e.Name = pe.szExeFile;
+                map[(int)pe.th32ProcessID] = e;
             } while (Process32NextW(snap, ref pe));
         }
         CloseHandle(snap);
@@ -443,6 +451,100 @@ function Get-LiveSessionCount {
     return $n
 }
 
+# ---------------------------------------------------------------------------
+# Remote sessions, both ways.
+#
+# Incoming: a session on this PC that someone drives from another machine. It
+# was started by ssh or through WSL, not from a desktop the user sits at, so it
+# owns no terminal window and has no title to read. Its row is keyed by a
+# negative number made from its pid instead of a window handle, and its state
+# comes from the session file's busy/idle and its title from the transcript.
+#
+# Outgoing: a terminal on this PC running ssh to another machine, with a Claude
+# session at the far end. Its title already carries the remote session's glyph,
+# so it was always a row; it only lacked a workspace, because no session file
+# here belongs to it. It is now filed under the host it connects to.
+# ---------------------------------------------------------------------------
+
+# Processes only a session started from elsewhere descends from. A session a
+# person starts at this desktop descends from explorer.exe instead. Positive
+# evidence rather than "no explorer above it", because a session whose launcher
+# has exited loses its ancestry and would otherwise read as remote.
+$remoteAncestors = @('sshd.exe', 'wslhost.exe', 'wslservice.exe', 'services.exe')
+
+# How a session got here, or '' for one started at this desktop.
+function Get-IncomingVia {
+    param($Table, [int]$ProcessId)
+    $seen = @{}
+    $p = $ProcessId
+    for ($i = 0; $i -lt 16; $i++) {
+        if ($seen.ContainsKey($p) -or -not $Table.ContainsKey($p)) { return '' }
+        $seen[$p] = $true
+        $name = [string]$Table[$p].Name
+        if ($name -ieq 'explorer.exe') { return '' }
+        if ($remoteAncestors -contains $name.ToLowerInvariant()) {
+            if ($name -ieq 'sshd.exe') { return 'ssh' }
+            if ($name -like 'wsl*') { return 'wsl' }
+            return 'service'
+        }
+        $p = $Table[$p].Parent
+    }
+    return ''
+}
+
+# The host an ssh command line connects to, without its user@. Options that
+# take a value are skipped with their value, so "-p 2222 -i key office-pc"
+# gives office-pc. Read once per ssh process: the command line comes from WMI,
+# which is far too slow for every sweep.
+$script:sshHostCache = @{}
+$sshValueOptions = 'BbcDEeFIiJLlmOoPpQRSWw'
+
+function Get-SshHost {
+    param([int]$ProcessId)
+    if ($script:sshHostCache.ContainsKey($ProcessId)) { return $script:sshHostCache[$ProcessId] }
+    $hostName = 'remote'
+    try {
+        $line = (Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop).CommandLine
+        $tokens = @([regex]::Matches([string]$line, '"[^"]*"|\S+') | ForEach-Object { $_.Value.Trim('"') })
+        for ($i = 1; $i -lt $tokens.Count; $i++) {
+            $t = $tokens[$i]
+            if ($t.StartsWith('-')) {
+                # "-p 2222" takes the next token; "-p2222" carries its own.
+                if ($t.Length -eq 2 -and $sshValueOptions.Contains($t[1])) { $i++ }
+                continue
+            }
+            $hostName = ($t -split '@')[-1]
+            break
+        }
+    } catch { }
+    $script:sshHostCache[$ProcessId] = $hostName
+    return $hostName
+}
+
+# Window key -> host, for every terminal window that holds a running ssh. The
+# ssh is either the tab's own process, owning the console, or a child or
+# grandchild of the shell that does.
+function Get-OutgoingWindows {
+    param($Table, $ShellToWindow)
+    $out = @{}
+    foreach ($id in @($Table.Keys)) {
+        if ($Table[$id].Name -ine 'ssh.exe') { continue }
+        $p = $id
+        for ($i = 0; $i -lt 4; $i++) {
+            if ($ShellToWindow.ContainsKey($p)) {
+                $out[[string][int64]$ShellToWindow[$p]] = Get-SshHost -ProcessId $id
+                break
+            }
+            if (-not $Table.ContainsKey($p)) { break }
+            $p = $Table[$p].Parent
+        }
+    }
+    foreach ($id in @($script:sshHostCache.Keys)) {
+        if (-not $Table.ContainsKey($id)) { $script:sshHostCache.Remove($id) }
+    }
+    return $out
+}
+
 # Which session is behind which window, resolved exactly rather than guessed.
 #
 # The chain is: session file gives a pid and a cwd -> that claude.exe's parent
@@ -455,7 +557,11 @@ function Sync-SessionMap {
     param($ShellToWindow)
 
     $shellToWindow = $ShellToWindow
-    $claudeParents = [TlNative]::ParentsOf('claude.exe')
+    $table = [TlNative]::ProcessTable()
+    $claudeParents = @{}
+    foreach ($id in $table.Keys) {
+        if ($table[$id].Name -ieq 'claude.exe') { $claudeParents[$id] = $table[$id].Parent }
+    }
 
     $map = @{}
     $live = 0
@@ -497,6 +603,16 @@ function Sync-SessionMap {
 
                 $shell = $claudeParents[$cached.Pid]
                 if (-not $shellToWindow.ContainsKey($shell)) {
+                    # No window of its own because it was started from another
+                    # machine: an incoming remote row, keyed by its negated pid
+                    # so the key can never collide with a window handle's.
+                    $via = Get-IncomingVia -Table $table -ProcessId $cached.Pid
+                    if ($via) {
+                        $cached.Remote = 'In'
+                        $cached.Via = $via
+                        $map[[string](-[int64]$cached.Pid)] = $cached
+                        continue
+                    }
                     # Windows Terminal has two hosting modes. Usually the shell
                     # itself owns the hidden console window, which is the exact
                     # join. Sometimes a separate OpenConsole.exe owns it instead,
@@ -551,6 +667,7 @@ function Sync-SessionMap {
     }
 
     $script:sessionByHwnd = $map
+    $script:outgoingByHwnd = Get-OutgoingWindows -Table $table -ShellToWindow $shellToWindow
     # Cached rather than recounted on the fast timer: this used to run a
     # Get-Process per session every 400 ms for a number that changes only when
     # a session opens or closes.
@@ -785,7 +902,7 @@ function Sync-SessionExtras {
 
         $cached = $script:transcriptCache[$path]
         if ($null -eq $cached -or $cached.Mtime -ne $fi.LastWriteTimeUtc.Ticks) {
-            if ($null -eq $cached) { $cached = @{ Model = ''; Prompt = 0 } }
+            if ($null -eq $cached) { $cached = @{ Model = ''; Prompt = 0; Title = '' } }
             $cached.Mtime = $fi.LastWriteTimeUtc.Ticks
 
             $text = ''
@@ -830,6 +947,18 @@ function Sync-SessionExtras {
                     if ($candidate -ne '<synthetic>') { $cached.Model = $candidate; break }
                 }
 
+                # The task title Claude keeps for the session, the same text
+                # its terminal title carries. Only an incoming remote row needs
+                # it, having no terminal title to read; a name the user gave
+                # the session wins over the generated one. A tail without
+                # either keeps the title from before.
+                foreach ($field in @('aiTitle', 'customTitle')) {
+                    $hits = [regex]::Matches($text, ('"{0}":"((?:[^"\\]|\\.)*)"' -f $field))
+                    if ($hits.Count -gt 0) {
+                        try { $cached.Title = [string](ConvertFrom-Json ('"' + $hits[$hits.Count - 1].Groups[1].Value + '"')) } catch { }
+                    }
+                }
+
                 $prompt = 0
                 $lastUsageAt = -1
                 foreach ($pattern in @('"input_tokens":(\d+)',
@@ -864,6 +993,7 @@ function Sync-SessionExtras {
 
         $info.Model = $cached.Model
         $info.Prompt = $cached.Prompt
+        $info.Title = $cached.Title
 
         # Every sweep, not only when the session's own transcript changed: its
         # helpers write to files of their own. Only with GroupByRepo on; off,
@@ -1563,6 +1693,7 @@ $script:groupOrder = @{}
 $script:pressCanvasY = 0.0
 
 $script:sessionByHwnd = @{}
+$script:outgoingByHwnd = @{}
 $script:liveSessionCount = 0
 $script:headerPool = New-Object System.Collections.ArrayList
 
@@ -1629,6 +1760,10 @@ function New-Row {
         StartedAt = [double]0
         Model     = ''
         Prompt    = 0
+        # The second line of a remote row, and for an outgoing one the host it
+        # connects to. Empty on a row driven from this desktop.
+        RemoteNote = ''
+        OutHost   = ''
     }
 
     $element.Tag = $Handle
@@ -1680,6 +1815,11 @@ function New-Row {
             try { Switch-RowMaximized -Handle ([IntPtr]$sender.Tag) } catch { Write-ErrorLog -Where 'maximize' -Problem $_ }
         } elseif ($script:pressRow -eq $sender) {
             [TlNative]::Focus([IntPtr]$sender.Tag) | Out-Null
+            # An incoming remote row has no window to bring forward, which is
+            # what normally clears its blue dot, so the click itself counts as
+            # having looked.
+            $watch = $script:needWatch[[string][int64]$sender.Tag]
+            if ([int64]$sender.Tag -lt 0 -and $null -ne $watch) { $watch.Opened = $watch.Need }
         }
         $script:pressRow = $null
         $script:pressDouble = $false
@@ -2822,8 +2962,33 @@ function Update-Card {
         $seen[$key] = $true
     }
 
+    # Incoming remote sessions have no title to read, so their state is the
+    # session file's own busy or idle, and their label the task title from the
+    # transcript. Both follow the slow timer, three seconds behind at most.
+    foreach ($key in @($script:sessionByHwnd.Keys)) {
+        $info = $script:sessionByHwnd[$key]
+        if ($info.Remote -ne 'In') { continue }
+        $state = $(if ($info.Status -eq 'busy') { 'Working' } else { 'Waiting' })
+        $label = $(if ($info.Title) { $info.Title } else { 'Session' })
+        if (-not $rows.ContainsKey($key)) {
+            $rows[$key] = New-Row -Handle ([IntPtr][int64]$key) -Label $label -State $state
+        }
+        $rows[$key].PendingState = $state
+        $rows[$key].PendingLabel = $label
+        $seen[$key] = $true
+    }
+
     foreach ($key in @($rows.Keys)) {
         if (-not $seen.ContainsKey($key)) {
+            # An incoming row has no window whose closing would clear these in
+            # the loop above, so its session ending is the moment.
+            if ($rows[$key].Handle.ToInt64() -lt 0) {
+                $script:needWatch.Remove($key)
+                if ($script:settings.Sounds.ContainsKey($key)) {
+                    $script:settings.Sounds.Remove($key)
+                    Save-Settings
+                }
+            }
             # A session closing mid-drag takes its row with it. Drop the drag
             # first so nothing is left holding capture on a removed element.
             if ($null -ne $script:drag -and [object]::ReferenceEquals($script:drag.Rec, $rows[$key])) {
@@ -2843,6 +3008,7 @@ function Update-Card {
     # transcript, once that is known.
     foreach ($rec in $ordered) {
         $key = [string][int64]$rec.Handle
+        $rec.RemoteNote = ''
         if ($script:sessionByHwnd.ContainsKey($key)) {
             $info = $script:sessionByHwnd[$key]
             $rec.SessionId = $info.SessionId
@@ -2854,6 +3020,18 @@ function Update-Card {
             $rec.StatusUpdatedAt = $info.StatusUpdatedAt
             if ($info.ContainsKey('Model'))  { $rec.Model  = $info.Model }
             if ($info.ContainsKey('Prompt')) { $rec.Prompt = $info.Prompt }
+            if ($info.Remote -eq 'In') { $rec.RemoteNote = 'incoming remote' + $listSep + 'via ' + $info.Via }
+        } elseif ($script:outgoingByHwnd.ContainsKey($key)) {
+            # The session lives on the other machine, so the machine is the
+            # workspace: every session reached through it groups under its name.
+            $rec.Workspace = $script:outgoingByHwnd[$key]
+            $rec.OutHost = $rec.Workspace
+            $rec.RemoteNote = 'outgoing remote' + $listSep + 'on ' + $rec.Workspace
+        } elseif ($rec.OutHost) {
+            # Its ssh has ended but the window still shows a session title, so
+            # it is no longer filed under the host it left.
+            $rec.OutHost = ''
+            $rec.Workspace = 'unknown'
         } elseif ($rec.Workspace -eq '') {
             $rec.Workspace = 'unknown'
         }
@@ -2872,7 +3050,9 @@ function Update-Card {
     # otherwise hide from them. Every other row gets an empty detail and no
     # round time, which is exactly what it had before.
     foreach ($rec in $ordered) {
-        $rec.PendingDetail = ''
+        # A remote row says which way and where on its second line, the line
+        # only Marshal used before, so it reads the same in every style.
+        $rec.PendingDetail = [string]$rec.RemoteNote
         $rec.RoundAt = $null
         if (-not (Test-MarshalRow -Cwd $rec.Cwd -Label $rec.PendingLabel)) { continue }
         $look = Get-MarshalLook -State $rec.PendingState -Report (Read-MarshalReport -Path $marshalReportFile) -Now (Get-Date)
