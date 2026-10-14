@@ -137,6 +137,14 @@ headless editors, which have no window or taskbar button to tell you they are st
 Clicking an editor with a window brings it to the front. While the group is on, the card stays
 visible as long as any editor runs.
 
+The card also keeps headless editors from taking over the machine. Each one, with its import
+workers, may use at most 25 % of the whole processor, and runs at idle priority, so anything you do
+comes first. Right-clicking an editor's row picks its CPU limit, from No limit to 75 %, and the
+choice is kept for that project. An editor with a window has no limit unless its row picks one.
+Memory is never limited, because a hard memory limit crashes Unity. The limits hold whether the
+Unity group is shown or not. A limited editor stays limited if the card closes, and an editor
+started while the card is closed is limited once the card starts.
+
 Clicking a row brings that session's window to the front. Double-clicking it maximizes the window
 on the primary display, and double-clicking it again puts the window back exactly where it was:
 same display, position, size, and normal, minimized or maximized. Only one window is maximized this

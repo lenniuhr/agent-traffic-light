@@ -330,6 +330,81 @@ public class TlNative {
         return true;
     }
 }
+
+// The Windows job objects that hold a Unity editor's CPU limit; why is under
+// "CPU limits on Unity editors". In the same compile as TlNative, because each
+// Add-Type costs the card's start a compile of its own.
+public static class TlUnityCap {
+    // JOBOBJECT_CPU_RATE_CONTROL_INFORMATION. The struct cannot share its name
+    // with its CpuRate field, C# refuses that.
+    [StructLayout(LayoutKind.Sequential)]
+    struct CpuRateInfo { public uint ControlFlags; public uint CpuRate; }
+
+    // JOBOBJECT_BASIC_LIMIT_INFORMATION. Only LimitFlags and PriorityClass are set.
+    [StructLayout(LayoutKind.Sequential)]
+    struct BasicLimitInfo {
+        public long PerProcessUserTimeLimit; public long PerJobUserTimeLimit; public uint LimitFlags;
+        public UIntPtr MinimumWorkingSetSize; public UIntPtr MaximumWorkingSetSize; public uint ActiveProcessLimit;
+        public UIntPtr Affinity; public uint PriorityClass; public uint SchedulingClass;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)] static extern IntPtr CreateJobObjectW(IntPtr attributes, string name);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool SetInformationJobObject(IntPtr job, int infoClass, ref CpuRateInfo info, int size);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool SetInformationJobObject(IntPtr job, int infoClass, ref BasicLimitInfo info, int size);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool AssignProcessToJobObject(IntPtr job, IntPtr process);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern bool IsProcessInJob(IntPtr process, IntPtr job, out bool result);
+    [DllImport("kernel32.dll", SetLastError = true)] static extern IntPtr OpenProcess(uint access, bool inherit, int pid);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr handle);
+
+    // Opens the editor's job, creating it the first time. The name carries the
+    // editor's process id, so a card that restarts opens the job it made before
+    // instead of making a second one.
+    public static IntPtr Open(int editorId) {
+        IntPtr job = CreateJobObjectW(IntPtr.Zero, "AgentTrafficLight-Unity-" + editorId);
+        if (job == IntPtr.Zero) { throw new Exception("CreateJobObject error " + Marshal.GetLastWin32Error()); }
+        return job;
+    }
+
+    // Percent is the most CPU every process in the job may use together, in
+    // percent of the whole machine; 0 lifts the cap. Idle holds every process in
+    // the job at idle priority, the ones started later included. Never sets
+    // KILL_ON_JOB_CLOSE: the editors must outlive the card.
+    public static void SetLimits(IntPtr job, int percent, bool idle) {
+        CpuRateInfo rate = new CpuRateInfo();
+        if (percent > 0) {
+            rate.ControlFlags = 0x1 | 0x4; // ENABLE | HARD_CAP
+            rate.CpuRate = (uint)(percent * 100); // in hundredths of a percent
+        }
+        if (!SetInformationJobObject(job, 15, ref rate, Marshal.SizeOf(typeof(CpuRateInfo)))) {
+            throw new Exception("CPU rate limit error " + Marshal.GetLastWin32Error());
+        }
+        BasicLimitInfo basic = new BasicLimitInfo();
+        if (idle) {
+            basic.LimitFlags = 0x20; // JOB_OBJECT_LIMIT_PRIORITY_CLASS
+            basic.PriorityClass = 0x40; // IDLE_PRIORITY_CLASS
+        }
+        if (!SetInformationJobObject(job, 2, ref basic, Marshal.SizeOf(typeof(BasicLimitInfo)))) {
+            throw new Exception("Priority limit error " + Marshal.GetLastWin32Error());
+        }
+    }
+
+    // Puts a process in the job. False when it was in it already, which is
+    // every sweep after the first, so the check is cheap and nothing is redone.
+    public static bool Add(IntPtr job, int pid) {
+        IntPtr process = OpenProcess(0x0100 | 0x0001 | 0x1000, false, pid); // SET_QUOTA | TERMINATE | QUERY_LIMITED_INFORMATION
+        if (process == IntPtr.Zero) { throw new Exception("OpenProcess " + pid + " error " + Marshal.GetLastWin32Error()); }
+        try {
+            bool inJob;
+            if (IsProcessInJob(process, job, out inJob) && inJob) { return false; }
+            if (!AssignProcessToJobObject(job, process)) {
+                throw new Exception("AssignProcessToJobObject " + pid + " error " + Marshal.GetLastWin32Error());
+            }
+            return true;
+        } finally { CloseHandle(process); }
+    }
+
+    public static void Close(IntPtr job) { CloseHandle(job); }
+}
 "@
 
 # Keeps the card at its own height while Windows moves it. A drag runs in
@@ -1472,6 +1547,35 @@ $script:unityCpuSamples = @{}
 $script:unityEditors = @()
 
 # ---------------------------------------------------------------------------
+# CPU limits on Unity editors
+#
+# A headless editor imports, compiles and runs tests on every core for as long
+# as its agent works, and a few of them at once left the machine hard to use.
+# So each limited editor is put, with its import workers, in a Windows job
+# object of its own. The job caps the CPU they use together, as a share of the
+# whole machine, and a headless editor's job also holds them at idle priority,
+# so whatever the user does runs first. Workers started later join their
+# editor's job by themselves.
+#
+# A headless editor gets $unityCpuLimitDefault unless its row's menu says
+# otherwise. An editor with a window gets no limit unless its row asks for one,
+# because it is the editor the user is working in. The choice is kept per
+# project, so it holds the next time an editor opens the same project.
+#
+# Memory is not limited, on purpose: a hard limit crashes Unity when it is
+# reached, and a soft one pushes the editor out to disk, which slows the
+# machine more than the editor does.
+#
+# A process can never leave a job, so No limit lifts the job's cap rather than
+# taking the editor out of it. A headless editor stays at idle priority even
+# then: it still gets every core nothing else wants.
+# ---------------------------------------------------------------------------
+$unityCpuLimitDefault = 25
+$unityCpuLimitChoices = @(0, 10, 25, 50, 75)
+$script:unityJobs = @{}        # editor process id -> @{ Job; Percent; Idle; Capped }
+$script:unityCapFailed = @{}   # process ids whose failure is logged already, so it is logged once
+
+# ---------------------------------------------------------------------------
 # Settings, chosen from the card's menu and its rows' right-click menus, kept in
 # state/settings.json. Read once at start and written on every change.
 #
@@ -1494,10 +1598,14 @@ $script:unityEditors = @()
 # restart of the card, and it is dropped when the window closes. A window with no
 # entry follows DefaultSound, which is Off until one is picked; nothing is copied
 # from it, so changing it changes every window that follows it.
+#
+# CpuLimits maps a Unity project folder, in lower case, to the CPU limit its
+# editor's row picked, 0 being No limit picked on purpose. A project with no
+# entry follows the default for its kind of editor.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
-                      DefaultSound = ''; Preset = 'Classic'; Sounds = @{} }
+                      DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{} }
 
 function Read-Settings {
     try {
@@ -1513,6 +1621,11 @@ function Read-Settings {
                 $script:settings.Sounds[[string]$entry.Name] = [string]$entry.Value
             }
         }
+        if ($null -ne $saved.CpuLimits) {
+            foreach ($entry in $saved.CpuLimits.PSObject.Properties) {
+                $script:settings.CpuLimits[[string]$entry.Name] = [int]$entry.Value
+            }
+        }
     } catch { }
 }
 
@@ -1526,6 +1639,7 @@ function Save-Settings {
             DefaultSound     = $script:settings.DefaultSound
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
+            CpuLimits        = [pscustomobject]$script:settings.CpuLimits
         } | ConvertTo-Json -Depth 4 | Set-Content -Path $settingsFile -Encoding UTF8
     } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
 }
@@ -1618,6 +1732,7 @@ function Get-UnityEditors {
                 Window      = [IntPtr]::Zero
                 Headless    = $false
                 Workers     = 0
+                WorkerIds   = @()
                 Memory      = [int64]0
                 Cpu         = 0.0
             }
@@ -1628,6 +1743,7 @@ function Get-UnityEditors {
 
         if ($commandLine -match 'AssetImportWorker') {
             $entry.Workers += 1
+            $entry.WorkerIds += $processId
         } else {
             $entry.EditorId = $processId
             $entry.Headless = $commandLine -match '(?i)-batchmode'
@@ -1662,6 +1778,8 @@ function Get-UnityEditors {
         if ($entry.EditorId -eq 0) { continue }
         $editors += @{
             Id          = $entry.EditorId
+            ProjectPath = $entry.ProjectPath
+            WorkerIds   = $entry.WorkerIds
             Project     = Split-Path $entry.ProjectPath -Leaf
             Branch      = Get-ProjectBranch $entry.ProjectPath
             Headless    = $entry.Headless
@@ -1672,6 +1790,73 @@ function Get-UnityEditors {
         }
     }
     return $editors
+}
+
+# The limit an editor's project picked in its row's menu, or the default for its
+# kind of editor. 0 is no limit.
+function Get-UnityCpuLimit {
+    param([string]$ProjectPath, [bool]$Headless)
+    $key = $ProjectPath.ToLowerInvariant()
+    if ($script:settings.CpuLimits.ContainsKey($key)) { return [int]$script:settings.CpuLimits[$key] }
+    if ($Headless) { return $unityCpuLimitDefault }
+    return 0
+}
+
+# Puts every editor that has a limit, and its import workers, in its job, and
+# brings the job's limits in line with the editor's row. Runs after every sweep,
+# whether the Unity group is shown or not, because hiding the rows must not
+# take the limits away. A sweep that finds everything in place only asks each
+# process whether it is in its job.
+function Update-UnityCaps {
+    param($Editors)
+    $alive = @{}
+    foreach ($editor in @($Editors)) {
+        $alive[$editor.Id] = $true
+        foreach ($workerId in @($editor.WorkerIds)) { $alive[$workerId] = $true }
+        try {
+            $percent = Get-UnityCpuLimit -ProjectPath $editor.ProjectPath -Headless $editor.Headless
+            $cap = $script:unityJobs[$editor.Id]
+            if ($null -eq $cap) {
+                # An editor with a window and no limit is left alone entirely.
+                if ($percent -eq 0 -and -not $editor.Headless) { continue }
+                $cap = @{ Job = [TlUnityCap]::Open($editor.Id); Percent = -1; Idle = $false; Capped = $false }
+                $script:unityJobs[$editor.Id] = $cap
+            }
+            if ($cap.Percent -ne $percent -or $cap.Idle -ne $editor.Headless) {
+                [TlUnityCap]::SetLimits($cap.Job, $percent, $editor.Headless)
+                $cap.Percent = $percent
+                $cap.Idle = $editor.Headless
+            }
+            foreach ($processId in @($editor.Id) + @($editor.WorkerIds)) {
+                try {
+                    [void][TlUnityCap]::Add($cap.Job, $processId)
+                    if ($processId -eq $editor.Id) { $cap.Capped = $true }
+                } catch {
+                    if (-not $script:unityCapFailed.ContainsKey($processId)) {
+                        $script:unityCapFailed[$processId] = $true
+                        Write-ErrorLog -Where 'unitycap' -Problem $_
+                    }
+                }
+            }
+        } catch {
+            if (-not $script:unityCapFailed.ContainsKey($editor.Id)) {
+                $script:unityCapFailed[$editor.Id] = $true
+                Write-ErrorLog -Where 'unitycap' -Problem $_
+            }
+        }
+    }
+
+    # An ended editor's job closes with it. Its handle is let go here, so the job
+    # goes away once its last worker ends too.
+    foreach ($editorId in @($script:unityJobs.Keys)) {
+        if (-not $alive.ContainsKey($editorId)) {
+            [TlUnityCap]::Close($script:unityJobs[$editorId].Job)
+            $script:unityJobs.Remove($editorId)
+        }
+    }
+    foreach ($processId in @($script:unityCapFailed.Keys)) {
+        if (-not $alive.ContainsKey($processId)) { $script:unityCapFailed.Remove($processId) }
+    }
 }
 
 # Headers are pooled rather than created and destroyed, because a workspace
@@ -2358,7 +2543,16 @@ function Sync-UnityRows {
                 Cpu     = $element.FindName('Cpu')
                 Window  = [IntPtr]::Zero
                 SortKey = ''
+                ProjectPath = $editor.ProjectPath
+                Headless    = $editor.Headless
             }
+
+            # Right click opens the row's menu, which sets the editor's CPU limit.
+            $element.Add_MouseRightButtonUp({
+                param($sender, $e)
+                try { Show-UnityRowMenu -Element $sender } catch { Write-ErrorLog -Where 'unitymenu' -Problem $_ }
+                $e.Handled = $true
+            })
 
             # A click brings an editor with a window to the front, like an agent
             # row. A headless row has no window to bring, so its press is left to
@@ -2394,6 +2588,10 @@ function Sync-UnityRows {
 
         $rec.Label.Text = $editor.Project
         $detail = $(if ($editor.Headless) { 'headless' } else { 'editor' })
+        # The limit shows only once the editor is really in its job, so a limit
+        # that failed to apply never reads as one that holds.
+        $cap = $script:unityJobs[$editor.Id]
+        if ($null -ne $cap -and $cap.Capped -and $cap.Percent -gt 0) { $detail += $listSep + ('max {0} %' -f $cap.Percent) }
         if ($editor.Branch) { $detail += $listSep + $editor.Branch }
         if ($editor.Workers -gt 0) { $detail += $listSep + ('{0} importing' -f $editor.Workers) }
         $rec.Detail.Text = $detail
@@ -2407,6 +2605,63 @@ function Sync-UnityRows {
             $script:unityRows.Remove($key)
         }
     }
+}
+
+function Get-CpuLimitName {
+    param([int]$Percent)
+    if ($Percent -gt 0) { return ('{0} %' -f $Percent) }
+    return 'No limit'
+}
+
+# The menu of a Unity row: the most CPU the editor and its import workers may
+# use together, as a share of the whole machine. Built like a row's Sound entry:
+# Default, naming what the default is for this kind of editor, then each limit,
+# with a tick on the one chosen now.
+function Show-UnityRowMenu {
+    param($Element)
+    $rec = $null
+    foreach ($candidate in $script:unityRows.Values) {
+        if ([object]::ReferenceEquals($candidate.Element, $Element)) { $rec = $candidate }
+    }
+    if ($null -eq $rec) { return }
+    $key = $rec.ProjectPath.ToLowerInvariant()
+    $own = $script:settings.CpuLimits.ContainsKey($key)
+    $defaultPercent = $(if ($rec.Headless) { $unityCpuLimitDefault } else { 0 })
+
+    $menu = New-CardMenu
+    $limit = New-CardMenuItem -Header 'CPU limit'
+    $default = Add-CardMenuAction -Parent $limit -Header ('Default (' + (Get-CpuLimitName $defaultPercent) + ')') `
+                                  -Arg $key -Where 'unitymenu' -Action {
+        param($Key)
+        Set-UnityCpuLimit -Key $Key -FollowDefault
+    }
+    $default.IsChecked = (-not $own)
+    [void]$limit.Items.Add((New-CardMenuSeparator))
+    foreach ($choice in $unityCpuLimitChoices) {
+        $item = Add-CardMenuAction -Parent $limit -Header (Get-CpuLimitName $choice) `
+                                   -Arg @{ Key = $key; Percent = $choice } -Where 'unitymenu' -Action {
+            param($Pick)
+            Set-UnityCpuLimit -Key $Pick.Key -Percent $Pick.Percent
+        }
+        $item.IsChecked = ($own -and $choice -eq [int]$script:settings.CpuLimits[$key])
+    }
+    [void]$menu.Items.Add($limit)
+
+    $menu.PlacementTarget = $Element
+    $menu.IsOpen = $true
+}
+
+# Saves a project's limit and applies it at once, rather than on the next sweep,
+# so the row's detail line shows the new limit as the menu closes.
+function Set-UnityCpuLimit {
+    param([string]$Key, [int]$Percent, [switch]$FollowDefault)
+    if ($FollowDefault) {
+        $script:settings.CpuLimits.Remove($Key)
+    } else {
+        $script:settings.CpuLimits[$Key] = $Percent
+    }
+    Save-Settings
+    Update-UnityRows
 }
 
 function Set-RowState {
@@ -3975,12 +4230,15 @@ function Sweep-Windows {
 }
 
 # Caught on its own, so a Unity hiccup can never stop the agent rows updating.
-# With the group switched off nothing is collected at all, so the switch also
-# takes the cost away, not only the rows.
+# The editors are collected even with the group switched off, because their CPU
+# limits must hold whether their rows are shown or not; the switch only hides
+# the rows.
 function Update-UnityRows {
     try {
+        $editors = @(Get-UnityEditors)
+        Update-UnityCaps -Editors $editors
         if ($script:settings.ShowUnityEditors) {
-            $script:unityEditors = @(Get-UnityEditors)
+            $script:unityEditors = $editors
         } else {
             $script:unityEditors = @()
         }
