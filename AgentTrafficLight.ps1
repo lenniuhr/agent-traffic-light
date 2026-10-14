@@ -1886,11 +1886,15 @@ function Get-Header {
         $element.Add_MouseLeave({ param($sender, $e) Set-Fade -Element $sender.Tag -To 0 })
         # Its own press, so it neither drags the card nor reaches a row. The
         # folder rides on the button, set by the layout.
-        $newButton.Add_MouseLeftButtonDown({ param($sender, $e) $e.Handled = $true })
+        $newButton.Add_MouseLeftButtonDown({
+            param($sender, $e)
+            $e.Handled = $true
+            Start-NewPress -Button $sender -ClickCount $e.ClickCount
+        })
         $newButton.Add_MouseLeftButtonUp({
             param($sender, $e)
             $e.Handled = $true
-            try { if ($sender.Tag) { Start-ClaudeSession -Folder ([string]$sender.Tag) } } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
+            try { Complete-NewPress -Button $sender } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
         })
         [void]$script:headerPool.Add(@{
             Element   = $element
@@ -2005,6 +2009,25 @@ function Get-SessionPatterns {
         $patternFor[$key] = $patterns[$i]
     }
     return $patternFor
+}
+
+# A heading's "+" acts on a press and a release both on it, and once: a
+# double-click would otherwise open two sessions, and a release ending a press
+# made elsewhere would open one nobody asked for. A press on it also ends any
+# row press left over, so moving off it cannot start that row's drag.
+$script:newPress = $null
+function Start-NewPress {
+    param($Button, [int]$ClickCount)
+    $script:pressRow = $null
+    $script:newPress = $(if ($ClickCount -gt 1) { $null } else { $Button })
+}
+
+function Complete-NewPress {
+    param($Button)
+    $pressed = $script:newPress
+    $script:newPress = $null
+    if (-not [object]::ReferenceEquals($pressed, $Button)) { return }
+    if ($Button.Tag) { Start-ClaudeSession -Folder ([string]$Button.Tag) }
 }
 
 # The folder a heading's "+" starts a session in: the one its rows' sessions
@@ -4711,6 +4734,9 @@ function Start-ClaudeSession {
         Show-TrayNote -Text "Could not open a session in $name"
         return
     }
+    # A session asked for is one to see: a card hidden, by hand or by itself,
+    # comes back with its row.
+    if (-not $window.IsVisible) { $script:autoHidden = $true }
     Request-QuickSweeps
 }
 
