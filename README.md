@@ -48,13 +48,21 @@ otherwise it is Watching. A missing report also reads as Watching, and one not r
 than 40 minutes adds a "stale" note, because that means Marshal has stopped. The tray colour ignores
 a Watching row, but it still counts as a session, so the card does not hide.
 
-Remote sessions show too, with a second line under the label saying which way they go. An
-incoming one is a session on this PC that is driven from another machine: it was started over ssh
-or through WSL, so it has no terminal window here. Its row says "incoming remote" and how it came
-in, takes its state from the session's own busy or idle and its label from the session's task
-title, and a click on it clears its blue dot, since there is no window to bring forward. An
-outgoing one is a terminal here running ssh to another machine with a Claude session at the far
-end. Its row says "outgoing remote" and the host, and it is grouped under that host's name.
+Remote sessions show too, with a second line under the label saying where they are and what
+closing them does. A terminal here running ssh to another machine is grouped under that host's
+name and says "connected", and whether the session "keeps running when closed" (it runs in tmux
+there) or "ends when closed". A session on this PC started from another machine, over ssh or
+through WSL, has no terminal window here; its row says where it is connected from, takes its state
+from the session's own busy or idle and its label from the session's task title.
+
+Sessions that keep running with no window connected to them stay on the card too, drawn faded and
+marked "not connected, still running". Pointing at one shows "Reconnect", and a click opens a
+terminal attached to it; its right-click menu has "End this session". For that the card asks each
+place listed in `state\remotes.txt`, one per line, every few seconds, and at once whenever a window
+to it opens or closes: an ssh target such as `jonathan@office`, or `wsl` for this PC's own WSL. A
+place answers with `office-sessions --list`, which lists its tmux sessions as
+`name|window|state|claude session id|title`, and `office-sessions --end <name>` ends one. A place
+that cannot be asked gets a row saying so, or asking for the sign-in Tailscale wants now and then.
 
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.

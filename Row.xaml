@@ -15,16 +15,18 @@
       <ColumnDefinition Width="*" />
       <ColumnDefinition Width="Auto" />
       <ColumnDefinition Width="{DynamicResource TimerWidth}" />
+      <!-- The End button, on rows whose session outlives its window. Takes no room elsewhere. -->
+      <ColumnDefinition Width="Auto" />
     </Grid.ColumnDefinitions>
 
     <!-- The preset's sheen over the row's fill, under its text and stripe, and
          the second line just inside the row's outline. Both sit inside the
          outline, so they take the inner corner. -->
-    <Border Grid.ColumnSpan="5"
+    <Border Grid.ColumnSpan="6"
             CornerRadius="{DynamicResource RowInnerCorner}"
             Background="{DynamicResource RowGloss}"
             IsHitTestVisible="False" />
-    <Border Grid.ColumnSpan="5"
+    <Border Grid.ColumnSpan="6"
             CornerRadius="{DynamicResource RowInnerCorner}"
             BorderThickness="{DynamicResource RowInnerEdgeThickness}"
             BorderBrush="{DynamicResource BrushRowInnerEdge}"
@@ -193,14 +195,14 @@
     <!-- Full row width again. It was shortened to dodge the model text, and with
          the model moved into the stripe there is nothing left to dodge. -->
     <Border x:Name="CtxTrack"
-            Grid.ColumnSpan="5"
+            Grid.ColumnSpan="6"
             Height="2"
             VerticalAlignment="Bottom"
             Margin="20,0,10,4"
             CornerRadius="1"
             Background="{DynamicResource BrushCtxTrack}" />
     <Border x:Name="CtxFill"
-            Grid.ColumnSpan="5"
+            Grid.ColumnSpan="6"
             Height="2"
             Width="0"
             HorizontalAlignment="Left"
@@ -208,5 +210,70 @@
             Margin="20,0,10,4"
             CornerRadius="1"
             Background="{DynamicResource BrushCtxFill}" />
+
+    <!-- A session that runs on with no window connected to it: the script draws
+         the row faded, and pointing at it fades this in, saying what a click
+         does, over a veil of the row's own colour that lets the row show
+         through. It stops short of the End button, which stays clickable. -->
+    <Grid x:Name="Reconnect"
+          Grid.ColumnSpan="5"
+          Opacity="0"
+          Visibility="Collapsed"
+          IsHitTestVisible="False">
+      <Border CornerRadius="{DynamicResource RowInnerCorner}"
+              Background="{DynamicResource BrushRowBase}"
+              Opacity="0.72" />
+      <TextBlock x:Name="ReconnectText"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 FontFamily="{DynamicResource FontText}"
+                 FontSize="{DynamicResource SizeLabel}"
+                 FontWeight="SemiBold"
+                 Foreground="{DynamicResource BrushText}"
+                 Text="Reconnect" />
+    </Grid>
+
+    <!-- Ends a session that keeps running on another machine, where closing its
+         window does not end it. Shown only on such rows, and the script asks
+         before it ends anything. Defaults sit in the style, not on the element,
+         so the hover trigger can change them. -->
+    <Border x:Name="EndButton"
+            Grid.Column="5"
+            VerticalAlignment="Center"
+            Margin="0,0,8,0"
+            Padding="8,2,8,3"
+            CornerRadius="9"
+            BorderThickness="1"
+            Cursor="Hand"
+            Visibility="Collapsed"
+            ToolTip="End this session where it runs">
+      <Border.Style>
+        <Style TargetType="Border">
+          <Setter Property="Background" Value="Transparent" />
+          <Setter Property="BorderBrush" Value="{DynamicResource BrushTextDim}" />
+          <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter Property="Background" Value="#D9363E" />
+              <Setter Property="BorderBrush" Value="#D9363E" />
+            </Trigger>
+          </Style.Triggers>
+        </Style>
+      </Border.Style>
+      <TextBlock FontFamily="{DynamicResource FontText}"
+                 FontSize="11"
+                 FontWeight="SemiBold"
+                 Text="End">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource BrushTextDim}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsMouseOver, ElementName=EndButton}" Value="True">
+                <Setter Property="Foreground" Value="White" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+    </Border>
   </Grid>
 </Border>

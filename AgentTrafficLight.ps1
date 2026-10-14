@@ -430,8 +430,16 @@ function Read-SessionTitle {
     elseif ($glyphWaiting -contains $lead) { $state = 'Waiting' }
     else { return $null }
     $label = $Title.Substring(1).Trim()
+    # A window showing a tmux session on another machine ends its title with
+    # "  @" and the session's name, which says exactly which session it is.
+    $tmuxName = ''
+    $tail = [regex]::Match($label, '\s{2}@([A-Za-z0-9_.-]+)$')
+    if ($tail.Success) {
+        $tmuxName = $tail.Groups[1].Value
+        $label = $label.Substring(0, $tail.Index).Trim()
+    }
     if ($label -eq '') { $label = 'Session' }
-    return @{ State = $state; Label = $label }
+    return @{ State = $state; Label = $label; TmuxName = $tmuxName }
 }
 
 # Live interactive sessions, whether or not their window could be resolved.
@@ -516,10 +524,18 @@ function Get-SshHost {
             $hostName = ($t -split '@')[-1]
             break
         }
+        # A session reached through tmux at the far end outlives this window.
+        $script:sshKeepsCache[$ProcessId] = [bool]($line -match $keepsPattern)
     } catch { }
     $script:sshHostCache[$ProcessId] = $hostName
     return $hostName
 }
+
+# Whether the far end of an ssh command line runs in tmux, so the session keeps
+# running when its window here closes: the launcher, the session list, or a
+# plain tmux attach.
+$script:sshKeepsCache = @{}
+$keepsPattern = '\b(claude-in|office-sessions|tmux|agent)\b'
 
 # Window key -> host, for every terminal window that holds a running ssh. The
 # ssh is either the tab's own process, owning the console, or a child or
@@ -527,12 +543,15 @@ function Get-SshHost {
 function Get-OutgoingWindows {
     param($Table, $ShellToWindow)
     $out = @{}
+    $keeps = @{}
     foreach ($id in @($Table.Keys)) {
         if ($Table[$id].Name -ine 'ssh.exe') { continue }
         $p = $id
         for ($i = 0; $i -lt 4; $i++) {
             if ($ShellToWindow.ContainsKey($p)) {
-                $out[[string][int64]$ShellToWindow[$p]] = Get-SshHost -ProcessId $id
+                $key = [string][int64]$ShellToWindow[$p]
+                $out[$key] = Get-SshHost -ProcessId $id
+                $keeps[$key] = [bool]$script:sshKeepsCache[$id]
                 break
             }
             if (-not $Table.ContainsKey($p)) { break }
@@ -540,9 +559,382 @@ function Get-OutgoingWindows {
         }
     }
     foreach ($id in @($script:sshHostCache.Keys)) {
-        if (-not $Table.ContainsKey($id)) { $script:sshHostCache.Remove($id) }
+        if (-not $Table.ContainsKey($id)) { $script:sshHostCache.Remove($id); $script:sshKeepsCache.Remove($id) }
     }
+    $script:outgoingKeeps = $keeps
     return $out
+}
+
+# ---------------------------------------------------------------------------
+# Kept sessions: Claude sessions that run in tmux, on another machine or in WSL
+# here, and so keep running after the window that opened them closes. Without
+# this they vanish from the card the moment their window closes, which is
+# exactly when they need finding again.
+#
+# state\remotes.txt says where to look, one place per line: an ssh target such
+# as jonathan@office, or "wsl" for this PC's own WSL. Each place is asked for
+# its list with "office-sessions --list" every few seconds, in a process of its
+# own so the card never waits on the network. A line of that list is
+#   name|window|state|claude session id|title
+# where window is "remote", "local" or "" for no window anywhere.
+#
+# A session with no window gets a row of its own, keyed by a large negative
+# number so it can collide with neither a window handle nor an incoming row's
+# negated pid; a click on it opens a terminal attached to it. A session whose
+# window is open on another PC needs no row on this one.
+# ---------------------------------------------------------------------------
+$remotesFile  = Join-Path $stateDir 'remotes.txt'
+$keptPollSec  = 6
+$keptLimitSec = 20
+$keptFade     = 0.5   # opacity of a row with no window connected, so it reads as not connected
+$keptFadeMs   = 160   # how long that fade, and the Reconnect veil's, takes
+$script:keptSources = @{}     # place -> its poll: process, start time, last list, problem
+$script:keptByKey = @{}       # row key -> the kept session or the place's problem behind that row
+$script:keptKeyOf = @{}       # "place|name" -> row key, so a session keeps its row between polls
+$script:keptBySessionId = @{} # Claude session id -> kept session, for this PC's incoming rows
+$script:nextKeptKey = [int64]-1000000000000
+$script:outgoingKeeps = @{}
+$script:keptPlaces = @()
+$script:keptOpening = @{}     # "place|name" -> when its row was clicked to reopen it
+$script:keptEnding = @{}      # "place|name" -> when it was asked to end
+
+function Get-KeptPlaces {
+    if (-not (Test-Path $remotesFile)) { return @() }
+    return @(Get-Content $remotesFile -ErrorAction SilentlyContinue |
+        ForEach-Object { $_.Trim() } | Where-Object { $_ -and -not $_.StartsWith('#') })
+}
+
+# The name a place goes by on the card: the host of an ssh target, the same
+# name its outgoing windows are grouped under, or "this PC" for WSL.
+function Get-KeptPlaceName {
+    param([string]$Place)
+    if ($Place -eq 'wsl') { return 'this PC' }
+    return ($Place -split '@')[-1]
+}
+
+# The same place in a sentence: "the office PC", or "this PC" for WSL.
+function Get-KeptPlaceLong {
+    param([string]$Place)
+    if ($Place -eq 'wsl') { return 'this PC' }
+    return 'the ' + (Get-KeptPlaceName -Place $Place) + ' PC'
+}
+
+# Runs one short command at a place, hidden, without waiting for it.
+function Invoke-AtKeptPlace {
+    param([string]$Place, [string]$Command)
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    if ($Place -eq 'wsl') {
+        $psi.FileName = 'wsl.exe'
+        $psi.Arguments = '-e ' + $Command
+    } else {
+        $psi.FileName = 'ssh.exe'
+        $psi.Arguments = '-o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' ' + $Command
+    }
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    [void][System.Diagnostics.Process]::Start($psi)
+}
+
+# Lets go of a kept session without ending it: every window showing it closes,
+# and Claude keeps running where it is. Its row turns faded a moment later.
+function Disconnect-KeptSession {
+    param($Kept)
+    Invoke-AtKeptPlace -Place $Kept.Place -Command ('tmux detach-client -s =' + $Kept.Name)
+    $poll = $script:keptSources[$Kept.Place]
+    if ($null -ne $poll) { $poll.NextAt = (Get-Date).AddSeconds(1) }
+}
+
+function Start-KeptPoll {
+    param([string]$Place)
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    if ($Place -eq 'wsl') {
+        $psi.FileName = 'wsl.exe'
+        $psi.Arguments = '-e office-sessions --list'
+    } else {
+        $psi.FileName = 'ssh.exe'
+        $psi.Arguments = '-o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' office-sessions --list'
+    }
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+    $psi.StandardErrorEncoding = [System.Text.Encoding]::UTF8
+    return [System.Diagnostics.Process]::Start($psi)
+}
+
+function ConvertFrom-KeptList {
+    param([string]$Place, [string]$Text)
+    $list = New-Object System.Collections.ArrayList
+    foreach ($line in ($Text -split "`n")) {
+        $parts = $line.TrimEnd("`r").Split('|', 5)
+        if ($parts.Count -lt 5 -or -not $parts[0]) { continue }
+        [void]$list.Add(@{
+            Place = $Place; Name = $parts[0]; Window = $parts[1]
+            State = $(if ($parts[2] -eq 'working') { 'Working' } else { 'Waiting' })
+            SessionId = $parts[3]; Title = $parts[4]
+        })
+    }
+    return $list
+}
+
+# Asks a host again as soon as it can: a window to it opened or closed here, so
+# a session there has just gained or lost its window. Without this the row sat
+# missing, or doubled, until the next round came up.
+function Request-KeptPoll {
+    param([string]$HostName)
+    foreach ($place in @($script:keptSources.Keys)) {
+        if ((Get-KeptPlaceName -Place $place) -eq $HostName) { $script:keptSources[$place].NextAt = [datetime]::MinValue }
+    }
+}
+
+# Collects finished polls and starts the next ones. Runs on the fast timer as
+# well as the slow one, so an answer is shown the moment it arrives; with no
+# poll finished and none due it costs next to nothing. The places are read
+# from their file on the slow timer only.
+function Update-KeptSessions {
+    param([switch]$ReadPlaces)
+    $now = Get-Date
+    if ($ReadPlaces) { $script:keptPlaces = Get-KeptPlaces }
+    $places = @($script:keptPlaces)
+    foreach ($place in @($script:keptSources.Keys)) {
+        if ($places -notcontains $place) { $script:keptSources.Remove($place) }
+    }
+    $changed = $false
+    foreach ($place in $places) {
+        $poll = $script:keptSources[$place]
+        if ($null -eq $poll) {
+            $poll = @{ Proc = $null; StartedAt = $now; NextAt = [datetime]::MinValue; Sessions = @(); Problem = '' }
+            $script:keptSources[$place] = $poll
+        }
+        if ($null -ne $poll.Proc) {
+            $done = $poll.Proc.HasExited
+            if (-not $done -and ($now - $poll.StartedAt).TotalSeconds -gt $keptLimitSec) {
+                try { $poll.Proc.Kill() } catch { }
+                $done = $true
+            }
+            if ($done) {
+                $out = ''; $err = ''
+                try { $out = $poll.Proc.StandardOutput.ReadToEnd(); $err = $poll.Proc.StandardError.ReadToEnd() } catch { }
+                $ok = $poll.Proc.HasExited -and $poll.Proc.ExitCode -eq 0
+                $poll.Proc.Dispose()
+                $poll.Proc = $null
+                if ($ok) {
+                    $poll.Sessions = @(ConvertFrom-KeptList -Place $place -Text $out)
+                    $poll.Problem = ''
+                } else {
+                    # Tailscale asks for a fresh sign-in now and then and waits
+                    # for it, which a poll cannot give. Any other failure means
+                    # the place cannot be reached: switched off, or asleep.
+                    $poll.Sessions = @()
+                    $poll.Problem = $(if ($err -match 'additional check|login\.tailscale|tailscale\.com/') { 'signin' } else { 'unreachable' })
+                }
+                $changed = $true
+            }
+        }
+        if ($null -eq $poll.Proc -and $now -ge $poll.NextAt) {
+            $poll.StartedAt = $now
+            $poll.NextAt = $now.AddSeconds($keptPollSec)
+            try { $poll.Proc = Start-KeptPoll -Place $place } catch { $poll.Problem = 'unreachable'; $changed = $true }
+        }
+    }
+    if (-not $changed -and -not $ReadPlaces) { return }
+    Update-KeptRows
+}
+
+# The rows the last lists call for: every kept session, and one row for a place
+# that cannot be asked, so its sessions are never silently missing. A session
+# that a window here shows is left to that window's row, which the card works
+# out on each tick (Update-Card). For WSL here, an incoming row stands for a
+# session that has a Claude session id.
+function Update-KeptRows {
+    $byKey = @{}
+    $bySession = @{}
+    foreach ($place in @($script:keptPlaces)) {
+        $poll = $script:keptSources[$place]
+        if ($null -eq $poll) { continue }
+        if ($poll.Problem) {
+            $byKey[(Get-KeptKey -Id "$place|?")] = @{ Place = $place; Problem = $poll.Problem }
+        }
+        foreach ($s in $poll.Sessions) {
+            if ($s.SessionId) { $bySession[$s.SessionId] = $s }
+            if ($place -eq 'wsl' -and $s.SessionId) { continue }
+            $byKey[(Get-KeptKey -Id "$place|$($s.Name)")] = $s
+        }
+    }
+    $script:keptByKey = $byKey
+    $script:keptBySessionId = $bySession
+}
+
+# A window here showing a kept session has just closed. Until the next list
+# says otherwise, the session is taken to be running with no window, so its
+# faded row takes the window row's place in the same moment instead of a
+# second later. A session being ended is left to vanish.
+function Set-KeptWindowClosed {
+    param([string]$HostName, [string]$Name)
+    foreach ($place in @($script:keptSources.Keys)) {
+        if ((Get-KeptPlaceName -Place $place) -ne $HostName) { continue }
+        $ending = $script:keptEnding["$place|$Name"]
+        foreach ($s in $script:keptSources[$place].Sessions) {
+            if ($s.Name -ne $Name) { continue }
+            if ($null -ne $ending -and ((Get-Date) - $ending).TotalSeconds -lt 20) {
+                $script:keptSources[$place].Sessions = @($script:keptSources[$place].Sessions | Where-Object { $_.Name -ne $Name })
+            } else {
+                $s.Window = ''
+            }
+        }
+    }
+    Update-KeptRows
+}
+
+# One row per session, whichever row stands for it: when a kept session's
+# window opens, the window's new row takes the faded row's place, and when the
+# window closes the faded row takes the window's. The newcomer inherits the
+# slot, its place in a dragged order, and its timers, so the row seems to stay
+# put and only change its look. $Id is "host|session name".
+$script:slotRec = @{}
+function Use-SessionSlot {
+    param($Rec, [string]$Id)
+    $old = $script:slotRec[$Id]
+    if ($null -ne $old -and -not [object]::ReferenceEquals($old, $Rec)) {
+        $Rec.Seq = $old.Seq
+        $Rec.Since = $old.Since
+        $Rec.WorkSince = $old.WorkSince
+        $Rec.FinishedAt = $old.FinishedAt
+        $Rec.Top = $old.Top
+        if ($old.Top -ge 0) { [System.Windows.Controls.Canvas]::SetTop($Rec.Element, $old.Top) }
+        $oldKey = [string][int64]$old.Handle
+        $at = $script:userOrder.IndexOf($oldKey)
+        if ($at -ge 0) {
+            $script:userOrder[$at] = [string][int64]$Rec.Handle
+            Update-OrderIndex
+        }
+    }
+    $script:slotRec[$Id] = $Rec
+}
+
+# Whether a window here showing this label is one of that host's kept sessions,
+# for a window whose ssh command line does not say so: one that started a shell
+# and attached to tmux from there. tmux passes the session's title on to the
+# window, so the two titles are the same.
+function Test-KeptTitle {
+    param([string]$HostName, [string]$Label)
+    foreach ($place in @($script:keptSources.Keys)) {
+        if ((Get-KeptPlaceName -Place $place) -ne $HostName) { continue }
+        foreach ($s in $script:keptSources[$place].Sessions) {
+            if ($s.Window -eq 'remote' -and $s.Title -eq $Label) { return $true }
+        }
+    }
+    return $false
+}
+
+# The kept session a row's click should open, or $null: one of the rows above,
+# or an incoming row whose tmux session here has no window. A row for a place
+# that could not be asked counts too: its click retries, or lets the sign-in
+# Tailscale wants happen in a terminal.
+function Get-RowKept {
+    param($Element)
+    $key = [string][int64]$Element.Tag
+    if ($script:keptByKey.ContainsKey($key)) { return $script:keptByKey[$key] }
+    $info = $script:sessionByHwnd[$key]
+    if ($null -ne $info -and $info.Remote -eq 'In') {
+        $kept = $script:keptBySessionId[$info.SessionId]
+        if ($null -ne $kept -and $kept.Window -eq '') { return $kept }
+    }
+    return $null
+}
+
+# The kept session a row's "End this session" ends, or $null: a row with no
+# window, an incoming row that runs in tmux here, or a window here whose title
+# is that of exactly one of its host's kept sessions.
+function Get-RowEndable {
+    param($Element)
+    $key = [string][int64]$Element.Tag
+    $kept = $script:keptByKey[$key]
+    if ($null -ne $kept) {
+        if ($kept.Problem) { return $null }
+        return $kept
+    }
+    $info = $script:sessionByHwnd[$key]
+    if ($null -ne $info -and $info.Remote -eq 'In') { return $script:keptBySessionId[$info.SessionId] }
+    if ($script:outgoingByHwnd.ContainsKey($key) -and $rows.ContainsKey($key)) {
+        # The window's title names its tmux session; one of the places this
+        # card asks is that host.
+        $rec = $rows[$key]
+        $hostName = $script:outgoingByHwnd[$key]
+        foreach ($place in @($script:keptSources.Keys)) {
+            if ((Get-KeptPlaceName -Place $place) -ne $hostName) { continue }
+            if ($rec.TmuxName) { return @{ Place = $place; Name = $rec.TmuxName } }
+            $found = @($script:keptSources[$place].Sessions | Where-Object { $_.Window -eq 'remote' -and $_.Title -eq $rec.Label })
+            if ($found.Count -eq 1) { return $found[0] }
+        }
+    }
+    return $null
+}
+
+# Fades a row, or the Reconnect veil over it, to an opacity instead of jumping.
+function Set-Fade {
+    param($Element, [double]$To)
+    if ([Math]::Abs($Element.Opacity - $To) -lt 0.01 -and -not $Element.HasAnimatedProperties) { return }
+    $anim = New-Object System.Windows.Media.Animation.DoubleAnimation
+    $anim.To = $To
+    $anim.Duration = [System.Windows.Duration]::new([TimeSpan]::FromMilliseconds($keptFadeMs))
+    $Element.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $anim)
+}
+
+# Ends a kept session where it runs, after asking: Claude stops there and any
+# work it is doing stops with it. office-sessions --end asks Claude to quit the
+# way Ctrl+C does at its prompt, and closes the session outright only if Claude
+# has not quit after ten seconds.
+function Stop-KeptSession {
+    param($Kept)
+    $where = Get-KeptPlaceLong -Place $Kept.Place
+    $answer = [System.Windows.MessageBox]::Show($window,
+        "End the session $($Kept.Name) on $where?`n`nClaude stops there, and anything it is doing stops with it. Any window showing it closes.",
+        'End session', 'YesNo', 'Warning')
+    if ($answer -ne 'Yes') { return }
+    $script:keptEnding["$($Kept.Place)|$($Kept.Name)"] = Get-Date
+    Invoke-AtKeptPlace -Place $Kept.Place -Command ('office-sessions --end ' + $Kept.Name)
+    $poll = $script:keptSources[$Kept.Place]
+    if ($null -ne $poll) { $poll.NextAt = (Get-Date).AddSeconds(2) }
+}
+
+function Get-KeptKey {
+    param([string]$Id)
+    if (-not $script:keptKeyOf.ContainsKey($Id)) {
+        $script:keptKeyOf[$Id] = [string]$script:nextKeptKey
+        $script:nextKeptKey--
+    }
+    return $script:keptKeyOf[$Id]
+}
+
+# Opens a terminal attached to a kept session, or for a place that wants a
+# sign-in, one that runs the session list there so the sign-in can happen.
+function Open-KeptSession {
+    param($Kept)
+    if ($Kept.Problem) {
+        $remote = @('office-sessions')
+    } else {
+        # -u: the login at the far end may name no locale, and without it tmux
+        # draws every symbol as "_".
+        $remote = @('tmux', '-u', 'attach', '-t', ('=' + $Kept.Name))
+    }
+    if ($Kept.Place -eq 'wsl') {
+        $command = @('wsl.exe', '-e') + $remote
+    } else {
+        $command = @('ssh.exe', '-t', $Kept.Place) + $remote
+    }
+    $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
+    if ($wt) {
+        Start-Process -FilePath $wt.Source -ArgumentList $command
+    } else {
+        Start-Process -FilePath $command[0] -ArgumentList @($command | Select-Object -Skip 1)
+    }
+    # The row stays where it is, saying it is connecting, until the window's
+    # own row takes its place. The place is asked again soon.
+    if (-not $Kept.Problem) { $script:keptOpening["$($Kept.Place)|$($Kept.Name)"] = Get-Date }
+    $poll = $script:keptSources[$Kept.Place]
+    if ($null -ne $poll) { $poll.NextAt = (Get-Date).AddSeconds(2) }
 }
 
 # Which session is behind which window, resolved exactly rather than guessed.
@@ -667,7 +1059,23 @@ function Sync-SessionMap {
     }
 
     $script:sessionByHwnd = $map
+    # A window to another machine opening or closing changes which of its
+    # sessions have a window, so that machine is asked again straight away.
+    $before = $script:outgoingByHwnd
     $script:outgoingByHwnd = Get-OutgoingWindows -Table $table -ShellToWindow $shellToWindow
+    foreach ($key in @($script:outgoingByHwnd.Keys)) {
+        if (-not $before.ContainsKey($key)) { Request-KeptPoll -HostName $script:outgoingByHwnd[$key] }
+    }
+    foreach ($key in @($before.Keys)) {
+        if (-not $script:outgoingByHwnd.ContainsKey($key)) {
+            Request-KeptPoll -HostName $before[$key]
+            # Its ssh ended a moment before its window closes, so this is where
+            # the session is first known to have lost its window here.
+            if ($rows.ContainsKey($key) -and $rows[$key].TmuxName) {
+                Set-KeptWindowClosed -HostName $before[$key] -Name $rows[$key].TmuxName
+            }
+        }
+    }
     # Cached rather than recounted on the fast timer: this used to run a
     # Get-Process per session every 400 ms for a number that changes only when
     # a session opens or closes.
@@ -1764,7 +2172,55 @@ function New-Row {
         # connects to. Empty on a row driven from this desktop.
         RemoteNote = ''
         OutHost   = ''
+        # What a click on a row with no window connected does, shown over it on
+        # hover: 'Reconnect' or 'Sign in'. Empty on every other row.
+        Reconnect     = $element.FindName('Reconnect')
+        ReconnectText = $element.FindName('ReconnectText')
+        ClickAction   = ''
+        # The End button, shown on a row whose session outlives its window, and
+        # the tmux session a window's title names, when it names one.
+        EndButton = $element.FindName('EndButton')
+        TmuxName  = ''
     }
+
+    # A row with no window connected fades up and shows what a click will do
+    # while the pointer is over it.
+    $element.Add_MouseEnter({
+        param($sender, $e)
+        $rec = $rows[[string][int64]$sender.Tag]
+        if ($null -ne $rec -and $rec.ClickAction) {
+            $rec.ReconnectText.Text = $rec.ClickAction
+            $rec.Reconnect.Visibility = 'Visible'
+            Set-Fade -Element $rec.Reconnect -To 1
+            Set-Fade -Element $sender -To 1
+        }
+    })
+    $element.Add_MouseLeave({
+        param($sender, $e)
+        $rec = $rows[[string][int64]$sender.Tag]
+        if ($null -ne $rec -and $rec.ClickAction) {
+            Set-Fade -Element $rec.Reconnect -To 0
+            Set-Fade -Element $sender -To $keptFade
+        }
+    })
+
+    # The End button takes its own press, so it never starts a drag or counts
+    # as a click on the row, and asks before ending the session.
+    $rec.EndButton.Tag = $Handle
+    $rec.EndButton.Add_MouseLeftButtonDown({
+        param($sender, $e)
+        $e.Handled = $true
+    })
+    $rec.EndButton.Add_MouseLeftButtonUp({
+        param($sender, $e)
+        $e.Handled = $true
+        $row = $rows[[string][int64]$sender.Tag]
+        if ($null -eq $row) { return }
+        try {
+            $kept = Get-RowEndable -Element $row.Element
+            if ($null -ne $kept) { Stop-KeptSession -Kept $kept }
+        } catch { Write-ErrorLog -Where 'end' -Problem $_ }
+    })
 
     $element.Tag = $Handle
     $rec.Spinner.RenderTransform = $script:spinTurn
@@ -1813,6 +2269,9 @@ function New-Row {
             try { Complete-RowDrag -Commit $true } catch { Write-ErrorLog -Where 'drop' -Problem $_ }
         } elseif ($script:pressRow -eq $sender -and $script:pressDouble) {
             try { Switch-RowMaximized -Handle ([IntPtr]$sender.Tag) } catch { Write-ErrorLog -Where 'maximize' -Problem $_ }
+        } elseif ($script:pressRow -eq $sender -and (Get-RowKept -Element $sender)) {
+            # A kept session with no window here: the click opens one.
+            try { Open-KeptSession -Kept (Get-RowKept -Element $sender) } catch { Write-ErrorLog -Where 'reopen' -Problem $_ }
         } elseif ($script:pressRow -eq $sender) {
             [TlNative]::Focus([IntPtr]$sender.Tag) | Out-Null
             # An incoming remote row has no window to bring forward, which is
@@ -2072,25 +2531,60 @@ function Show-RowMenu {
     param($Element)
     $handle = [IntPtr]$Element.Tag
     $menu = New-CardMenu
+    $hasWindow = ([int64]$handle -gt 0)
 
-    Add-CardMenuAction -Parent $menu -Header 'Bring to front' -Arg $handle -Where 'rowmenu' -Action {
-        param($Handle)
-        [TlNative]::Focus($Handle) | Out-Null
-    } | Out-Null
+    # A session that outlives its window: open it again, let go of it while it
+    # keeps running, or end it where it runs. Each says what happens to Claude,
+    # since closing a window no longer means stopping it.
+    $reopen = Get-RowKept -Element $Element
+    $kept = Get-RowEndable -Element $Element
+    if ($null -ne $reopen) {
+        $header = $(if ($reopen.Problem -eq 'signin') { 'Sign in to Tailscale in a new window' }
+                    elseif ($reopen.Problem) { 'Try to reach it again' }
+                    else { 'Reconnect: open it in a new window' })
+        Add-CardMenuAction -Parent $menu -Header $header -Arg $reopen -Where 'reopen' -Action {
+            param($Kept)
+            Open-KeptSession -Kept $Kept
+        } | Out-Null
+    }
+    if ($null -ne $kept) {
+        $where = Get-KeptPlaceLong -Place $kept.Place
+        if ($hasWindow) {
+            Add-CardMenuAction -Parent $menu -Header "Disconnect: close this window, Claude keeps running on $where" -Arg $kept -Where 'disconnect' -Action {
+                param($Kept)
+                Disconnect-KeptSession -Kept $Kept
+            } | Out-Null
+        }
+        Add-CardMenuAction -Parent $menu -Header "End session: stop Claude on $where" -Arg $kept -Where 'end' -Action {
+            param($Kept)
+            Stop-KeptSession -Kept $Kept
+        } | Out-Null
+    }
+    if ($null -ne $reopen -or $null -ne $kept) {
+        [void]$menu.Items.Add((New-CardMenuSeparator))
+    }
 
-    # The same as a double-click on the row, so it says which way it will go.
-    $isMaximized = ($null -ne $script:maximized -and $script:maximized.Handle -eq $handle -and
-                    [TlNative]::IsMaximizedOnPrimary($handle))
-    $maxHeader = $(if ($isMaximized) { 'Put window back' } else { 'Maximize window' })
-    Add-CardMenuAction -Parent $menu -Header $maxHeader -Arg $handle -Where 'maximize' -Action {
-        param($Handle)
-        # No double-click led here, so the window is noted as it is now rather
-        # than as some earlier press on the row found it.
-        $script:pressSpot = $null
-        Switch-RowMaximized -Handle $Handle
-    } | Out-Null
+    # Window actions, for a row that has a window here to act on.
+    if ($hasWindow) {
+        Add-CardMenuAction -Parent $menu -Header 'Bring to front' -Arg $handle -Where 'rowmenu' -Action {
+            param($Handle)
+            [TlNative]::Focus($Handle) | Out-Null
+        } | Out-Null
 
-    [void]$menu.Items.Add((New-CardMenuSeparator))
+        # The same as a double-click on the row, so it says which way it will go.
+        $isMaximized = ($null -ne $script:maximized -and $script:maximized.Handle -eq $handle -and
+                        [TlNative]::IsMaximizedOnPrimary($handle))
+        $maxHeader = $(if ($isMaximized) { 'Put window back' } else { 'Maximize window' })
+        Add-CardMenuAction -Parent $menu -Header $maxHeader -Arg $handle -Where 'maximize' -Action {
+            param($Handle)
+            # No double-click led here, so the window is noted as it is now rather
+            # than as some earlier press on the row found it.
+            $script:pressSpot = $null
+            Switch-RowMaximized -Handle $Handle
+        } | Out-Null
+
+        [void]$menu.Items.Add((New-CardMenuSeparator))
+    }
     [void]$menu.Items.Add((New-RowSoundMenu -Key ([string][int64]$handle)))
 
     $menu.PlacementTarget = $Element
@@ -2663,10 +3157,12 @@ function Write-LayoutDump {
         [void]$lines.Add("group $name")
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
-            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}' -f
+            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} end={11} tmux={12}' -f
                 $rec.Top, [Math]::Round($drawn, 1),
                 [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$rec.StartedAt).LocalDateTime,
-                $rec.Seq, [int64]$rec.Handle, $script:orderIndex[[string][int64]$rec.Handle], $rec.Label))
+                $rec.Seq, [int64]$rec.Handle, $script:orderIndex[[string][int64]$rec.Handle], $rec.Label,
+                $rec.State, $rec.Detail, [Math]::Round($rec.Element.Opacity, 2), $rec.ClickAction,
+                $rec.EndButton.Visibility, $rec.TmuxName))
         }
     }
     Set-Content -Path (Join-Path $stateDir 'dump.txt') -Value $lines -Encoding UTF8
@@ -2935,12 +3431,28 @@ function Update-Card {
 
     $seen = @{}
 
+    # Kept sessions first, so a poll that answered since the last tick shows on
+    # this one rather than up to three seconds later.
+    try { Update-KeptSessions } catch { Write-ErrorLog -Where 'kept' -Problem $_ }
+    # "host|session" for every kept session a window here shows right now.
+    $windowIds = @{}
+
     foreach ($h in @($script:knownHandles)) {
         $title = Get-WindowTitle -Handle $h
         if ($null -eq $title) {
             # Window is gone. Drop it now rather than waiting for the sweep, so
-            # a closed session never lingers on the card.
+            # a closed session never lingers on the card. A window to another
+            # machine may leave its session running there, so that machine is
+            # asked at once and the session's row follows in a second or two.
             $script:knownHandles.Remove($h)
+            $closedKey = [string][int64]$h
+            if ($script:outgoingByHwnd.ContainsKey($closedKey)) {
+                $closedHost = $script:outgoingByHwnd[$closedKey]
+                Request-KeptPoll -HostName $closedHost
+                if ($rows.ContainsKey($closedKey) -and $rows[$closedKey].TmuxName) {
+                    Set-KeptWindowClosed -HostName $closedHost -Name $rows[$closedKey].TmuxName
+                }
+            }
             # Its sound goes with it. Only here, where the window is known to be
             # closed: a row that merely drops off for one poll keeps its sound.
             $soundKey = [string][int64]$h
@@ -2954,12 +3466,21 @@ function Update-Card {
         $parsed = Read-SessionTitle -Title $title
         if (-not $parsed) { continue }
         $key = [string][int64]$h
-        if (-not $rows.ContainsKey($key)) {
+        $isNew = -not $rows.ContainsKey($key)
+        if ($isNew) {
             $rows[$key] = New-Row -Handle $h -Label $parsed.Label -State $parsed.State
         }
         $rows[$key].PendingState = $parsed.State
         $rows[$key].PendingLabel = $parsed.Label
+        $rows[$key].TmuxName = $parsed.TmuxName
         $seen[$key] = $true
+        # A window showing a kept session stands for that session: its faded
+        # row steps aside, and a new window row takes that row's slot.
+        if ($parsed.TmuxName -and $script:outgoingByHwnd.ContainsKey($key)) {
+            $id = $script:outgoingByHwnd[$key] + '|' + $parsed.TmuxName
+            $windowIds[$id] = $true
+            if ($isNew -or $null -eq $script:slotRec[$id]) { Use-SessionSlot -Rec $rows[$key] -Id $id }
+        }
     }
 
     # Incoming remote sessions have no title to read, so their state is the
@@ -2972,6 +3493,29 @@ function Update-Card {
         $label = $(if ($info.Title) { $info.Title } else { 'Session' })
         if (-not $rows.ContainsKey($key)) {
             $rows[$key] = New-Row -Handle ([IntPtr][int64]$key) -Label $label -State $state
+        }
+        $rows[$key].PendingState = $state
+        $rows[$key].PendingLabel = $label
+        $seen[$key] = $true
+    }
+
+    # Kept sessions with no window to read, from the last poll of each place.
+    # Their state and title come from that place's tmux, a few seconds behind.
+    foreach ($key in @($script:keptByKey.Keys)) {
+        $kept = $script:keptByKey[$key]
+        $id = ''
+        if ($kept.Problem) {
+            $state = 'Waiting'
+            $label = $(if ($kept.Problem -eq 'signin') { 'Sign in to see its sessions' } else { 'Cannot reach it' })
+        } else {
+            $id = (Get-KeptPlaceName -Place $kept.Place) + '|' + $kept.Name
+            if ($windowIds.ContainsKey($id)) { continue }
+            $state = $kept.State
+            $label = $(if ($kept.Title -and $kept.Title -ne 'Claude Code') { $kept.Title } else { $kept.Name })
+        }
+        if (-not $rows.ContainsKey($key)) {
+            $rows[$key] = New-Row -Handle ([IntPtr][int64]$key) -Label $label -State $state
+            if ($id) { Use-SessionSlot -Rec $rows[$key] -Id $id }
         }
         $rows[$key].PendingState = $state
         $rows[$key].PendingLabel = $label
@@ -3020,13 +3564,52 @@ function Update-Card {
             $rec.StatusUpdatedAt = $info.StatusUpdatedAt
             if ($info.ContainsKey('Model'))  { $rec.Model  = $info.Model }
             if ($info.ContainsKey('Prompt')) { $rec.Prompt = $info.Prompt }
-            if ($info.Remote -eq 'In') { $rec.RemoteNote = 'incoming remote' + $listSep + 'via ' + $info.Via }
+            if ($info.Remote -eq 'In') {
+                # Started from somewhere else. When it runs in tmux here, say
+                # where its window is, and whether it has one at all.
+                $kept = $script:keptBySessionId[$info.SessionId]
+                if ($null -eq $kept) {
+                    $rec.RemoteNote = 'started from another PC'
+                } elseif ($kept.Window -eq 'remote') {
+                    $rec.RemoteNote = 'connected from another PC' + $listSep + 'keeps running when closed'
+                } elseif ($kept.Window -eq 'local') {
+                    $rec.RemoteNote = 'connected here' + $listSep + 'keeps running when closed'
+                } else {
+                    $rec.RemoteNote = 'not connected' + $listSep + 'still running'
+                }
+            }
+        } elseif ($script:keptByKey.ContainsKey($key)) {
+            # A kept session with no window here, filed under its machine the
+            # way that machine's open windows are.
+            $kept = $script:keptByKey[$key]
+            $placeName = Get-KeptPlaceName -Place $kept.Place
+            $rec.Workspace = $placeName
+            if ($kept.Problem -eq 'signin') {
+                $rec.RemoteNote = 'Tailscale wants you to sign in again'
+            } elseif ($kept.Problem) {
+                $rec.RemoteNote = 'switched off or offline'
+            } else {
+                $opening = $script:keptOpening["$($kept.Place)|$($kept.Name)"]
+                if ($null -ne $opening -and ((Get-Date) - $opening).TotalSeconds -lt 15) {
+                    $rec.RemoteNote = 'connecting...'
+                } elseif ($kept.Window -eq 'local') {
+                    $rec.RemoteNote = 'open on the ' + $placeName + ' PC' + $listSep + 'still running'
+                } elseif ($kept.Window -eq 'remote') {
+                    $rec.RemoteNote = 'open on another PC' + $listSep + 'still running'
+                } else {
+                    $rec.RemoteNote = 'not connected' + $listSep + 'still running'
+                }
+            }
         } elseif ($script:outgoingByHwnd.ContainsKey($key)) {
             # The session lives on the other machine, so the machine is the
             # workspace: every session reached through it groups under its name.
             $rec.Workspace = $script:outgoingByHwnd[$key]
             $rec.OutHost = $rec.Workspace
-            $rec.RemoteNote = 'outgoing remote' + $listSep + 'on ' + $rec.Workspace
+            if ($rec.TmuxName -or $script:outgoingKeeps[$key] -or (Test-KeptTitle -HostName $rec.Workspace -Label $rec.PendingLabel)) {
+                $rec.RemoteNote = 'connected' + $listSep + 'keeps running when closed'
+            } else {
+                $rec.RemoteNote = 'connected' + $listSep + 'ends when closed'
+            }
         } elseif ($rec.OutHost) {
             # Its ssh has ended but the window still shows a session title, so
             # it is no longer filed under the host it left.
@@ -3063,6 +3646,27 @@ function Update-Card {
 
     foreach ($rec in $ordered) {
         Set-RowState -Rec $rec -State $rec.PendingState -Label $rec.PendingLabel -Detail $rec.PendingDetail
+    }
+
+    # A row with no window connected is drawn faded, so it reads as not
+    # connected at a glance, and says on hover what a click on it does. A row
+    # whose session outlives its window carries the End button.
+    foreach ($rec in $ordered) {
+        $kept = Get-RowKept -Element $rec.Element
+        $action = ''
+        if ($null -ne $kept) {
+            $action = $(if ($kept.Problem -eq 'signin') { 'Sign in' } elseif ($kept.Problem) { 'Try again' } else { 'Reconnect' })
+        }
+        $rec.ClickAction = $action
+        if (-not $rec.Element.IsMouseOver -or -not $action) {
+            Set-Fade -Element $rec.Element -To $(if ($action) { $keptFade } else { 1 })
+            if (-not $action) {
+                $rec.Reconnect.BeginAnimation([System.Windows.UIElement]::OpacityProperty, $null)
+                $rec.Reconnect.Opacity = 0
+                $rec.Reconnect.Visibility = 'Collapsed'
+            }
+        }
+        $rec.EndButton.Visibility = $(if ($null -ne (Get-RowEndable -Element $rec.Element)) { 'Visible' } else { 'Collapsed' })
     }
     Update-Needs -Ordered $ordered
 
@@ -3313,6 +3917,8 @@ function Sweep-Windows {
     Sync-SessionMap -ShellToWindow $scan.ShellToWindow
     Sync-SessionExtras
     Update-UnityRows
+    # Caught on its own, so a place that misbehaves cannot stop the local rows.
+    try { Update-KeptSessions -ReadPlaces } catch { Write-ErrorLog -Where 'kept' -Problem $_ }
 }
 
 # Caught on its own, so a Unity hiccup can never stop the agent rows updating.
