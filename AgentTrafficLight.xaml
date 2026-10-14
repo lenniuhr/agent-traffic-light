@@ -290,16 +290,21 @@
                the one the Claude login on this PC belongs to. Each line is switched
                on and off in the settings menu, and both stay collapsed until the
                first reading arrives. A bar is two star columns, used and left, so
-               the script sets a share rather than a width. -->
-          <StackPanel x:Name="UsagePanel" Grid.Row="3" Margin="14,2,16,10" Visibility="Collapsed">
+               the script sets a share rather than a width. The name, the share and
+               the reset time each take a column that grows with its text, shared
+               by both lines so they stay in line: at Frutiger Aero's larger caption
+               "resets Mon 12:00" ran into the share and lost its first letter. The
+               least widths are the old fixed ones, so text that fits looks as it did. -->
+          <StackPanel x:Name="UsagePanel" Grid.Row="3" Margin="14,2,16,10" Visibility="Collapsed"
+                      Grid.IsSharedSizeScope="True">
             <Grid x:Name="Usage5h" Height="17">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="58" />
+                <ColumnDefinition Width="Auto" MinWidth="58" SharedSizeGroup="UsageName" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="44" />
-                <ColumnDefinition Width="96" />
+                <ColumnDefinition Width="Auto" MinWidth="44" SharedSizeGroup="UsagePct" />
+                <ColumnDefinition Width="Auto" MinWidth="96" SharedSizeGroup="UsageReset" />
               </Grid.ColumnDefinitions>
-              <TextBlock Text="5 HOURS" VerticalAlignment="Center" Effect="{DynamicResource TextGlow}"
+              <TextBlock Text="5 HOURS" VerticalAlignment="Center" Margin="0,0,6,0" Effect="{DynamicResource TextGlow}"
                          FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
                          Foreground="{DynamicResource BrushTextDim}" />
               <Grid Grid.Column="1" Height="{DynamicResource UsageBarHeight}" VerticalAlignment="Center">
@@ -314,19 +319,19 @@
                          Effect="{DynamicResource TextGlow}" Typography.NumeralAlignment="Tabular"
                          FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
                          Foreground="{DynamicResource BrushText}" />
-              <TextBlock x:Name="Usage5hReset" Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center"
+              <TextBlock x:Name="Usage5hReset" Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0,0,0"
                          Effect="{DynamicResource TextGlow}" Typography.NumeralAlignment="Tabular"
                          FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
                          Foreground="{DynamicResource BrushTextDim}" />
             </Grid>
             <Grid x:Name="UsageWeek" Height="17">
               <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="58" />
+                <ColumnDefinition Width="Auto" MinWidth="58" SharedSizeGroup="UsageName" />
                 <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="44" />
-                <ColumnDefinition Width="96" />
+                <ColumnDefinition Width="Auto" MinWidth="44" SharedSizeGroup="UsagePct" />
+                <ColumnDefinition Width="Auto" MinWidth="96" SharedSizeGroup="UsageReset" />
               </Grid.ColumnDefinitions>
-              <TextBlock Text="WEEK" VerticalAlignment="Center" Effect="{DynamicResource TextGlow}"
+              <TextBlock Text="WEEK" VerticalAlignment="Center" Margin="0,0,6,0" Effect="{DynamicResource TextGlow}"
                          FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
                          Foreground="{DynamicResource BrushTextDim}" />
               <Grid Grid.Column="1" Height="{DynamicResource UsageBarHeight}" VerticalAlignment="Center">
@@ -341,7 +346,7 @@
                          Effect="{DynamicResource TextGlow}" Typography.NumeralAlignment="Tabular"
                          FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
                          Foreground="{DynamicResource BrushText}" />
-              <TextBlock x:Name="UsageWeekReset" Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center"
+              <TextBlock x:Name="UsageWeekReset" Grid.Column="3" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="6,0,0,0"
                          Effect="{DynamicResource TextGlow}" Typography.NumeralAlignment="Tabular"
                          FontFamily="{DynamicResource FontCaption}" FontSize="{DynamicResource SizeClockCaption}"
                          Foreground="{DynamicResource BrushTextDim}" />
