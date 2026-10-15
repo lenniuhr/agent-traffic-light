@@ -724,7 +724,7 @@ function Invoke-AtKeptPlace {
         $psi.Arguments = (Get-WslPrefix -Place $Place) + $Command
     } else {
         $psi.FileName = 'ssh.exe'
-        $psi.Arguments = '-o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' ' + $Command
+        $psi.Arguments = '-n -o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' ' + $Command
     }
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
@@ -748,7 +748,9 @@ function Start-KeptPoll {
         $psi.Arguments = (Get-WslPrefix -Place $Place) + 'office-sessions --list'
     } else {
         $psi.FileName = 'ssh.exe'
-        $psi.Arguments = '-o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' office-sessions --list'
+        # -n gives ssh empty input. Without it the far end waits for input the card never sends,
+        # the poll runs into its time limit, and the place shows as "Cannot reach it".
+        $psi.Arguments = '-n -o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' office-sessions --list'
     }
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
