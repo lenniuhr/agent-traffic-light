@@ -87,7 +87,10 @@ gone or older left out. Each opens a new Windows Terminal window in that repo ru
 `claude --permission-mode auto`. "Hide from this list" leaves one out for good; it is kept as
 `HiddenLaunchRepos` in `state\settings.json`, and taken out of there to bring it back. Pointing at a
 repo's heading also shows a "+" right after its name, in the name's own style, which opens a
-session in that folder. `-Probe -Launch` prints the list and why each other folder was left out.
+session in that folder. With "Group by working repository" on it opens the session in the folder
+the heading's sessions were started in, the one most of them used, so a heading for a repository
+inside a larger checkout starts the new session at the checkout's top, as its sessions were.
+`-Probe -Launch` prints the list and why each other folder was left out.
 
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.

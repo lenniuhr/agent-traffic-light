@@ -2042,19 +2042,29 @@ function Complete-NewPress {
 }
 
 # The folder a heading's "+" starts a session in: the one its rows' sessions
-# started in, or with GroupByRepo on the repository the heading names. Only a
-# row with a session on this PC has a folder, so a group on another machine
-# gets no "+".
+# started in. Only a row with a session on this PC has a folder, so a group on
+# another machine gets no "+".
 function Get-GroupFolder {
     param([string]$Name, $Recs)
+    # Grouped by the repository the agent works in, the heading often names a
+    # repository inside the folder its sessions were started from, as one part
+    # of a larger checkout. A new session starts where those did, so the most
+    # common of their folders wins, and on a tie the earliest session's.
+    if ($script:settings.GroupByRepo) {
+        $count = @{}
+        $best = ''
+        foreach ($rec in @(@($Recs) | Sort-Object { $_.Seq })) {
+            if (-not $rec.Cwd) { continue }
+            $cwd = ([string]$rec.Cwd).TrimEnd('\')
+            if (-not [System.IO.Directory]::Exists($cwd)) { continue }
+            $key = $cwd.ToLowerInvariant()
+            $count[$key] = 1 + [int]$count[$key]
+            if (-not $best -or $count[$key] -gt $count[$best.ToLowerInvariant()]) { $best = $cwd }
+        }
+        return $best
+    }
     foreach ($rec in @($Recs)) {
         if (-not $rec.Cwd) { continue }
-        # Grouped by the repository the agent works in, which is often not the
-        # one its terminal opened in: that is what the grouping is for.
-        if ($script:settings.GroupByRepo -and $rec.SessionId -and $script:workState.ContainsKey($rec.SessionId)) {
-            $work = [string]$script:workState[$rec.SessionId].Root
-            if ($work -and (Split-Path -Leaf $work) -ieq $Name -and [System.IO.Directory]::Exists($work)) { return $work }
-        }
         $cwd = ([string]$rec.Cwd).TrimEnd('\')
         if ((Split-Path -Leaf $cwd) -ieq $Name -and [System.IO.Directory]::Exists($cwd)) { return $cwd }
         $root = Get-RepoRoot -Path $cwd
@@ -3628,7 +3638,7 @@ function Write-LayoutDump {
             $label = $header.Label
             $gap = $header.NewButton.TranslatePoint((New-Object System.Windows.Point 0, 0), $header.Element).X -
                 ($label.TranslatePoint((New-Object System.Windows.Point 0, 0), $header.Element).X + $label.ActualWidth)
-            [void]$lines.Add(('group {0}  new={1}  gap={2}' -f $name, $header.NewButton.Visibility, [Math]::Round($gap, 1)))
+            [void]$lines.Add(('group {0}  new={1}  gap={2}  folder={3}' -f $name, $header.NewButton.Visibility, [Math]::Round($gap, 1), $header.NewButton.Tag))
         }
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
@@ -4273,7 +4283,7 @@ function Update-Layout {
             $folder = Get-GroupFolder -Name $g.Name -Recs $g.Group
             $header.NewButton.Tag = $folder
             $header.NewButton.Visibility = $(if ($folder) { 'Visible' } else { 'Collapsed' })
-            $header.NewButton.ToolTip = $(if ($folder) { 'New session in ' + $g.Name } else { $null })
+            $header.NewButton.ToolTip = $(if ($folder) { 'New session in ' + (Split-Path -Leaf $folder) } else { $null })
             $script:groupNew[$g.Name] = $header
             $header.Element.Visibility = 'Visible'
             [System.Windows.Controls.Canvas]::SetTop($header.Element, $y)
