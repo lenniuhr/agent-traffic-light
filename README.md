@@ -68,6 +68,11 @@ to it opens or closes: an ssh target such as `jonathan@office`, or `wsl` for thi
 place answers with `office-sessions --list`, which lists its tmux sessions as
 `name|window|state|claude session id|title`, and `office-sessions --end <name>` ends one. A place
 that cannot be asked gets a row saying so, or asking for the sign-in Tailscale wants now and then.
+On a machine several people use, such as the build PC, the list holds everyone's sessions, with the
+owner's first name in front of the ones others started. "Show other people's sessions", on by
+default under Settings, hides those when switched off: the card then asks with
+`office-sessions --list --mine`. A place whose `office-sessions` predates `--mine` lists everything
+either way.
 
 Along the card's bottom, two bars show how much of the Claude subscription's limits is used: the
 five-hour window and the week, each with the time it resets. The card reads the login Claude Code

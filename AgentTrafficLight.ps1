@@ -752,6 +752,9 @@ function Start-KeptPoll {
         # the poll runs into its time limit, and the place shows as "Cannot reach it".
         $psi.Arguments = '-n -o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' office-sessions --list'
     }
+    # --mine leaves out the sessions other people started there. A place too old
+    # to know it ignores it and lists every session.
+    if (-not $script:settings.ShowOthersSessions) { $psi.Arguments += ' --mine' }
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $psi.RedirectStandardOutput = $true
@@ -1613,9 +1616,13 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 #
 # HiddenLaunchRepos lists repo folders the New session menus leave out. Added
 # from those menus; taken out again only by editing this file.
+#
+# ShowOthersSessions shows the kept sessions other people started on a shared
+# machine, such as the build PC, with their owner's name in front. On by default.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
+                      ShowOthersSessions = $true
                       DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @() }
 
 function Read-Settings {
@@ -1625,6 +1632,7 @@ function Read-Settings {
         if ($null -ne $saved.GroupByRepo) { $script:settings.GroupByRepo = [bool]$saved.GroupByRepo }
         if ($null -ne $saved.ShowUsage5h) { $script:settings.ShowUsage5h = [bool]$saved.ShowUsage5h }
         if ($null -ne $saved.ShowUsageWeek) { $script:settings.ShowUsageWeek = [bool]$saved.ShowUsageWeek }
+        if ($null -ne $saved.ShowOthersSessions) { $script:settings.ShowOthersSessions = [bool]$saved.ShowOthersSessions }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.HiddenLaunchRepos) { $script:settings.HiddenLaunchRepos = @($saved.HiddenLaunchRepos | ForEach-Object { [string]$_ }) }
@@ -1648,6 +1656,7 @@ function Save-Settings {
             GroupByRepo      = $script:settings.GroupByRepo
             ShowUsage5h      = $script:settings.ShowUsage5h
             ShowUsageWeek    = $script:settings.ShowUsageWeek
+            ShowOthersSessions = $script:settings.ShowOthersSessions
             DefaultSound     = $script:settings.DefaultSound
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
@@ -4497,6 +4506,21 @@ function Show-SettingsMenu {
         } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
     })
     [void]$settingsItem.Items.Add($repoItem)
+
+    # Every place is asked again at once with the new setting, so the rows
+    # change in a moment rather than on the next round.
+    $othersItem = New-CardMenuItem -Header "Show other people's sessions"
+    $othersItem.IsCheckable = $true
+    $othersItem.IsChecked = [bool]$script:settings.ShowOthersSessions
+    $othersItem.Add_Click({
+        param($sender, $e)
+        try {
+            $script:settings.ShowOthersSessions = [bool]$sender.IsChecked
+            Save-Settings
+            foreach ($poll in @($script:keptSources.Values)) { $poll.NextAt = [datetime]::MinValue }
+        } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+    })
+    [void]$settingsItem.Items.Add($othersItem)
 
     # The subscription's limits along the card's bottom, each on its own.
     foreach ($bar in @(@{ Header = 'Show 5-hour limit'; Key = 'ShowUsage5h' },
