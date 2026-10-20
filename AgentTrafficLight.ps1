@@ -1113,7 +1113,7 @@ $openFile   = Join-Path $stateDir 'open.json'
 $script:closedSessions = @{}   # session id -> entry
 $script:closedByKey = @{}      # row key -> entry
 $script:nextClosedKey = [int64]-2000000000000
-$script:forgetSessions = @{}   # session id -> $true for a session killed here, which leaves no closed row
+$script:forgetSessions = @{}   # session id -> $true for a session killed here, which leaves no closed row, until its Claude has stopped
 $script:localSeen = @{}        # session id -> how its row last looked: Cwd, Label, Workspace, Model, Prompt
 $script:openSaved = ''         # open.json as last written
 $script:openAtStart = $null    # the sessions open when the card last ran, until the first sweep
@@ -1168,15 +1168,15 @@ function Read-ClosedSessions {
 
 # A session of this PC has lost its window or its Claude: it becomes a closed
 # row, unless it was killed here or is closed already. Its row, or else how its
-# row last looked, gives the label and the rest.
+# row last looked, gives the label and the rest. A killed session comes here
+# twice, once for its window and once for its Claude, so its mark stays until
+# the sweep finds its Claude stopped; taken on the first, the second made it a
+# closed row after all.
 function Add-ClosedSession {
     param($Info, $Rec)
     $sid = [string]$Info.SessionId
     if (-not $sid) { return }
-    if ($script:forgetSessions.ContainsKey($sid)) {
-        $script:forgetSessions.Remove($sid)
-        return
-    }
+    if ($script:forgetSessions.ContainsKey($sid)) { return }
     if ($script:closedSessions.ContainsKey($sid)) { return }
     $look = $script:localSeen[$sid]
     if ($null -ne $Rec -and $Rec.Label) {
@@ -1403,6 +1403,12 @@ function Sync-SessionMap {
         }
         foreach ($sid in @($script:localSeen.Keys)) {
             if (-not $liveIds.ContainsKey($sid)) { $script:localSeen.Remove($sid) }
+        }
+        # A killed session's Claude has stopped and both its endings are seen:
+        # the one above, and its window's, which came first or finds no session
+        # behind the window from here on.
+        foreach ($sid in @($script:forgetSessions.Keys)) {
+            if (-not $liveIds.ContainsKey($sid)) { $script:forgetSessions.Remove($sid) }
         }
         Save-OpenSessions
     }
