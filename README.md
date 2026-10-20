@@ -95,12 +95,14 @@ inside a larger checkout starts the new session at the checkout's top, as its se
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
 
-A small turning ring with a number, just left of the time, counts the helper agents the session has
-running now, helpers of helpers included. It shows on a row of any colour, so a green row whose
-background helpers still run says so, and goes when the last one ends. A helper counts until its
-meta file in the session's `subagents` folder says it finished, or the transcript that started it
-records its end, which is how a stopped helper drops off at once. One untouched for half an hour,
-or left over from before a resumed session started again, no longer counts.
+A session with helper agents running shows a larger turning ring with their number inside, helpers
+of helpers included, in place of the small ring. It shows on a row of any colour, in place of the
+blue dot on a green row whose background helpers still run, and the dot comes back when the last
+one ends. A helper counts until its meta file in the session's `subagents` folder says it
+finished, or its own transcript ends on Claude's "Request interrupted by user" note, which is how
+a stopped helper drops off at once. One untouched for half an hour, or left over from before a
+resumed session started again, no longer counts. A remote session's count comes from its place, which adds it to its list
+when asked with `office-sessions --list --helpers`; a place without that shows no count.
 
 Right-click a session's row for its menu: Bring to front, Maximize window (or Put window back), and
 Sound, which opens a list on hover: Default, naming the default sound, then Off and every sound, with

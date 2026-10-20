@@ -656,8 +656,9 @@ function Get-OutgoingWindows {
 # as jonathan@office, or "wsl" or "wsl:Ubuntu" for this PC's own WSL. Each place is asked for
 # its list with "office-sessions --list" every few seconds, in a process of its
 # own so the card never waits on the network. A line of that list is
-#   name|window|state|claude session id|title
-# where window is "remote", "local" or "" for no window anywhere.
+#   name|window|state|claude session id|title|helpers
+# where window is "remote", "local" or "" for no window anywhere, and helpers
+# is how many helper agents the session has running, from a place new enough.
 #
 # A session with no window gets a row of its own, keyed by a large negative
 # number so it can collide with neither a window handle nor an incoming row's
@@ -752,8 +753,10 @@ function Start-KeptPoll {
         # the poll runs into its time limit, and the place shows as "Cannot reach it".
         $psi.Arguments = '-n -o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' office-sessions --list'
     }
-    # --mine leaves out the sessions other people started there. A place too old
-    # to know it ignores it and lists every session.
+    # --helpers adds each session's running helper agents. --mine leaves out the
+    # sessions other people started there. A place too old to know either
+    # ignores it.
+    $psi.Arguments += ' --helpers'
     if (-not $script:settings.ShowOthersSessions) { $psi.Arguments += ' --mine' }
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
@@ -770,10 +773,16 @@ function ConvertFrom-KeptList {
     foreach ($line in ($Text -split "`n")) {
         $parts = $line.TrimEnd("`r").Split('|', 5)
         if ($parts.Count -lt 5 -or -not $parts[0]) { continue }
+        # Asked with --helpers, a place adds how many helper agents each
+        # session has running as a last field, after the title. A place too old
+        # to know it leaves the title last and its sessions at 0.
+        $title = $parts[4]
+        $helpers = 0
+        if ($title -match '^(.*)\|(\d+)$') { $title = $matches[1]; $helpers = [int]$matches[2] }
         [void]$list.Add(@{
             Place = $Place; Name = $parts[0]; Window = $parts[1]
             State = $(if ($parts[2] -eq 'working') { 'Working' } else { 'Waiting' })
-            SessionId = $parts[3]; Title = $parts[4]
+            SessionId = $parts[3]; Title = $title; Helpers = $helpers
         })
     }
     return $list
@@ -927,6 +936,24 @@ function Test-KeptTitle {
         }
     }
     return $false
+}
+
+# The helper agents running in the kept session a window here shows, as its
+# place last listed them: the session its title names, or else the one session
+# there whose title is the window's. 0 when neither is found.
+function Get-OutgoingHelpers {
+    param([string]$HostName, [string]$TmuxName, [string]$Label)
+    foreach ($place in @($script:keptSources.Keys)) {
+        if ((Get-KeptPlaceName -Place $place) -ne $HostName) { continue }
+        $sessions = @($script:keptSources[$place].Sessions)
+        if ($TmuxName) {
+            $found = @($sessions | Where-Object { $_.Name -eq $TmuxName })
+        } else {
+            $found = @($sessions | Where-Object { $_.Window -eq 'remote' -and $_.Title -eq $Label })
+        }
+        if ($found.Count -eq 1) { return [int]$found[0].Helpers }
+    }
+    return 0
 }
 
 # The kept session a row's click should open, or $null: one of the rows above,
@@ -1387,22 +1414,21 @@ function Update-WorkRepo {
     return $state.Root
 }
 
-# How many helper agents a session has running now, for the count on its row.
+# How many helper agents a session has running now, for the ring on its row.
 # Claude keeps two files per helper in the session's subagents folder: its
 # transcript, and a small meta file that gains "finished":true when the helper
-# ends of its own accord. A helper that is stopped never gets that flag, so its
-# end is read from the transcript of whoever started it, the session's own or
-# another helper's: a helper run in the background ends with a notice naming
-# its id, and one its caller waits on ends with the caller's tool result for it.
-# Sending a finished helper a message starts it again and writes its meta file
-# afresh without the flag, so an end counts only when it is no older than the
-# meta file.
+# ends of its own accord. A helper that is stopped never gets that flag; its
+# transcript ends instead on Claude's "[Request interrupted by user" note, as
+# its last conversation record. Sending a finished or stopped helper a message
+# starts it again: its meta file is written afresh without the flag, and its
+# transcript gains records after the note.
 #
-# Two guards cover a helper that leaves no end behind. One whose meta file is
+# Two guards cover a helper that leaves neither behind. One whose meta file is
 # older than the session's start belonged to an earlier run of a resumed
-# session. One whose transcript has not moved for half an hour has died without
-# a word, or comes from a Claude too old to write the flag.
+# session. One whose transcript has not moved for half an hour has died
+# without a word, or comes from a Claude too old to write the flag.
 $helperQuietMin = 30
+$helperTail = 65536   # bytes read from the end of a helper's transcript to find its last record
 $script:helperState = @{}
 
 function Update-HelperCount {
@@ -1412,16 +1438,15 @@ function Update-HelperCount {
     if (-not [System.IO.Directory]::Exists($folder)) { return 0 }
     $state = $script:helperState[$SessionId]
     if ($null -eq $state) {
-        $state = @{ Metas = @{}; Offsets = @{}; Ends = @{} }
+        $state = @{ Metas = @{}; Logs = @{} }
         $script:helperState[$SessionId] = $state
     }
     $quiet = [DateTime]::UtcNow.AddMinutes(-$helperQuietMin)
     $started = [DateTime]::MinValue
     if ($StartedAt -gt 0) { $started = [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$StartedAt).UtcDateTime }
-    $dir = New-Object System.IO.DirectoryInfo $folder
 
-    $open = New-Object System.Collections.ArrayList
-    foreach ($meta in $dir.GetFiles('*.meta.json')) {
+    $count = 0
+    foreach ($meta in (New-Object System.IO.DirectoryInfo $folder).GetFiles('*.meta.json')) {
         $seen = $state.Metas[$meta.FullName]
         if ($null -eq $seen -or $seen.Ticks -ne $meta.LastWriteTimeUtc.Ticks) {
             # A couple of hundred bytes, read again only when Claude rewrites
@@ -1433,77 +1458,29 @@ function Update-HelperCount {
                 try { $text = (New-Object System.IO.StreamReader $stream).ReadToEnd() } finally { $stream.Dispose() }
             } catch { }
             if (-not $text.TrimEnd().EndsWith('}')) { continue }
-            $id = $meta.Name -replace '^agent-|\.meta\.json$', ''
-            $tool = [regex]::Match($text, '"toolUseId":"([^"]+)"')
-            $key = ''
-            if ($text.Contains('"requestShape":"background"')) {
-                $key = '<task-id>' + $id + '</task-id>'
-            } elseif ($tool.Success) {
-                $key = '"tool_use_id":"' + $tool.Groups[1].Value + '"'
-            }
-            $seen = @{ Ticks = $meta.LastWriteTimeUtc.Ticks; Finished = $text.Contains('"finished":true'); Key = $key }
+            $seen = @{ Ticks = $meta.LastWriteTimeUtc.Ticks; Finished = $text.Contains('"finished":true') }
             $state.Metas[$meta.FullName] = $seen
         }
         if ($seen.Finished -or $meta.LastWriteTimeUtc -lt $started) { continue }
+
         $log = New-Object System.IO.FileInfo ($meta.FullName -replace '\.meta\.json$', '.jsonl')
         $moved = $(if ($log.Exists) { $log.LastWriteTimeUtc } else { $meta.LastWriteTimeUtc })
         if ($moved -lt $quiet) { continue }
-        [void]$open.Add(@{ Key = $seen.Key; Since = $meta.LastWriteTimeUtc })
-    }
-
-    # Ends are looked for only while a helper is open, in what each transcript
-    # has gained since the last look. A file untouched for the quiet time cannot
-    # hold the end of a helper that is open, so one seen for the first time is
-    # skipped to its end, and only a recent one is read back over its tail.
-    $keep = @{}
-    if ($open.Count -gt 0) {
-        $files = @(New-Object System.IO.FileInfo $MainPath) + @($dir.GetFiles('*.jsonl'))
-        foreach ($f in $files) {
-            if (-not $f.Exists) { continue }
-            $offset = $state.Offsets[$f.FullName]
-            if ($null -eq $offset -and $f.LastWriteTimeUtc -lt $quiet) { $state.Offsets[$f.FullName] = $f.Length; continue }
-            if ($null -eq $offset -or $f.Length -lt $offset) { $offset = [long]0 }
-            if ($f.Length -eq $offset) { continue }
-            $offset = [Math]::Max($offset, $f.Length - $transcriptTailMax)
-            $chunk = Read-TranscriptLines -Path $f.FullName -Start $offset
-            $state.Offsets[$f.FullName] = $chunk.Next
-            $text = $chunk.Text
-            foreach ($helper in $open) {
-                if (-not $helper.Key) { continue }
-                # Every line naming the end carries the time it was written; a
-                # line without one, such as a request snapshot, is passed over.
-                $at = $text.IndexOf($helper.Key, [System.StringComparison]::Ordinal)
-                while ($at -ge 0) {
-                    $from = $text.LastIndexOf([char]10, $at) + 1
-                    $to = $text.IndexOf([char]10, $at)
-                    if ($to -lt 0) { $to = $text.Length }
-                    foreach ($m in [regex]::Matches($text.Substring($from, $to - $from), '"timestamp":"([^"]+)"')) {
-                        try {
-                            $when = [DateTime]::Parse($m.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture,
-                                [System.Globalization.DateTimeStyles]::AdjustToUniversal -bor [System.Globalization.DateTimeStyles]::AssumeUniversal)
-                            $last = $state.Ends[$helper.Key]
-                            if ($null -eq $last -or $when -gt $last) { $state.Ends[$helper.Key] = $when }
-                        } catch { }
-                    }
-                    $at = $text.IndexOf($helper.Key, $to, [System.StringComparison]::Ordinal)
-                }
+        if ($log.Exists) {
+            # Its last conversation record, read again only when the
+            # transcript has grown.
+            $last = $state.Logs[$log.FullName]
+            if ($null -eq $last -or $last.Length -ne $log.Length) {
+                $chunk = Read-TranscriptLines -Path $log.FullName -Start ([Math]::Max([long]0, $log.Length - $helperTail))
+                $records = [regex]::Matches($chunk.Text, '(?m)^.*"isSidechain":.*$')
+                $stopped = ($records.Count -gt 0 -and $records[$records.Count - 1].Value.Contains('[Request interrupted by user'))
+                $last = @{ Length = $log.Length; Stopped = $stopped }
+                $state.Logs[$log.FullName] = $last
             }
-        }
-    }
-
-    $count = 0
-    foreach ($helper in $open) {
-        if ($helper.Key) {
-            $keep[$helper.Key] = $true
-            $end = $state.Ends[$helper.Key]
-            # A few seconds' grace: the meta file can be touched a moment after
-            # the end it belongs to is written.
-            if ($null -ne $end -and $end -ge $helper.Since.AddSeconds(-5)) { continue }
+            if ($last.Stopped) { continue }
         }
         $count++
     }
-    # Ends of helpers no longer open are not needed again.
-    foreach ($k in @($state.Ends.Keys)) { if (-not $keep.ContainsKey($k)) { $state.Ends.Remove($k) } }
     return $count
 }
 
@@ -3082,8 +3059,10 @@ function Set-RowLook {
     # The note takes the timer's colour, which each state already picks to read
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
+    # The helpers' ring takes the timer's colour, like the small ring on a
+    # working row; the number inside takes the label's, to be read at a glance.
     $Rec.HelperRing.Stroke = $Rec.TimerText.Foreground
-    $Rec.HelperCount.Foreground = $Rec.TimerText.Foreground
+    $Rec.HelperCount.Foreground = $Rec.LabelText.Foreground
     # The detail takes the label's colour, not the timer's. On a blocked row it
     # carries Marshal's question, the one line there meant to be read rather
     # than glanced at, and the timer's pulled-back amber measured about 2.6 to 1
@@ -3291,6 +3270,7 @@ function Set-Preset {
     $script:preset = $Name
     Read-StyleValues
     foreach ($rec in $rows.Values) { if ($rec.State) { Set-RowLook -Rec $rec } }
+    Update-HelperMarks -Ordered @($rows.Values)
     Sync-UnityRows
     Update-Layout
     $script:settings.Preset = $Name
@@ -3407,6 +3387,26 @@ function Update-Needs {
         if ([int64]$rec.Handle -eq $front) { $watch.Opened = $watch.Need }
         $dot = $(if ($needs -and $rec.State -ne 'Working' -and $watch.Opened -ne $watch.Need) { 'Visible' } else { 'Collapsed' })
         if ($rec.Dot.Visibility -ne $dot) { $rec.Dot.Visibility = $dot }
+    }
+}
+
+# The mark left of the label, run on every poll after Update-Needs has set the
+# dot. A session with helper agents running shows the larger ring with their
+# number inside, in place of the small ring on a working row and of the dot on
+# a finished one: its helpers are still busy, so the session is too. The
+# dot's need is kept and shows again once the helpers end. Without helpers the
+# small ring shows on a working row only, as before.
+function Update-HelperMarks {
+    param($Ordered)
+    foreach ($rec in $Ordered) {
+        $helpers = ($rec.Helpers -gt 0)
+        $mark = $(if ($helpers) { 'Visible' } else { 'Collapsed' })
+        if ($rec.HelperMark.Visibility -ne $mark) { $rec.HelperMark.Visibility = $mark }
+        $count = $(if ($helpers) { [string]$rec.Helpers } else { '' })
+        if ($rec.HelperCount.Text -ne $count) { $rec.HelperCount.Text = $count }
+        $spin = $(if (-not $helpers -and $rec.State -eq 'Working') { 'Visible' } else { 'Collapsed' })
+        if ($rec.Spinner.Visibility -ne $spin) { $rec.Spinner.Visibility = $spin }
+        if ($helpers -and $rec.Dot.Visibility -ne 'Collapsed') { $rec.Dot.Visibility = 'Collapsed' }
     }
 }
 
@@ -4208,6 +4208,7 @@ function Update-Card {
             $kept = $script:keptByKey[$key]
             $placeName = Get-KeptPlaceName -Place $kept.Place
             $rec.Workspace = $placeName
+            $rec.Helpers = [int]$kept.Helpers
             if ($kept.Problem -eq 'signin') {
                 $rec.RemoteNote = 'Tailscale wants you to sign in again'
             } elseif ($kept.Problem) {
@@ -4234,6 +4235,7 @@ function Update-Card {
             } else {
                 $rec.RemoteNote = 'connected' + $listSep + 'ends when closed'
             }
+            $rec.Helpers = Get-OutgoingHelpers -HostName $rec.Workspace -TmuxName $rec.TmuxName -Label $rec.PendingLabel
         } elseif ($rec.OutHost) {
             # Its ssh has ended but the window still shows a session title, so
             # it is no longer filed under the host it left.
@@ -4304,15 +4306,9 @@ function Update-Card {
         }
     }
     Update-Needs -Ordered $ordered
+    Update-HelperMarks -Ordered $ordered
 
-    foreach ($rec in $ordered) {
-        $mark = $(if ($rec.Helpers -gt 0) { 'Visible' } else { 'Collapsed' })
-        if ($rec.HelperMark.Visibility -ne $mark) { $rec.HelperMark.Visibility = $mark }
-        $count = $(if ($rec.Helpers -gt 0) { [string]$rec.Helpers } else { '' })
-        if ($rec.HelperCount.Text -ne $count) { $rec.HelperCount.Text = $count }
-    }
-
-    # A helper's ring turns too, on a finished row as much as a working one.
+    # The helpers' ring turns too, on a finished row as much as a working one.
     Set-Spin -On (@($ordered | Where-Object { $_.State -eq 'Working' -or $_.Helpers -gt 0 }).Count -gt 0)
     Update-Layout
     Update-Timers

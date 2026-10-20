@@ -101,6 +101,35 @@
           Visibility="Collapsed"
           Data="M 5,1 A 4,4 0 1 1 1,5" />
 
+    <!-- A session with helper agents running shows a larger ring in the same
+         place, with how many inside. The ring turns with the others and the
+         number stays upright. It takes the place of the small ring, and of the
+         dot while the helpers run, so the column never holds two marks. -->
+    <Grid x:Name="HelperMark"
+          Grid.Column="1"
+          Width="16" Height="16"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Center"
+          Margin="1,0,0,0"
+          Visibility="Collapsed">
+      <Path x:Name="HelperRing"
+            RenderTransformOrigin="0.5,0.5"
+            Stroke="{DynamicResource BrushTextDim}"
+            StrokeThickness="1.6"
+            StrokeStartLineCap="Round"
+            StrokeEndLineCap="Round"
+            Data="M 8,1 A 7,7 0 1 1 1,8" />
+      <TextBlock x:Name="HelperCount"
+                 HorizontalAlignment="Center"
+                 VerticalAlignment="Center"
+                 FontFamily="{DynamicResource FontTimer}"
+                 FontSize="9"
+                 FontWeight="SemiBold"
+                 Foreground="{DynamicResource BrushText}"
+                 Typography.NumeralAlignment="Tabular"
+                 Text="" />
+    </Grid>
+
     <!-- The label, and under it a detail line that only the Marshal row ever
          fills: its open question while it is blocked on you, or a stale note
          when its rounds have stopped. With the detail collapsed the panel holds
@@ -165,44 +194,16 @@
 
     <!-- A note when this session plays a sound on needing you, set from the row's
          right-click menu. Its own column so a long label is trimmed before it
-         instead of running underneath it.
-
-         After it, just left of the time, the helper agents this session has
-         running: a small ring, the working row's own sign for busy, and how
-         many. It shows only while there are any, on a row of any colour, so a
-         finished row whose background helpers still run says so. The script
-         turns the ring with every other ring and gives both the timer's colour. -->
-    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-      <TextBlock x:Name="SoundMark"
-                 VerticalAlignment="Center"
-                 Margin="6,0,0,0"
-                 FontFamily="Segoe UI Symbol"
-                 FontSize="12"
-                 Foreground="{DynamicResource BrushTextDim}"
-                 Visibility="Collapsed"
-                 Text="&#x266A;" />
-      <StackPanel x:Name="HelperMark" Orientation="Horizontal" VerticalAlignment="Center"
-                  Margin="6,0,2,0" Visibility="Collapsed">
-        <Path x:Name="HelperRing"
-              Width="8" Height="8"
-              VerticalAlignment="Center"
-              RenderTransformOrigin="0.5,0.5"
-              Stroke="{DynamicResource BrushTextDim}"
-              StrokeThickness="1.3"
-              StrokeStartLineCap="Round"
-              StrokeEndLineCap="Round"
-              Data="M 4,0.8 A 3.2,3.2 0 1 1 0.8,4" />
-        <TextBlock x:Name="HelperCount"
-                   VerticalAlignment="Center"
-                   Margin="3,0,0,0"
-                   FontFamily="{DynamicResource FontTimer}"
-                   FontSize="{DynamicResource SizeTimer}"
-                   Foreground="{DynamicResource BrushTextDim}"
-                   Effect="{DynamicResource TextGlow}"
-                   Typography.NumeralAlignment="Tabular"
-                   Text="" />
-      </StackPanel>
-    </StackPanel>
+         instead of running underneath it. -->
+    <TextBlock x:Name="SoundMark"
+               Grid.Column="3"
+               VerticalAlignment="Center"
+               Margin="6,0,0,0"
+               FontFamily="Segoe UI Symbol"
+               FontSize="12"
+               Foreground="{DynamicResource BrushTextDim}"
+               Visibility="Collapsed"
+               Text="&#x266A;" />
 
     <TextBlock x:Name="Timer"
                Grid.Column="4"
