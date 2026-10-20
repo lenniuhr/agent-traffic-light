@@ -210,6 +210,10 @@ The installer:
 Running it again is safe. It never duplicates hooks or shortcuts, and if you move the folder it
 points the hooks at the new place.
 
+However the card is started, from the shortcut, a terminal or an agent, it hands over at once to a
+copy of itself with no console window, so it never shows as a terminal and closing a terminal never
+ends it. Quit it from the tray icon.
+
 ## How it works
 
 The card needs no configuration and no daemon. It reads three things:

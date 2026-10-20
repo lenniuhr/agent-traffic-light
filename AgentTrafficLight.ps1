@@ -19,8 +19,27 @@ param(
     [switch]$Launch,
     # With -Probe -Launch: read this folder in place of ~/.claude/projects, so
     # the list can be checked against a made-up one.
-    [string]$ProjectsDir = ''
+    [string]$ProjectsDir = '',
+    # Set by the card on the copy of itself it hands over to; see below.
+    [switch]$Detached
 )
+
+# The card never hangs off a terminal. Started from one, by hand or by an
+# agent, its console is a terminal window whose closing ends the card, and
+# -WindowStyle Hidden cannot hide that window once Windows Terminal hosts the
+# console. So every start but a probe hands over to a copy of itself made with
+# no console window at all, and the starting process ends at once. The copy
+# has a console of its own, which no terminal closing can reach.
+if (-not $Probe -and -not $Detached) {
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = (Get-Process -Id $PID).Path
+    $psi.Arguments = '-NoProfile -ExecutionPolicy Bypass -STA -File "' + $PSCommandPath + '" -Detached'
+    $psi.WorkingDirectory = $PSScriptRoot
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    [void][System.Diagnostics.Process]::Start($psi)
+    exit 0
+}
 
 $ErrorActionPreference = 'Stop'
 
