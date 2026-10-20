@@ -114,6 +114,8 @@
   <PathGeometry x:Key="IconClose"
                 Figures="M3,3h2v2h-2z M5,5h2v2h-2z M7,7h2v2h-2z M9,9h2v2h-2z M11,11h2v2h-2z
                          M11,3h2v2h-2z M9,5h2v2h-2z M5,9h2v2h-2z M3,11h2v2h-2z" />
+  <PathGeometry x:Key="IconResume"
+                Figures="M4,3h2v10h-2z M6,4h2v8h-2z M8,5h2v6h-2z M10,6h2v4h-2z M12,7h1v2h-1z" />
   <PathGeometry x:Key="IconKill"
                 Figures="M5,3h6v1h-6z M3,4h10v1h-10z M2,5h12v2h-12z
                          M2,7h2v2h-2z M6,7h4v2h-4z M12,7h2v2h-2z

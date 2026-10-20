@@ -14,7 +14,8 @@
       <ColumnDefinition Width="22" />
       <ColumnDefinition Width="*" />
       <ColumnDefinition Width="Auto" />
-      <ColumnDefinition Width="{DynamicResource TimerWidth}" />
+      <!-- A closed row sizes this to its text, which says "closed" before the time. -->
+      <ColumnDefinition x:Name="TimerColumn" Width="{DynamicResource TimerWidth}" />
       <!-- The End button, on rows whose session outlives its window. Takes no room elsewhere. -->
       <ColumnDefinition Width="Auto" />
     </Grid.ColumnDefinitions>
@@ -194,7 +195,9 @@
 
     <!-- A note when this session plays a sound on needing you, set from the row's
          right-click menu. Its own column so a long label is trimmed before it
-         instead of running underneath it. -->
+         instead of running underneath it. It makes way for the row's buttons
+         along with the time, since they fill the time's column right up to it;
+         by opacity, because the script sets its visibility. -->
     <TextBlock x:Name="SoundMark"
                Grid.Column="3"
                VerticalAlignment="Center"
@@ -203,7 +206,21 @@
                FontSize="12"
                Foreground="{DynamicResource BrushTextDim}"
                Visibility="Collapsed"
-               Text="&#x266A;" />
+               Text="&#x266A;">
+      <TextBlock.Style>
+        <Style TargetType="TextBlock">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsMouseOver, ElementName=RowBg}" Value="True" />
+                <Condition Binding="{Binding Tag, ElementName=RowButtons}" Value="on" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </TextBlock>
 
     <!-- The time makes way for the row's buttons while the pointer is on a row
          that has any, so the buttons take no room of their own. -->
@@ -282,8 +299,9 @@
          time's place. On a session that keeps running on another machine after
          its window closes: Disconnect, while a window here shows it, closes that
          window and leaves Claude running. On a session of this PC: Close closes
-         its window and keeps the row, faded, to resume. Kill stops Claude, after
-         the script asks, and on a closed row takes the row away. The script
+         its window and keeps the row, faded, to resume. On a closed row: Resume
+         opens it again. Kill stops Claude, after the script asks, and on a
+         closed row takes the row away. The script
          shows the buttons a row has and sets Tag to "on" when it has any. The
          icons, their colours and the boxes round them come from the preset.
          Defaults sit in the styles, not on the elements, so the hover triggers
@@ -304,6 +322,36 @@
           </Style.Triggers>
         </Style>
       </StackPanel.Style>
+      <Border x:Name="ResumeButton" Width="24" Height="22" Cursor="Hand" Visibility="Collapsed"
+              CornerRadius="{DynamicResource IconButtonCorner}"
+              BorderThickness="{DynamicResource IconButtonEdgeThickness}">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource BrushIconButtonBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushIconButtonEdge}" />
+            <Style.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource BrushDisconnectHoverBg}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushDisconnectHoverEdge}" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <Path Width="16" Height="16" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"
+              SnapsToDevicePixels="True" Data="{DynamicResource IconResume}"
+              RenderOptions.EdgeMode="{DynamicResource IconEdgeMode}">
+          <Path.Style>
+            <Style TargetType="Path">
+              <Setter Property="Fill" Value="{DynamicResource BrushIconButton}" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, ElementName=ResumeButton}" Value="True">
+                  <Setter Property="Fill" Value="{DynamicResource BrushDisconnectHoverIcon}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Path.Style>
+        </Path>
+      </Border>
       <Border x:Name="CloseButton" Width="24" Height="22" Cursor="Hand" Visibility="Collapsed"
               CornerRadius="{DynamicResource IconButtonCorner}"
               BorderThickness="{DynamicResource IconButtonEdgeThickness}">

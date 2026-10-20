@@ -2672,12 +2672,33 @@ function Import-Preset {
     return $dict
 }
 
+# The row buttons' colours a preset may leave out, each with the colour it then
+# follows and how much of it shows: the look of the heading's "+", the icon in
+# the dim text colour on a faint pill of it, and under the pointer the text
+# colour on the menu highlight. Every preset already makes that pair readable.
+$buttonFollows = @(
+    @('BrushIconButton', 'BrushTextDim', 1.0), @('BrushIconButtonBg', 'BrushTextDim', 0.18),
+    @('BrushDisconnectHoverBg', 'BrushMenuHighlight', 0.6), @('BrushKillHoverBg', 'BrushMenuHighlight', 0.6),
+    @('BrushDisconnectHoverIcon', 'BrushText', 1.0), @('BrushKillHoverIcon', 'BrushText', 1.0))
+
 # Puts a preset over Classic in place of the one there now, or takes it away.
+# The button colours it leaves out are laid on the window's own resources,
+# which win over both layers, so Classic's own values never show.
 function Use-PresetLayer {
     param($Dict)
     $merged = $window.Resources.MergedDictionaries
     while ($merged.Count -gt 1) { $merged.RemoveAt(1) }
     if ($null -ne $Dict) { [void]$merged.Add($Dict) }
+    foreach ($follow in $buttonFollows) {
+        $window.Resources.Remove($follow[0])
+        if ($null -ne $Dict -and $Dict.Contains($follow[0])) { continue }
+        # Made with ::new, not New-Object, whose PowerShell wrapper would go
+        # into the dictionary as it is and fail to cast to a brush when drawn.
+        $made = [System.Windows.Media.SolidColorBrush]::new($window.FindResource($follow[1]).Color)
+        $made.Opacity = $follow[2]
+        $made.Freeze()
+        $window.Resources[$follow[0]] = $made
+    }
 }
 
 # Classic first, then the others by name.
@@ -2692,7 +2713,10 @@ $script:preset = 'Classic'
 try {
     Use-PresetLayer -Dict (Import-Preset -Name $script:settings.Preset)
     $script:preset = $script:settings.Preset
-} catch { Write-ErrorLog -Where 'style' -Problem $_ }
+} catch {
+    Write-ErrorLog -Where 'style' -Problem $_
+    Use-PresetLayer -Dict $null
+}
 $rowCanvas = $window.FindName('RowCanvas')
 $warnText  = $window.FindName('WarnText')
 $workClock     = $window.FindName('WorkClock')
@@ -2879,7 +2903,9 @@ function New-Row {
         DetailText = $element.FindName('Detail')
         TimerText = $element.FindName('Timer')
         ModelText = $element.FindName('Model')
+        CtxTrack  = $element.FindName('CtxTrack')
         CtxFill   = $element.FindName('CtxFill')
+        TimerColumn = $element.FindName('TimerColumn')
         SoundMark = $element.FindName('SoundMark')
         Spinner   = $element.FindName('Spinner')
         HelperMark  = $element.FindName('HelperMark')
@@ -2922,24 +2948,32 @@ function New-Row {
         Reconnect     = $element.FindName('Reconnect')
         ReconnectText = $element.FindName('ReconnectText')
         ClickAction   = ''
-        # The row's buttons, shown on hover: Disconnect or Close, and Kill. And
-        # the tmux session a window's title names, if any.
+        # The row's buttons, shown on hover: Disconnect, Close or Resume, and
+        # Kill. And the tmux session a window's title names, if any.
         RowButtons       = $element.FindName('RowButtons')
         DisconnectButton = $element.FindName('DisconnectButton')
         CloseButton      = $element.FindName('CloseButton')
+        ResumeButton     = $element.FindName('ResumeButton')
         KillButton       = $element.FindName('KillButton')
         TmuxName  = ''
+        # A closed session of this PC: a slim row of its title and when it
+        # closed. Resuming while a resume of it is under way.
+        Closed    = $false
+        Resuming  = $false
     }
 
     # A row with no window connected fades up and shows what a click will do
-    # while the pointer is over it.
+    # while the pointer is over it. A closed row says it with its Resume
+    # button instead, which a veil over its one line would cover.
     $element.Add_MouseEnter({
         param($sender, $e)
         $rec = $rows[[string][int64]$sender.Tag]
         if ($null -ne $rec -and $rec.ClickAction) {
-            $rec.ReconnectText.Text = $rec.ClickAction
-            $rec.Reconnect.Visibility = 'Visible'
-            Set-Fade -Element $rec.Reconnect -To 1
+            if (-not $rec.Closed) {
+                $rec.ReconnectText.Text = $rec.ClickAction
+                $rec.Reconnect.Visibility = 'Visible'
+                Set-Fade -Element $rec.Reconnect -To 1
+            }
             Set-Fade -Element $sender -To 1
         }
     })
@@ -2947,14 +2981,14 @@ function New-Row {
         param($sender, $e)
         $rec = $rows[[string][int64]$sender.Tag]
         if ($null -ne $rec -and $rec.ClickAction) {
-            Set-Fade -Element $rec.Reconnect -To 0
+            if (-not $rec.Closed) { Set-Fade -Element $rec.Reconnect -To 0 }
             Set-Fade -Element $sender -To $keptFade
         }
     })
 
     # The buttons take their own press, so none starts a drag or counts as a
     # click on the row. Kill asks before it stops anything that runs.
-    foreach ($button in @($rec.DisconnectButton, $rec.CloseButton, $rec.KillButton)) {
+    foreach ($button in @($rec.DisconnectButton, $rec.CloseButton, $rec.ResumeButton, $rec.KillButton)) {
         $button.Tag = $Handle
         $button.Add_MouseLeftButtonDown({
             param($sender, $e)
@@ -2967,7 +3001,10 @@ function New-Row {
             if ($null -eq $row) { return }
             try {
                 $kept = Get-RowEndable -Element $row.Element
-                if ($null -ne $kept) {
+                $closed = Get-RowClosed -Element $row.Element
+                if ($sender.Name -eq 'ResumeButton') {
+                    if ($null -ne $closed) { Resume-ClosedSession -Entry $closed }
+                } elseif ($null -ne $kept) {
                     if ($sender.Name -eq 'KillButton') { Stop-KeptSession -Kept $kept } else { Disconnect-KeptSession -Kept $kept }
                 } elseif ($sender.Name -eq 'KillButton') {
                     Stop-LocalSession -Element $row.Element
@@ -3456,10 +3493,11 @@ function Get-RowSound {
     return $script:settings.DefaultSound
 }
 
-# The note on every row, after a row's choice or the default has changed.
+# The note on every row, after a row's choice or the default has changed. A
+# closed row has none, since nothing there can need you.
 function Update-SoundMarks {
     foreach ($rec in $rows.Values) {
-        $mark = $(if (Get-RowSound -Key ([string][int64]$rec.Handle)) { 'Visible' } else { 'Collapsed' })
+        $mark = $(if (-not $rec.Closed -and (Get-RowSound -Key ([string][int64]$rec.Handle))) { 'Visible' } else { 'Collapsed' })
         if ($rec.SoundMark.Visibility -ne $mark) { $rec.SoundMark.Visibility = $mark }
     }
 }
@@ -3807,6 +3845,11 @@ function Update-Timers {
                 $text = Format-FinishedAt -At $stopped -Now $now
                 $italic = $true
             }
+            # A closed row's time is when it closed, and says so: it is the
+            # row's only word that it is closed.
+            if ($rec.Closed) {
+                $text = $(if ($rec.Resuming) { 'resuming...' } elseif ($text) { 'closed ' + ($text -replace '^at ', '') } else { 'closed' })
+            }
         }
         if ($rec.TimerText.Text -ne $text) { $rec.TimerText.Text = $text }
         if ($italic) {
@@ -3990,15 +4033,28 @@ function Move-DraggedRow {
     if ($null -eq $drag) { return }
     $slots = $script:groupSlots[$drag.Group]
     if ($null -eq $slots) { return }
-    $pitch = $script:rowHeight + $rowGap
+    # The group's other rows, in order, and the room they take. A closed row
+    # is slimmer, so the slots are not all one height.
+    $others = @($slots.Recs | Where-Object { -not [object]::ReferenceEquals($_, $drag.Rec) })
+    $span = 0.0
+    foreach ($other in $others) { $span += Get-RowPitch -Rec $other }
     $first = [double]$slots.Top
-    $last = $first + ($slots.Count - 1) * $pitch
+    $last = $first + $span
     # Held inside its own group: a session cannot be dropped among another
     # workspace's rows, so its row cannot travel past its group's ends either.
     $top = [Math]::Max($first, [Math]::Min($last, $PointerY - $drag.Offset))
     [System.Windows.Controls.Canvas]::SetTop($drag.Rec.Element, $top)
     $drag.Rec.Top = $top
-    $target = [int][Math]::Round(($top - $first) / $pitch)
+    # It goes below every other row whose middle its own middle has passed.
+    $middle = $top - $first + (Get-RowHeight -Rec $drag.Rec) / 2
+    $target = 0
+    $above = 0.0
+    foreach ($other in $others) {
+        $pitch = Get-RowPitch -Rec $other
+        if ($above + $pitch / 2 -ge $middle) { break }
+        $above += $pitch
+        $target++
+    }
     if ($target -ne $drag.Target) {
         $drag.Target = $target
         # Straight away, not on the next poll, so the gap opens under the row
@@ -4441,13 +4497,23 @@ function Update-Card {
     }
 
     # Closed sessions of this PC, faded, until resumed or killed. Drawn as a
-    # quiet row with nothing for you, the way Marshal is between rounds.
+    # quiet row with nothing for you, the way Marshal is between rounds, and
+    # slimmer: only its title and when it closed. The stripe with the model,
+    # the context bar and the second line belong to a session that runs.
     foreach ($entry in @($script:closedSessions.Values)) {
         $key = $entry.Key
         if (-not $rows.ContainsKey($key)) {
             $rows[$key] = New-Row -Handle ([IntPtr][int64]$key) -Label $entry.Label -State 'Watching'
             Use-SessionSlot -Rec $rows[$key] -Id ('local|' + $entry.SessionId)
+            $closedRec = $rows[$key]
+            $closedRec.Closed = $true
+            $closedRec.Stripe.Visibility = 'Hidden'
+            $closedRec.CtxTrack.Visibility = 'Collapsed'
+            $closedRec.CtxFill.Visibility = 'Collapsed'
+            $closedRec.SoundMark.Visibility = 'Collapsed'
+            $closedRec.TimerColumn.Width = [System.Windows.GridLength]::Auto
         }
+        $rows[$key].Resuming = ($null -ne $entry.Resuming -and ((Get-Date) - $entry.Resuming).TotalSeconds -lt 20)
         $rows[$key].PendingState = 'Watching'
         $rows[$key].PendingLabel = $entry.Label
         $seen[$key] = $true
@@ -4549,8 +4615,6 @@ function Update-Card {
             $rec.Workspace = $(if ($closed.Workspace) { $closed.Workspace } else { 'unknown' })
             $rec.Model     = $closed.Model
             $rec.Prompt    = $closed.Prompt
-            $resuming = ($null -ne $closed.Resuming -and ((Get-Date) - $closed.Resuming).TotalSeconds -lt 20)
-            $rec.RemoteNote = $(if ($resuming) { 'resuming...' } else { 'closed' })
         } elseif ($script:outgoingByHwnd.ContainsKey($key)) {
             # The session lives on the other machine, so the machine is the
             # workspace: every session reached through it groups under its name.
@@ -4640,6 +4704,8 @@ function Update-Card {
         $rec.KillButton.Visibility = $(if ($canKill) { 'Visible' } else { 'Collapsed' })
         $rec.DisconnectButton.Visibility = $(if ($null -ne $endable -and [int64]$rec.Handle -gt 0) { 'Visible' } else { 'Collapsed' })
         $rec.CloseButton.Visibility = $(if ($null -ne $local) { 'Visible' } else { 'Collapsed' })
+        $rec.ResumeButton.Visibility = $(if ($null -ne $closed) { 'Visible' } else { 'Collapsed' })
+        if ($null -ne $closed -and $null -eq $rec.ResumeButton.ToolTip) { $rec.ResumeButton.ToolTip = 'Resume: open it again in a new window' }
         $rec.RowButtons.Tag = $(if ($canKill) { 'on' } else { '' })
         if ($null -ne $endable) {
             $where = Get-KeptPlaceLong -Place $endable.Place
@@ -4720,6 +4786,21 @@ function Test-ShowWarning {
     return (($Now - $script:warnSince).TotalSeconds -ge 5)
 }
 
+# How tall a row is drawn, and the room it takes with the gap under it. A
+# closed row holds one line of small text, so it takes less.
+$closedRowScale = 0.7
+
+function Get-RowHeight {
+    param($Rec)
+    if ($Rec.Closed) { return [Math]::Round($script:rowHeight * $closedRowScale) }
+    return $script:rowHeight
+}
+
+function Get-RowPitch {
+    param($Rec)
+    return (Get-RowHeight -Rec $Rec) + $rowGap
+}
+
 function Update-Layout {
     $ordered = @($rows.Values)
 
@@ -4794,7 +4875,7 @@ function Update-Layout {
             $inGroup = @($list)
             $drag.Order = $inGroup
         }
-        $script:groupSlots[$g.Name] = @{ Top = $y; Count = $inGroup.Count }
+        $script:groupSlots[$g.Name] = @{ Top = $y; Count = $inGroup.Count; Recs = $inGroup }
         $script:groupOrder[$g.Name] = $inGroup
 
         foreach ($rec in $inGroup) {
@@ -4841,7 +4922,8 @@ function Update-Layout {
                 $rec.CtxFill.Background = $brush.CtxFill
             }
 
-            $y += $script:rowHeight + $rowGap
+            if ($rec.Closed) { $rec.Element.Height = Get-RowHeight -Rec $rec }
+            $y += Get-RowPitch -Rec $rec
         }
 
         if ($showThisGroup) { $y += $groupGap }

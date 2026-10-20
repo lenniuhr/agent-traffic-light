@@ -55,12 +55,13 @@ there) or "ends when closed". A session on this PC started from another machine,
 through WSL, has no terminal window here; its row says where it is connected from, takes its state
 from the session's own busy or idle and its label from the session's task title.
 
-A session of this PC stays on the card when its terminal closes or its Claude ends, drawn faded and
-marked "closed". Pointing at it shows "Resume", and a click opens a new terminal in its folder
-running `claude --resume` with its id; the new window's row takes the closed row's place. Its
-buttons, shown in the time's place while the pointer is on the row, are Close, which closes the
-window and keeps the row to resume, and Kill, a skull, which asks, then closes the window and takes
-the session off the card. On a closed row Kill only takes it off. The closed rows are kept in
+A session of this PC stays on the card when its terminal closes or its Claude ends, as a slim faded
+row of its title and when it closed, "closed 17:11". A click on it, or on its Resume button, a play
+triangle, opens a new terminal in its folder running `claude --resume` with its id; the new
+window's row takes the closed row's place. A row's buttons, shown in the time's place while the
+pointer is on the row, are Close, which closes the window and keeps the row to resume, and Kill, a
+skull, which asks, then closes the window and takes the session off the card. On a closed row Kill
+only takes it off. The closed rows are kept in
 `state\closed.json` across restarts of the card, and the sessions open now in `state\open.json`,
 so a session that ends while the card is not running, at a shutdown say, is a closed row when the
 card next starts. Writing `resume <session id>` or `forget <session id>` into `state\closed.flag`

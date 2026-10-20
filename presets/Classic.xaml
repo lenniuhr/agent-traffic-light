@@ -289,11 +289,17 @@
 
   <!-- The buttons a row shows under the pointer. Disconnect closes the window
        here and leaves Claude running elsewhere; Close closes the window of a
-       session on this PC and keeps its row to resume; Kill stops Claude. Each
-       icon is a filled shape drawn in a 16 by 16 box, and a preset may redraw
-       them and colour them at rest and under the pointer; Close takes
-       Disconnect's colours. Here: a plug pulled from its socket, a cross, and
-       a skull. -->
+       session on this PC and keeps its row to resume; Resume opens a closed
+       one again; Kill stops Claude. Each icon is a filled shape drawn in a 16
+       by 16 box, and a preset may redraw them and colour them at rest and
+       under the pointer; Close and Resume take Disconnect's colours. Here: a
+       plug pulled from its socket, a cross, a play triangle and a skull.
+
+       The colours below only give each key its type. A preset that leaves one
+       out, Classic included, gets the look of the heading's "+" from its own
+       text colours instead, set by the script: the icon in the dim text colour
+       on a faint pill of it, and under the pointer the text colour on the menu
+       highlight. Fixed greys suited only Classic's own dark rows. -->
   <PathGeometry x:Key="IconDisconnect"
                 Figures="M0,7.25 H2 V8.75 H0 Z
                          M2,5 H6.5 A1,1 0 0 1 7.5,6 V10 A1,1 0 0 1 6.5,11 H2 Z
@@ -304,6 +310,8 @@
                          M9.7,13.6 L10.7,12.0 L11.3,12.3 L10.3,13.9 Z" />
   <PathGeometry x:Key="IconClose"
                 Figures="M3.6,4.8 L4.8,3.6 L8,6.8 L11.2,3.6 L12.4,4.8 L9.2,8 L12.4,11.2 L11.2,12.4 L8,9.2 L4.8,12.4 L3.6,11.2 L6.8,8 Z" />
+  <PathGeometry x:Key="IconResume"
+                Figures="M5,3.6 C5,3 5.6,2.7 6.1,3 L12.4,7.3 C12.9,7.6 12.9,8.4 12.4,8.7 L6.1,13 C5.6,13.3 5,13 5,12.4 Z" />
   <!-- The icons are PathGeometry, which is what a preset must give too; the
        skull's eyes, nose and the gaps between its teeth are holes cut by the
        even-odd rule. -->
