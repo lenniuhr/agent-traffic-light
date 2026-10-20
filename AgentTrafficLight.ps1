@@ -2427,24 +2427,37 @@ function Set-HeaderMark {
 $launchDays     = 14
 $launchMax      = 5
 $launchCacheSec = 60
-$launchCwdBytes = 20480
+$launchCwdChars = 2097152
 $claudeProjects = Join-Path $env:USERPROFILE '.claude\projects'
 $script:launchCache = $null
 
-# The folder a transcript's session ran in, or '' when its first lines do not
-# say. Shared for writing, since the newest transcript is often one a live
-# session is still writing.
+# The folder a transcript's session ran in, or '' when its opening lines do
+# not say. Read a line at a time up to the first that does: a transcript can
+# open with request records of a hundred kilobytes or more before any line
+# carries the folder. Shared for writing, since the newest transcript is often
+# one a live session is still writing.
 function Read-TranscriptCwd {
     param([string]$Path)
     $stream = $null
+    $reader = $null
     try {
         $stream = [System.IO.File]::Open($Path, 'Open', 'Read', 'ReadWrite, Delete')
-        $buffer = New-Object byte[] $launchCwdBytes
-        $read = $stream.Read($buffer, 0, $buffer.Length)
-        $text = [System.Text.Encoding]::UTF8.GetString($buffer, 0, $read)
-        $m = [regex]::Match($text, '"cwd":"((?:[^"\\]|\\.)*)"')
-        if ($m.Success) { return [regex]::Unescape($m.Groups[1].Value) }
-    } catch { } finally { if ($stream) { $stream.Dispose() } }
+        $reader = New-Object System.IO.StreamReader($stream, [System.Text.Encoding]::UTF8)
+        $seen = 0
+        while ($seen -lt $launchCwdChars) {
+            $line = $reader.ReadLine()
+            if ($null -eq $line) { break }
+            $seen += $line.Length
+            $m = [regex]::Match($line, '"cwd":"((?:[^"\\]|\\.)*)"')
+            if (-not $m.Success) { continue }
+            # A session whose shell is Git Bash records /c/Users/..., which
+            # names C:\Users\... on this PC.
+            $cwd = [regex]::Unescape($m.Groups[1].Value)
+            $drive = [regex]::Match($cwd, '^/([A-Za-z])(/.*)?$')
+            if ($drive.Success) { $cwd = $drive.Groups[1].Value.ToUpperInvariant() + ':' + ($drive.Groups[2].Value -replace '/', '\') }
+            return $cwd
+        }
+    } catch { } finally { if ($reader) { $reader.Dispose() } elseif ($stream) { $stream.Dispose() } }
     return ''
 }
 
