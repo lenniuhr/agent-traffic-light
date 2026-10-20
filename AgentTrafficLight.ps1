@@ -1387,6 +1387,126 @@ function Update-WorkRepo {
     return $state.Root
 }
 
+# How many helper agents a session has running now, for the count on its row.
+# Claude keeps two files per helper in the session's subagents folder: its
+# transcript, and a small meta file that gains "finished":true when the helper
+# ends of its own accord. A helper that is stopped never gets that flag, so its
+# end is read from the transcript of whoever started it, the session's own or
+# another helper's: a helper run in the background ends with a notice naming
+# its id, and one its caller waits on ends with the caller's tool result for it.
+# Sending a finished helper a message starts it again and writes its meta file
+# afresh without the flag, so an end counts only when it is no older than the
+# meta file.
+#
+# Two guards cover a helper that leaves no end behind. One whose meta file is
+# older than the session's start belonged to an earlier run of a resumed
+# session. One whose transcript has not moved for half an hour has died without
+# a word, or comes from a Claude too old to write the flag.
+$helperQuietMin = 30
+$script:helperState = @{}
+
+function Update-HelperCount {
+    param([string]$SessionId, [string]$MainPath, [double]$StartedAt)
+    $folder = [System.IO.Path]::Combine([System.IO.Path]::GetDirectoryName($MainPath),
+                                        [System.IO.Path]::GetFileNameWithoutExtension($MainPath), 'subagents')
+    if (-not [System.IO.Directory]::Exists($folder)) { return 0 }
+    $state = $script:helperState[$SessionId]
+    if ($null -eq $state) {
+        $state = @{ Metas = @{}; Offsets = @{}; Ends = @{} }
+        $script:helperState[$SessionId] = $state
+    }
+    $quiet = [DateTime]::UtcNow.AddMinutes(-$helperQuietMin)
+    $started = [DateTime]::MinValue
+    if ($StartedAt -gt 0) { $started = [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$StartedAt).UtcDateTime }
+    $dir = New-Object System.IO.DirectoryInfo $folder
+
+    $open = New-Object System.Collections.ArrayList
+    foreach ($meta in $dir.GetFiles('*.meta.json')) {
+        $seen = $state.Metas[$meta.FullName]
+        if ($null -eq $seen -or $seen.Ticks -ne $meta.LastWriteTimeUtc.Ticks) {
+            # A couple of hundred bytes, read again only when Claude rewrites
+            # it. One caught half written is left for the next sweep.
+            $text = ''
+            try {
+                $stream = [System.IO.File]::Open($meta.FullName, [System.IO.FileMode]::Open,
+                                                 [System.IO.FileAccess]::Read, [System.IO.FileShare]::ReadWrite)
+                try { $text = (New-Object System.IO.StreamReader $stream).ReadToEnd() } finally { $stream.Dispose() }
+            } catch { }
+            if (-not $text.TrimEnd().EndsWith('}')) { continue }
+            $id = $meta.Name -replace '^agent-|\.meta\.json$', ''
+            $tool = [regex]::Match($text, '"toolUseId":"([^"]+)"')
+            $key = ''
+            if ($text.Contains('"requestShape":"background"')) {
+                $key = '<task-id>' + $id + '</task-id>'
+            } elseif ($tool.Success) {
+                $key = '"tool_use_id":"' + $tool.Groups[1].Value + '"'
+            }
+            $seen = @{ Ticks = $meta.LastWriteTimeUtc.Ticks; Finished = $text.Contains('"finished":true'); Key = $key }
+            $state.Metas[$meta.FullName] = $seen
+        }
+        if ($seen.Finished -or $meta.LastWriteTimeUtc -lt $started) { continue }
+        $log = New-Object System.IO.FileInfo ($meta.FullName -replace '\.meta\.json$', '.jsonl')
+        $moved = $(if ($log.Exists) { $log.LastWriteTimeUtc } else { $meta.LastWriteTimeUtc })
+        if ($moved -lt $quiet) { continue }
+        [void]$open.Add(@{ Key = $seen.Key; Since = $meta.LastWriteTimeUtc })
+    }
+
+    # Ends are looked for only while a helper is open, in what each transcript
+    # has gained since the last look. A file untouched for the quiet time cannot
+    # hold the end of a helper that is open, so one seen for the first time is
+    # skipped to its end, and only a recent one is read back over its tail.
+    $keep = @{}
+    if ($open.Count -gt 0) {
+        $files = @(New-Object System.IO.FileInfo $MainPath) + @($dir.GetFiles('*.jsonl'))
+        foreach ($f in $files) {
+            if (-not $f.Exists) { continue }
+            $offset = $state.Offsets[$f.FullName]
+            if ($null -eq $offset -and $f.LastWriteTimeUtc -lt $quiet) { $state.Offsets[$f.FullName] = $f.Length; continue }
+            if ($null -eq $offset -or $f.Length -lt $offset) { $offset = [long]0 }
+            if ($f.Length -eq $offset) { continue }
+            $offset = [Math]::Max($offset, $f.Length - $transcriptTailMax)
+            $chunk = Read-TranscriptLines -Path $f.FullName -Start $offset
+            $state.Offsets[$f.FullName] = $chunk.Next
+            $text = $chunk.Text
+            foreach ($helper in $open) {
+                if (-not $helper.Key) { continue }
+                # Every line naming the end carries the time it was written; a
+                # line without one, such as a request snapshot, is passed over.
+                $at = $text.IndexOf($helper.Key, [System.StringComparison]::Ordinal)
+                while ($at -ge 0) {
+                    $from = $text.LastIndexOf([char]10, $at) + 1
+                    $to = $text.IndexOf([char]10, $at)
+                    if ($to -lt 0) { $to = $text.Length }
+                    foreach ($m in [regex]::Matches($text.Substring($from, $to - $from), '"timestamp":"([^"]+)"')) {
+                        try {
+                            $when = [DateTime]::Parse($m.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture,
+                                [System.Globalization.DateTimeStyles]::AdjustToUniversal -bor [System.Globalization.DateTimeStyles]::AssumeUniversal)
+                            $last = $state.Ends[$helper.Key]
+                            if ($null -eq $last -or $when -gt $last) { $state.Ends[$helper.Key] = $when }
+                        } catch { }
+                    }
+                    $at = $text.IndexOf($helper.Key, $to, [System.StringComparison]::Ordinal)
+                }
+            }
+        }
+    }
+
+    $count = 0
+    foreach ($helper in $open) {
+        if ($helper.Key) {
+            $keep[$helper.Key] = $true
+            $end = $state.Ends[$helper.Key]
+            # A few seconds' grace: the meta file can be touched a moment after
+            # the end it belongs to is written.
+            if ($null -ne $end -and $end -ge $helper.Since.AddSeconds(-5)) { continue }
+        }
+        $count++
+    }
+    # Ends of helpers no longer open are not needed again.
+    foreach ($k in @($state.Ends.Keys)) { if (-not $keep.ContainsKey($k)) { $state.Ends.Remove($k) } }
+    return $count
+}
+
 # Model and context come from the session's own transcript, which is the only
 # place either is recorded. These files reach several megabytes over a day, so
 # only the tail is read, and only when the file has actually changed. The
@@ -1504,6 +1624,12 @@ function Sync-SessionExtras {
         $info.Prompt = $cached.Prompt
         $info.Title = $cached.Title
 
+        # Every sweep, since the helpers write to files of their own.
+        $info.Helpers = 0
+        try {
+            $info.Helpers = Update-HelperCount -SessionId $info.SessionId -MainPath $path -StartedAt $info.StartedAt
+        } catch { Write-ErrorLog -Where 'helpers' -Problem $_ }
+
         # Every sweep, not only when the session's own transcript changed: its
         # helpers write to files of their own. Only with GroupByRepo on; off,
         # every row stays on the folder its terminal opened in. Marshal stays on
@@ -1529,6 +1655,9 @@ function Sync-SessionExtras {
     foreach ($i in $script:sessionByHwnd.Values) { $liveIds[[string]$i.SessionId] = $true }
     foreach ($id in @($script:workState.Keys)) {
         if (-not $liveIds.ContainsKey($id)) { $script:workState.Remove($id) }
+    }
+    foreach ($id in @($script:helperState.Keys)) {
+        if (-not $liveIds.ContainsKey($id)) { $script:helperState.Remove($id) }
     }
 }
 
@@ -2444,8 +2573,8 @@ Read-StyleValues
 # One rotation shared by every working row's ring, turning on one clock. Each
 # indicator used to start its own animation the moment its row began working,
 # so no two were ever in step; one shared transform means they cannot drift
-# apart. It only runs while some row is working, so a card of finished sessions
-# still costs nothing to draw.
+# apart. It only runs while some row is working or has helpers running, so a
+# card of finished sessions still costs nothing to draw.
 $script:spinTurn = New-Object System.Windows.Media.RotateTransform
 $script:spinAnimation = New-Object System.Windows.Media.Animation.DoubleAnimation
 $script:spinAnimation.From = 0.0
@@ -2542,6 +2671,11 @@ function New-Row {
         CtxFill   = $element.FindName('CtxFill')
         SoundMark = $element.FindName('SoundMark')
         Spinner   = $element.FindName('Spinner')
+        HelperMark  = $element.FindName('HelperMark')
+        HelperRing  = $element.FindName('HelperRing')
+        HelperCount = $element.FindName('HelperCount')
+        # Helper agents the session has running now.
+        Helpers   = 0
         State     = ''
         Label     = ''
         # The line under the label. Only the Marshal row ever has one.
@@ -2628,6 +2762,7 @@ function New-Row {
 
     $element.Tag = $Handle
     $rec.Spinner.RenderTransform = $script:spinTurn
+    $rec.HelperRing.RenderTransform = $script:spinTurn
     if (Get-RowSound -Key ([string][int64]$Handle)) { $rec.SoundMark.Visibility = 'Visible' }
 
     # Right click opens the row's menu: bring to front, maximize, and the sound
@@ -2947,6 +3082,8 @@ function Set-RowLook {
     # The note takes the timer's colour, which each state already picks to read
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
+    $Rec.HelperRing.Stroke = $Rec.TimerText.Foreground
+    $Rec.HelperCount.Foreground = $Rec.TimerText.Foreground
     # The detail takes the label's colour, not the timer's. On a blocked row it
     # carries Marshal's question, the one line there meant to be read rather
     # than glanced at, and the timer's pulled-back amber measured about 2.6 to 1
@@ -3642,12 +3779,12 @@ function Write-LayoutDump {
         }
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
-            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} tmux={12}' -f
+            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} tmux={12} helpers={14}' -f
                 $rec.Top, [Math]::Round($drawn, 1),
                 [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$rec.StartedAt).LocalDateTime,
                 $rec.Seq, [int64]$rec.Handle, $script:orderIndex[[string][int64]$rec.Handle], $rec.Label,
                 $rec.State, $rec.Detail, [Math]::Round($rec.Element.Opacity, 2), $rec.ClickAction,
-                $rec.KillButton.Visibility, $rec.TmuxName, $rec.DisconnectButton.Visibility))
+                $rec.KillButton.Visibility, $rec.TmuxName, $rec.DisconnectButton.Visibility, $rec.Helpers))
         }
     }
     Set-Content -Path (Join-Path $stateDir 'dump.txt') -Value $lines -Encoding UTF8
@@ -4038,6 +4175,7 @@ function Update-Card {
     foreach ($rec in $ordered) {
         $key = [string][int64]$rec.Handle
         $rec.RemoteNote = ''
+        $rec.Helpers = 0
         if ($script:sessionByHwnd.ContainsKey($key)) {
             $info = $script:sessionByHwnd[$key]
             $rec.SessionId = $info.SessionId
@@ -4049,6 +4187,7 @@ function Update-Card {
             $rec.StatusUpdatedAt = $info.StatusUpdatedAt
             if ($info.ContainsKey('Model'))  { $rec.Model  = $info.Model }
             if ($info.ContainsKey('Prompt')) { $rec.Prompt = $info.Prompt }
+            if ($info.ContainsKey('Helpers')) { $rec.Helpers = $info.Helpers }
             if ($info.Remote -eq 'In') {
                 # Started from somewhere else. When it runs in tmux here, say
                 # where its window is, and whether it has one at all.
@@ -4166,7 +4305,15 @@ function Update-Card {
     }
     Update-Needs -Ordered $ordered
 
-    Set-Spin -On (@($ordered | Where-Object { $_.State -eq 'Working' }).Count -gt 0)
+    foreach ($rec in $ordered) {
+        $mark = $(if ($rec.Helpers -gt 0) { 'Visible' } else { 'Collapsed' })
+        if ($rec.HelperMark.Visibility -ne $mark) { $rec.HelperMark.Visibility = $mark }
+        $count = $(if ($rec.Helpers -gt 0) { [string]$rec.Helpers } else { '' })
+        if ($rec.HelperCount.Text -ne $count) { $rec.HelperCount.Text = $count }
+    }
+
+    # A helper's ring turns too, on a finished row as much as a working one.
+    Set-Spin -On (@($ordered | Where-Object { $_.State -eq 'Working' -or $_.Helpers -gt 0 }).Count -gt 0)
     Update-Layout
     Update-Timers
 

@@ -95,6 +95,13 @@ inside a larger checkout starts the new session at the checkout's top, as its se
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
 
+A small turning ring with a number, just left of the time, counts the helper agents the session has
+running now, helpers of helpers included. It shows on a row of any colour, so a green row whose
+background helpers still run says so, and goes when the last one ends. A helper counts until its
+meta file in the session's `subagents` folder says it finished, or the transcript that started it
+records its end, which is how a stopped helper drops off at once. One untouched for half an hour,
+or left over from before a resumed session started again, no longer counts.
+
 Right-click a session's row for its menu: Bring to front, Maximize window (or Put window back), and
 Sound, which opens a list on hover: Default, naming the default sound, then Off and every sound, with
 a tick on the current one. A note on the row shows that it has a sound. The sound plays every time
