@@ -238,6 +238,13 @@ public class TlNative {
         return ok;
     }
 
+    // Asks a window to close, the way its own close button does. Windows
+    // Terminal then ends what runs in it.
+    [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
+    public static bool Close(IntPtr hWnd) {
+        return IsWindow(hWnd) && PostMessage(hWnd, 0x0010, IntPtr.Zero, IntPtr.Zero);
+    }
+
     // Double-click maximize. The window is put back later exactly where it was,
     // so a snapshot of it is taken first: its placement, which holds the
     // display, the restore position and size, and whether it is normal,
@@ -1084,6 +1091,170 @@ function Open-KeptSession {
     if ($null -ne $poll) { $poll.NextAt = (Get-Date).AddSeconds(2) }
 }
 
+# ---------------------------------------------------------------------------
+# Closed sessions: Claude sessions of this PC whose terminal has closed, or
+# whose Claude has ended in it. Each keeps its row, faded, until it is resumed
+# or killed, so closing a window never loses a session from the card. A click
+# resumes it: a new terminal in its folder runs claude --resume with its id,
+# and the new window's row takes the closed row's place, since a resumed
+# session keeps its id. Kill takes it off the card. The list outlives the card
+# in state\closed.json, one entry per session:
+#   SessionId, Cwd, Label, Workspace, Model, Prompt, ClosedAt, Key
+# Key is the row's key, a large negative number of its own range, so it can
+# collide with neither a window handle, an incoming row's negated pid nor a
+# kept session's key.
+# ---------------------------------------------------------------------------
+#
+# The sessions open now are kept too, in state\open.json, so a session that
+# ends while the card is not running, the PC shutting down above all, becomes
+# a closed row when the card next starts.
+$closedFile = Join-Path $stateDir 'closed.json'
+$openFile   = Join-Path $stateDir 'open.json'
+$script:closedSessions = @{}   # session id -> entry
+$script:closedByKey = @{}      # row key -> entry
+$script:nextClosedKey = [int64]-2000000000000
+$script:forgetSessions = @{}   # session id -> $true for a session killed here, which leaves no closed row
+$script:localSeen = @{}        # session id -> how its row last looked: Cwd, Label, Workspace, Model, Prompt
+$script:openSaved = ''         # open.json as last written
+$script:openAtStart = $null    # the sessions open when the card last ran, until the first sweep
+
+function Save-ClosedSessions {
+    $list = @($script:closedSessions.Values | ForEach-Object {
+        [pscustomobject]@{ SessionId = $_.SessionId; Cwd = $_.Cwd; Label = $_.Label; Workspace = $_.Workspace
+                           Model = $_.Model; Prompt = $_.Prompt; ClosedAt = $_.ClosedAt; Key = $_.Key } })
+    try {
+        Set-Content -Path $closedFile -Value (ConvertTo-Json -InputObject $list -Depth 3) -Encoding UTF8
+    } catch { Write-ErrorLog -Where 'closed' -Problem $_ }
+}
+
+function Save-OpenSessions {
+    $list = @($script:localSeen.Keys | Sort-Object | ForEach-Object {
+        $s = $script:localSeen[$_]
+        [pscustomobject]@{ SessionId = $_; Cwd = $s.Cwd; Label = $s.Label; Workspace = $s.Workspace; Model = $s.Model; Prompt = $s.Prompt } })
+    $text = ConvertTo-Json -InputObject $list -Depth 3
+    if ($text -eq $script:openSaved) { return }
+    try {
+        Set-Content -Path $openFile -Value $text -Encoding UTF8
+        $script:openSaved = $text
+    } catch { Write-ErrorLog -Where 'closed' -Problem $_ }
+}
+
+# Both files hold a JSON list. Windows PowerShell hands a parsed list down a
+# pipeline as one object, so each is held in a variable before it is walked.
+function Read-ClosedSessions {
+    if (Test-Path $openFile) {
+        try {
+            $open = Get-Content $openFile -Raw | ConvertFrom-Json
+            $script:openAtStart = @(foreach ($e in @($open)) {
+                if (-not $e.SessionId) { continue }
+                @{ SessionId = [string]$e.SessionId; Cwd = [string]$e.Cwd; Label = [string]$e.Label
+                   Workspace = [string]$e.Workspace; Model = [string]$e.Model; Prompt = [int]$e.Prompt } })
+        } catch { Write-ErrorLog -Where 'closed' -Problem $_ }
+    }
+    if (-not (Test-Path $closedFile)) { return }
+    try {
+        $closed = Get-Content $closedFile -Raw | ConvertFrom-Json
+        foreach ($e in @($closed)) {
+            if (-not $e.SessionId -or -not $e.Key) { continue }
+            $entry = @{ SessionId = [string]$e.SessionId; Cwd = [string]$e.Cwd; Label = [string]$e.Label
+                        Workspace = [string]$e.Workspace; Model = [string]$e.Model; Prompt = [int]$e.Prompt
+                        ClosedAt = [string]$e.ClosedAt; Key = [string]$e.Key; Resuming = $null }
+            $script:closedSessions[$entry.SessionId] = $entry
+            $script:closedByKey[$entry.Key] = $entry
+            $script:nextClosedKey = [Math]::Min($script:nextClosedKey, [int64]$entry.Key - 1)
+        }
+    } catch { Write-ErrorLog -Where 'closed' -Problem $_ }
+}
+
+# A session of this PC has lost its window or its Claude: it becomes a closed
+# row, unless it was killed here or is closed already. Its row, or else how its
+# row last looked, gives the label and the rest.
+function Add-ClosedSession {
+    param($Info, $Rec)
+    $sid = [string]$Info.SessionId
+    if (-not $sid) { return }
+    if ($script:forgetSessions.ContainsKey($sid)) {
+        $script:forgetSessions.Remove($sid)
+        return
+    }
+    if ($script:closedSessions.ContainsKey($sid)) { return }
+    $look = $script:localSeen[$sid]
+    if ($null -ne $Rec -and $Rec.Label) {
+        $look = @{ Label = $Rec.Label; Workspace = $Rec.Workspace; Model = $Rec.Model; Prompt = $Rec.Prompt }
+    }
+    $script:localSeen.Remove($sid)
+    if ($null -eq $look) { $look = @{ Label = (Split-Path -Leaf ([string]$Info.Cwd)); Workspace = $Info.Workspace; Model = ''; Prompt = 0 } }
+    $entry = @{ SessionId = $sid; Cwd = [string]$Info.Cwd; Label = [string]$look.Label; Workspace = [string]$look.Workspace
+                Model = [string]$look.Model; Prompt = [int]$look.Prompt; ClosedAt = (Get-Date).ToString('o')
+                Key = [string]$script:nextClosedKey; Resuming = $null }
+    $script:nextClosedKey--
+    $script:closedSessions[$sid] = $entry
+    $script:closedByKey[$entry.Key] = $entry
+    Save-ClosedSessions
+}
+
+function Remove-ClosedSession {
+    param([string]$SessionId)
+    $entry = $script:closedSessions[$SessionId]
+    if ($null -eq $entry) { return }
+    $script:closedSessions.Remove($SessionId)
+    $script:closedByKey.Remove($entry.Key)
+    Save-ClosedSessions
+}
+
+# The closed session behind a row, or $null.
+function Get-RowClosed {
+    param($Element)
+    return $script:closedByKey[[string][int64]$Element.Tag]
+}
+
+# Opens a closed session again. Its row stays, saying so, until the new
+# window's row takes its place.
+function Resume-ClosedSession {
+    param($Entry)
+    $Entry.Resuming = Get-Date
+    Start-ClaudeSession -Folder $Entry.Cwd -Resume $Entry.SessionId
+}
+
+# The session of this PC a row's window shows, as its session file has it, or
+# $null for any other row.
+function Get-RowLocal {
+    param($Element)
+    $key = [string][int64]$Element.Tag
+    if ([int64]$Element.Tag -le 0) { return $null }
+    $info = $script:sessionByHwnd[$key]
+    if ($null -eq $info -or $info.Remote -eq 'In' -or -not $info.SessionId) { return $null }
+    return $info
+}
+
+# Close: the session's window closes, which ends its Claude, and its row turns
+# into a closed row to resume later.
+function Close-LocalSession {
+    param($Element)
+    [TlNative]::Close([IntPtr]$Element.Tag) | Out-Null
+}
+
+# Kill, after asking: the window closes and the session leaves the card. A
+# closed row is only taken off; nothing runs there to stop.
+function Stop-LocalSession {
+    param($Element)
+    $closed = Get-RowClosed -Element $Element
+    if ($null -ne $closed) {
+        Remove-ClosedSession -SessionId $closed.SessionId
+        return
+    }
+    $info = Get-RowLocal -Element $Element
+    if ($null -eq $info) { return }
+    $answer = [System.Windows.MessageBox]::Show($window,
+        "Kill this session?`n`nIts window closes, Claude stops, and anything it is doing stops with it. It leaves the card; Claude's own /resume can still find it.",
+        'Kill session', 'YesNo', 'Warning')
+    if ($answer -ne 'Yes') { return }
+    $script:forgetSessions[[string]$info.SessionId] = $true
+    [TlNative]::Close([IntPtr]$Element.Tag) | Out-Null
+}
+
+Read-ClosedSessions
+
 # Which session is behind which window, resolved exactly rather than guessed.
 #
 # The chain is: session file gives a pid and a cwd -> that claude.exe's parent
@@ -1203,6 +1374,37 @@ function Sync-SessionMap {
                 $map[[string][int64]$best.Hwnd] = $item.Info
             }
         }
+    }
+
+    # A session of this PC whose Claude has ended since the last sweep, with
+    # its window still open or not, becomes a closed row. A window closing is
+    # caught sooner, on the poll that finds it gone (Update-Card).
+    if (-not $Probe) {
+        foreach ($key in @($script:sessionByHwnd.Keys)) {
+            $old = $script:sessionByHwnd[$key]
+            if ($old.Remote -eq 'In' -or $claudeParents.ContainsKey($old.Pid)) { continue }
+            Add-ClosedSession -Info $old -Rec $rows[$key]
+        }
+
+        # Every session whose Claude runs here now, a window found for it or not.
+        $liveIds = @{}
+        foreach ($c in $script:sessionFileCache.Values) {
+            if ($c.Kind -eq 'interactive' -and $claudeParents.ContainsKey($c.Pid)) { $liveIds[$c.SessionId] = $true }
+        }
+        # The first sweep turns the sessions open when the card last ran, and
+        # gone since, into closed rows.
+        if ($null -ne $script:openAtStart) {
+            foreach ($e in $script:openAtStart) {
+                if ($liveIds.ContainsKey($e.SessionId)) { continue }
+                $script:localSeen[$e.SessionId] = $e
+                Add-ClosedSession -Info @{ SessionId = $e.SessionId; Cwd = $e.Cwd; Workspace = $e.Workspace } -Rec $null
+            }
+            $script:openAtStart = $null
+        }
+        foreach ($sid in @($script:localSeen.Keys)) {
+            if (-not $liveIds.ContainsKey($sid)) { $script:localSeen.Remove($sid) }
+        }
+        Save-OpenSessions
     }
 
     $script:sessionByHwnd = $map
@@ -2703,13 +2905,15 @@ function New-Row {
         RemoteNote = ''
         OutHost   = ''
         # What a click on a row with no window connected does, shown over it on
-        # hover: 'Reconnect' or 'Sign in'. Empty on every other row.
+        # hover: 'Reconnect', 'Resume' or 'Sign in'. Empty on every other row.
         Reconnect     = $element.FindName('Reconnect')
         ReconnectText = $element.FindName('ReconnectText')
         ClickAction   = ''
-        # The Disconnect and Kill buttons, shown on a row whose session outlives
-        # its window, and the tmux session a window's title names, if any.
+        # The row's buttons, shown on hover: Disconnect or Close, and Kill. And
+        # the tmux session a window's title names, if any.
+        RowButtons       = $element.FindName('RowButtons')
         DisconnectButton = $element.FindName('DisconnectButton')
+        CloseButton      = $element.FindName('CloseButton')
         KillButton       = $element.FindName('KillButton')
         TmuxName  = ''
     }
@@ -2735,9 +2939,9 @@ function New-Row {
         }
     })
 
-    # The two buttons take their own press, so neither starts a drag or counts
-    # as a click on the row. Kill asks before it stops anything.
-    foreach ($button in @($rec.DisconnectButton, $rec.KillButton)) {
+    # The buttons take their own press, so none starts a drag or counts as a
+    # click on the row. Kill asks before it stops anything that runs.
+    foreach ($button in @($rec.DisconnectButton, $rec.CloseButton, $rec.KillButton)) {
         $button.Tag = $Handle
         $button.Add_MouseLeftButtonDown({
             param($sender, $e)
@@ -2750,8 +2954,13 @@ function New-Row {
             if ($null -eq $row) { return }
             try {
                 $kept = Get-RowEndable -Element $row.Element
-                if ($null -eq $kept) { return }
-                if ($sender.Name -eq 'KillButton') { Stop-KeptSession -Kept $kept } else { Disconnect-KeptSession -Kept $kept }
+                if ($null -ne $kept) {
+                    if ($sender.Name -eq 'KillButton') { Stop-KeptSession -Kept $kept } else { Disconnect-KeptSession -Kept $kept }
+                } elseif ($sender.Name -eq 'KillButton') {
+                    Stop-LocalSession -Element $row.Element
+                } elseif ($sender.Name -eq 'CloseButton') {
+                    Close-LocalSession -Element $row.Element
+                }
             } catch { Write-ErrorLog -Where 'rowbutton' -Problem $_ }
         })
     }
@@ -2804,6 +3013,9 @@ function New-Row {
             try { Complete-RowDrag -Commit $true } catch { Write-ErrorLog -Where 'drop' -Problem $_ }
         } elseif ($script:pressRow -eq $sender -and $script:pressDouble) {
             try { Switch-RowMaximized -Handle ([IntPtr]$sender.Tag) } catch { Write-ErrorLog -Where 'maximize' -Problem $_ }
+        } elseif ($script:pressRow -eq $sender -and (Get-RowClosed -Element $sender)) {
+            # A closed session of this PC: the click resumes it in a new window.
+            try { Resume-ClosedSession -Entry (Get-RowClosed -Element $sender) } catch { Write-ErrorLog -Where 'resume' -Problem $_ }
         } elseif ($script:pressRow -eq $sender -and (Get-RowKept -Element $sender)) {
             # A kept session with no window here: the click opens one.
             try { Open-KeptSession -Kept (Get-RowKept -Element $sender) } catch { Write-ErrorLog -Where 'reopen' -Problem $_ }
@@ -3169,7 +3381,30 @@ function Show-RowMenu {
             Stop-KeptSession -Kept $Kept
         } | Out-Null
     }
-    if ($null -ne $reopen -or $null -ne $kept) {
+    # A session of this PC: close its window and keep it here to resume, or
+    # end it. A closed one: resume it, or take it off the card.
+    $closed = Get-RowClosed -Element $Element
+    $local = Get-RowLocal -Element $Element
+    if ($null -ne $closed) {
+        Add-CardMenuAction -Parent $menu -Header 'Resume: open it again in a new window' -Arg $closed -Where 'resume' -Action {
+            param($Entry)
+            Resume-ClosedSession -Entry $Entry
+        } | Out-Null
+    }
+    if ($null -ne $local) {
+        Add-CardMenuAction -Parent $menu -Header 'Close: close this window, keep the session here to resume' -Arg $Element -Where 'close' -Action {
+            param($Row)
+            Close-LocalSession -Element $Row
+        } | Out-Null
+    }
+    if ($null -ne $closed -or $null -ne $local) {
+        $killHeader = $(if ($null -ne $closed) { 'Kill: take it off the card' } else { 'Kill: end this session and take it off the card' })
+        Add-CardMenuAction -Parent $menu -Header $killHeader -Arg $Element -Where 'end' -Action {
+            param($Row)
+            Stop-LocalSession -Element $Row
+        } | Out-Null
+    }
+    if ($null -ne $reopen -or $null -ne $kept -or $null -ne $closed -or $null -ne $local) {
         [void]$menu.Items.Add((New-CardMenuSeparator))
     }
 
@@ -3798,12 +4033,13 @@ function Write-LayoutDump {
         }
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
-            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} tmux={12} helpers={14}' -f
+            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} close={15} buttons={16} tmux={12} helpers={14}' -f
                 $rec.Top, [Math]::Round($drawn, 1),
                 [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$rec.StartedAt).LocalDateTime,
                 $rec.Seq, [int64]$rec.Handle, $script:orderIndex[[string][int64]$rec.Handle], $rec.Label,
                 $rec.State, $rec.Detail, [Math]::Round($rec.Element.Opacity, 2), $rec.ClickAction,
-                $rec.KillButton.Visibility, $rec.TmuxName, $rec.DisconnectButton.Visibility, $rec.Helpers))
+                $rec.KillButton.Visibility, $rec.TmuxName, $rec.DisconnectButton.Visibility, $rec.Helpers,
+                $rec.CloseButton.Visibility, $rec.RowButtons.Tag))
         }
     }
     Set-Content -Path (Join-Path $stateDir 'dump.txt') -Value $lines -Encoding UTF8
@@ -4070,6 +4306,20 @@ function Update-Card {
         try { Set-Preset -Name $name } catch { Write-ErrorLog -Where 'style' -Problem $_ }
     }
 
+    # Write "resume <session id>" or "forget <session id>" into
+    # state/closed.flag and this poll does to that closed row what a click on
+    # it, or its Kill, does, so a check can drive closed rows without clicking.
+    $closedFlag = Join-Path $stateDir 'closed.flag'
+    if (Test-Path $closedFlag) {
+        $words = ([string](Get-Content $closedFlag -Raw)).Trim() -split '\s+'
+        Remove-Item $closedFlag -Force -ErrorAction SilentlyContinue
+        try {
+            $entry = $script:closedSessions[$words[-1]]
+            if ($null -ne $entry -and $words[0] -eq 'resume') { Resume-ClosedSession -Entry $entry }
+            if ($null -ne $entry -and $words[0] -eq 'forget') { Remove-ClosedSession -SessionId $entry.SessionId }
+        } catch { Write-ErrorLog -Where 'closed' -Problem $_ }
+    }
+
     $seen = @{}
 
     # Kept sessions first, so a poll that answered since the last tick shows on
@@ -4087,6 +4337,12 @@ function Update-Card {
             # asked at once and the session's row follows in a second or two.
             $script:knownHandles.Remove($h)
             $closedKey = [string][int64]$h
+            # A session of this PC turns into a closed row on this same poll, in
+            # its row's place, so the row never vanishes.
+            $closedInfo = $script:sessionByHwnd[$closedKey]
+            if ($null -ne $closedInfo -and $closedInfo.Remote -ne 'In') {
+                Add-ClosedSession -Info $closedInfo -Rec $rows[$closedKey]
+            }
             if ($script:outgoingByHwnd.ContainsKey($closedKey)) {
                 $closedHost = $script:outgoingByHwnd[$closedKey]
                 Request-KeptPoll -HostName $closedHost
@@ -4121,6 +4377,14 @@ function Update-Card {
             $id = $script:outgoingByHwnd[$key] + '|' + $parsed.TmuxName
             $windowIds[$id] = $true
             if ($isNew -or $null -eq $script:slotRec[$id]) { Use-SessionSlot -Rec $rows[$key] -Id $id }
+        }
+        # The same for a session of this PC: a window resuming a closed session
+        # takes the closed row's slot, and the closed row goes.
+        $local = $script:sessionByHwnd[$key]
+        if ($null -ne $local -and $local.Remote -ne 'In' -and $local.SessionId) {
+            $id = 'local|' + $local.SessionId
+            if (-not [object]::ReferenceEquals($script:slotRec[$id], $rows[$key])) { Use-SessionSlot -Rec $rows[$key] -Id $id }
+            if ($script:closedSessions.ContainsKey($local.SessionId)) { Remove-ClosedSession -SessionId $local.SessionId }
         }
     }
 
@@ -4160,6 +4424,19 @@ function Update-Card {
         }
         $rows[$key].PendingState = $state
         $rows[$key].PendingLabel = $label
+        $seen[$key] = $true
+    }
+
+    # Closed sessions of this PC, faded, until resumed or killed. Drawn as a
+    # quiet row with nothing for you, the way Marshal is between rounds.
+    foreach ($entry in @($script:closedSessions.Values)) {
+        $key = $entry.Key
+        if (-not $rows.ContainsKey($key)) {
+            $rows[$key] = New-Row -Handle ([IntPtr][int64]$key) -Label $entry.Label -State 'Watching'
+            Use-SessionSlot -Rec $rows[$key] -Id ('local|' + $entry.SessionId)
+        }
+        $rows[$key].PendingState = 'Watching'
+        $rows[$key].PendingLabel = $entry.Label
         $seen[$key] = $true
     }
 
@@ -4207,6 +4484,12 @@ function Update-Card {
             if ($info.ContainsKey('Model'))  { $rec.Model  = $info.Model }
             if ($info.ContainsKey('Prompt')) { $rec.Prompt = $info.Prompt }
             if ($info.ContainsKey('Helpers')) { $rec.Helpers = $info.Helpers }
+            # How the row looks, for a closed row should its Claude end
+            # between two polls and the row be gone by then.
+            if ($info.Remote -ne 'In' -and $info.SessionId -and $rec.Label) {
+                $script:localSeen[[string]$info.SessionId] = @{ Cwd = [string]$info.Cwd; Label = $rec.Label; Workspace = $rec.Workspace
+                                                                Model = $rec.Model; Prompt = $rec.Prompt }
+            }
             if ($info.Remote -eq 'In') {
                 # Started from somewhere else. When it runs in tmux here, say
                 # where its window is, and whether it has one at all.
@@ -4244,6 +4527,17 @@ function Update-Card {
                     $rec.RemoteNote = 'not connected' + $listSep + 'still running'
                 }
             }
+        } elseif ($script:closedByKey.ContainsKey($key)) {
+            # A closed session of this PC keeps the group, model and context
+            # its row had when it closed.
+            $closed = $script:closedByKey[$key]
+            $rec.SessionId = $closed.SessionId
+            $rec.Cwd       = $closed.Cwd
+            $rec.Workspace = $(if ($closed.Workspace) { $closed.Workspace } else { 'unknown' })
+            $rec.Model     = $closed.Model
+            $rec.Prompt    = $closed.Prompt
+            $resuming = ($null -ne $closed.Resuming -and ((Get-Date) - $closed.Resuming).TotalSeconds -lt 20)
+            $rec.RemoteNote = $(if ($resuming) { 'resuming...' } else { 'closed' })
         } elseif ($script:outgoingByHwnd.ContainsKey($key)) {
             # The session lives on the other machine, so the machine is the
             # workspace: every session reached through it groups under its name.
@@ -4282,6 +4576,7 @@ function Update-Card {
         # only Marshal used before, so it reads the same in every style.
         $rec.PendingDetail = [string]$rec.RemoteNote
         $rec.RoundAt = $null
+        if ($script:closedByKey.ContainsKey([string][int64]$rec.Handle)) { continue }
         if (-not (Test-MarshalRow -Cwd $rec.Cwd -Label $rec.PendingLabel)) { continue }
         $look = Get-MarshalLook -State $rec.PendingState -Report (Read-MarshalReport -Path $marshalReportFile) -Now (Get-Date)
         $rec.PendingState  = $look.State
@@ -4294,12 +4589,15 @@ function Update-Card {
     }
 
     # A row with no window connected is drawn faded, so it reads as not
-    # connected at a glance, and says on hover what a click on it does. A row
-    # whose session outlives its window carries the End button.
+    # connected at a glance, and says on hover what a click on it does: a kept
+    # session reconnects, a closed one resumes.
     foreach ($rec in $ordered) {
         $kept = Get-RowKept -Element $rec.Element
+        $closed = Get-RowClosed -Element $rec.Element
         $action = ''
-        if ($null -ne $kept) {
+        if ($null -ne $closed) {
+            $action = 'Resume'
+        } elseif ($null -ne $kept) {
             $action = $(if ($kept.Problem -eq 'signin') { 'Sign in' } elseif ($kept.Problem) { 'Try again' } else { 'Reconnect' })
         }
         $rec.ClickAction = $action
@@ -4311,18 +4609,35 @@ function Update-Card {
                 $rec.Reconnect.Visibility = 'Collapsed'
             }
         }
-        # Kill on every such row; Disconnect only while a window here shows it.
+        # A closed row's time is when it closed, across restarts of the card.
+        if ($null -ne $closed) {
+            if ($null -eq $closed.ClosedTime) {
+                try { $closed.ClosedTime = [DateTime]::Parse($closed.ClosedAt, $null, [System.Globalization.DateTimeStyles]::RoundtripKind) } catch { $closed.ClosedTime = Get-Date }
+            }
+            $rec.FinishedAt = $closed.ClosedTime
+            $rec.WorkSince = $null
+        }
+
+        # The row's buttons, which show while the pointer is on it. A session
+        # elsewhere gets Disconnect, while a window here shows it, and Kill. A
+        # session of this PC gets Close while its window is open, and Kill.
         $endable = Get-RowEndable -Element $rec.Element
-        $rec.KillButton.Visibility = $(if ($null -ne $endable) { 'Visible' } else { 'Collapsed' })
+        $local = Get-RowLocal -Element $rec.Element
+        $canKill = ($null -ne $endable -or $null -ne $local -or $null -ne $closed)
+        $rec.KillButton.Visibility = $(if ($canKill) { 'Visible' } else { 'Collapsed' })
         $rec.DisconnectButton.Visibility = $(if ($null -ne $endable -and [int64]$rec.Handle -gt 0) { 'Visible' } else { 'Collapsed' })
+        $rec.CloseButton.Visibility = $(if ($null -ne $local) { 'Visible' } else { 'Collapsed' })
+        $rec.RowButtons.Tag = $(if ($canKill) { 'on' } else { '' })
         if ($null -ne $endable) {
             $where = Get-KeptPlaceLong -Place $endable.Place
             $killTip = "Kill: stop Claude on $where"
-            if ([string]$rec.KillButton.ToolTip -ne $killTip) {
-                $rec.KillButton.ToolTip = $killTip
-                $rec.DisconnectButton.ToolTip = "Disconnect: close this window, Claude keeps running on $where"
-            }
+            $rec.DisconnectButton.ToolTip = "Disconnect: close this window, Claude keeps running on $where"
+        } elseif ($null -ne $local) {
+            $killTip = 'Kill: end this session and take it off the card'
+        } else {
+            $killTip = 'Kill: take this closed session off the card'
         }
+        if ($canKill -and [string]$rec.KillButton.ToolTip -ne $killTip) { $rec.KillButton.ToolTip = $killTip }
     }
     Update-Needs -Ordered $ordered
     Update-HelperMarks -Ordered $ordered
@@ -4964,7 +5279,7 @@ function Reset-LaunchEnvironment {
 # tab, since the card follows one session per window. -NoExit leaves a prompt
 # in the folder when Claude ends, as typing claude there would.
 function Start-ClaudeSession {
-    param([string]$Folder)
+    param([string]$Folder, [string]$Resume = '')
     $name = Split-Path -Leaf $Folder
     if (-not [System.IO.Directory]::Exists($Folder)) {
         $script:launchCache = $null
@@ -4973,6 +5288,8 @@ function Start-ClaudeSession {
     }
     try { Reset-LaunchEnvironment } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
     $claude = @('-NoExit', '-Command', 'claude', '--permission-mode', 'auto')
+    # A closed session is resumed by its id, which the resumed session keeps.
+    if ($Resume) { $claude += @('--resume', $Resume) }
     try {
         $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
         if ($wt) {

@@ -287,11 +287,13 @@
        card, and wide enough for "at 14:05" with the row's right margin. -->
   <GridLength x:Key="TimerWidth">58</GridLength>
 
-  <!-- The two buttons on a row whose session keeps running after its window
-       closes. Disconnect closes the window here and leaves Claude running;
-       Kill stops Claude where it runs. Each icon is a filled shape drawn in a
-       16 by 16 box, and a preset may redraw both and colour them at rest and
-       under the pointer. Here: a plug pulled from its socket, and a skull. -->
+  <!-- The buttons a row shows under the pointer. Disconnect closes the window
+       here and leaves Claude running elsewhere; Close closes the window of a
+       session on this PC and keeps its row to resume; Kill stops Claude. Each
+       icon is a filled shape drawn in a 16 by 16 box, and a preset may redraw
+       them and colour them at rest and under the pointer; Close takes
+       Disconnect's colours. Here: a plug pulled from its socket, a cross, and
+       a skull. -->
   <PathGeometry x:Key="IconDisconnect"
                 Figures="M0,7.25 H2 V8.75 H0 Z
                          M2,5 H6.5 A1,1 0 0 1 7.5,6 V10 A1,1 0 0 1 6.5,11 H2 Z
@@ -300,7 +302,9 @@
                          M14,7.25 H16 V8.75 H14 Z
                          M10.3,2.1 L11.3,3.7 L10.7,4.0 L9.7,2.4 Z
                          M9.7,13.6 L10.7,12.0 L11.3,12.3 L10.3,13.9 Z" />
-  <!-- Both icons are PathGeometry, which is what a preset must give too; the
+  <PathGeometry x:Key="IconClose"
+                Figures="M3.6,4.8 L4.8,3.6 L8,6.8 L11.2,3.6 L12.4,4.8 L9.2,8 L12.4,11.2 L11.2,12.4 L8,9.2 L4.8,12.4 L3.6,11.2 L6.8,8 Z" />
+  <!-- The icons are PathGeometry, which is what a preset must give too; the
        skull's eyes, nose and the gaps between its teeth are holes cut by the
        even-odd rule. -->
   <PathGeometry x:Key="IconKill" FillRule="EvenOdd"

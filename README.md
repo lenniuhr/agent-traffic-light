@@ -55,13 +55,25 @@ there) or "ends when closed". A session on this PC started from another machine,
 through WSL, has no terminal window here; its row says where it is connected from, takes its state
 from the session's own busy or idle and its label from the session's task title.
 
+A session of this PC stays on the card when its terminal closes or its Claude ends, drawn faded and
+marked "closed". Pointing at it shows "Resume", and a click opens a new terminal in its folder
+running `claude --resume` with its id; the new window's row takes the closed row's place. Its
+buttons, shown in the time's place while the pointer is on the row, are Close, which closes the
+window and keeps the row to resume, and Kill, a skull, which asks, then closes the window and takes
+the session off the card. On a closed row Kill only takes it off. The closed rows are kept in
+`state\closed.json` across restarts of the card, and the sessions open now in `state\open.json`,
+so a session that ends while the card is not running, at a shutdown say, is a closed row when the
+card next starts. Writing `resume <session id>` or `forget <session id>` into `state\closed.flag`
+does the same as a click or Kill on that closed row, for checks.
+
 Sessions that keep running with no window connected to them stay on the card too, drawn faded and
 marked "not connected, still running". Pointing at one shows "Reconnect", and a click opens a
-terminal attached to it. Every such row carries two buttons: Disconnect, while a window here shows
-the session, closes that window and leaves Claude running; Kill, a skull, stops Claude where it
-runs, after asking. The right-click menu offers the same, in words. A preset draws both icons
-(`IconDisconnect`, `IconKill`, each a PathGeometry in a 16 by 16 box) and colours them at rest and
-under the pointer. For that the card asks each
+terminal attached to it. Every such row carries two buttons, shown in the time's place while the
+pointer is on the row: Disconnect, while a window here shows the session, closes that window and
+leaves Claude running; Kill, a skull, stops Claude where it runs, after asking. The right-click
+menu offers the same, in words. A preset draws the icons (`IconDisconnect`, `IconClose`,
+`IconKill`, each a PathGeometry in a 16 by 16 box) and colours them at rest and under the
+pointer. For that the card asks each
 place listed in `state\remotes.txt`, one per line, every few seconds, and at once whenever a window
 to it opens or closes: an ssh target such as `jonathan@office`, or `wsl` for this PC's own WSL
 (`wsl:Ubuntu` names the distribution, needed when Docker Desktop has made itself the default). A

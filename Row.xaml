@@ -205,6 +205,8 @@
                Visibility="Collapsed"
                Text="&#x266A;" />
 
+    <!-- The time makes way for the row's buttons while the pointer is on a row
+         that has any, so the buttons take no room of their own. -->
     <TextBlock x:Name="Timer"
                Grid.Column="4"
                VerticalAlignment="Center"
@@ -215,7 +217,21 @@
                Foreground="{DynamicResource BrushTextDim}"
                Effect="{DynamicResource TextGlow}"
                Typography.NumeralAlignment="Tabular"
-               Text="" />
+               Text="">
+      <TextBlock.Style>
+        <Style TargetType="TextBlock">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsMouseOver, ElementName=RowBg}" Value="True" />
+                <Condition Binding="{Binding Tag, ElementName=RowButtons}" Value="on" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Visibility" Value="Hidden" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </TextBlock>
 
     <!-- Context in use, as a hairline along the bottom of the row. A bar costs
          no width and no height worth counting, and this is a number you only
@@ -240,10 +256,10 @@
             CornerRadius="1"
             Background="{DynamicResource BrushCtxFill}" />
 
-    <!-- A session that runs on with no window connected to it: the script draws
-         the row faded, and pointing at it fades this in, saying what a click
-         does, over a veil of the row's own colour that lets the row show
-         through. It stops short of the End button, which stays clickable. -->
+    <!-- A session that runs on with no window connected to it, or a closed one:
+         the script draws the row faded, and pointing at it fades this in,
+         saying what a click does, over a veil of the row's own colour that lets
+         the row show through. The buttons sit above it and stay clickable. -->
     <Grid x:Name="Reconnect"
           Grid.ColumnSpan="5"
           Opacity="0"
@@ -262,13 +278,62 @@
                  Text="Reconnect" />
     </Grid>
 
-    <!-- The two buttons on a row whose session keeps running on another machine
-         after its window closes. Disconnect, shown only while a window here
-         shows the session, closes that window and leaves Claude running. Kill
-         stops Claude where it runs, and the script asks first. The icons, their
-         colours and the boxes round them come from the preset. Defaults sit in
-         the styles, not on the elements, so the hover triggers can change them. -->
-    <StackPanel Grid.Column="5" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,8,0">
+    <!-- The row's buttons, shown only while the pointer is on the row, in the
+         time's place. On a session that keeps running on another machine after
+         its window closes: Disconnect, while a window here shows it, closes that
+         window and leaves Claude running. On a session of this PC: Close closes
+         its window and keeps the row, faded, to resume. Kill stops Claude, after
+         the script asks, and on a closed row takes the row away. The script
+         shows the buttons a row has and sets Tag to "on" when it has any. The
+         icons, their colours and the boxes round them come from the preset.
+         Defaults sit in the styles, not on the elements, so the hover triggers
+         can change them. -->
+    <StackPanel x:Name="RowButtons" Grid.Column="4" Grid.ColumnSpan="2" Orientation="Horizontal"
+                HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,6,0">
+      <StackPanel.Style>
+        <Style TargetType="StackPanel">
+          <Setter Property="Visibility" Value="Collapsed" />
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsMouseOver, ElementName=RowBg}" Value="True" />
+                <Condition Binding="{Binding Tag, RelativeSource={RelativeSource Self}}" Value="on" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Visibility" Value="Visible" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </StackPanel.Style>
+      <Border x:Name="CloseButton" Width="24" Height="22" Cursor="Hand" Visibility="Collapsed"
+              CornerRadius="{DynamicResource IconButtonCorner}"
+              BorderThickness="{DynamicResource IconButtonEdgeThickness}">
+        <Border.Style>
+          <Style TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource BrushIconButtonBg}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BrushIconButtonEdge}" />
+            <Style.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="{DynamicResource BrushDisconnectHoverBg}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource BrushDisconnectHoverEdge}" />
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Border.Style>
+        <Path Width="16" Height="16" Stretch="None" HorizontalAlignment="Center" VerticalAlignment="Center"
+              SnapsToDevicePixels="True" Data="{DynamicResource IconClose}"
+              RenderOptions.EdgeMode="{DynamicResource IconEdgeMode}">
+          <Path.Style>
+            <Style TargetType="Path">
+              <Setter Property="Fill" Value="{DynamicResource BrushIconButton}" />
+              <Style.Triggers>
+                <DataTrigger Binding="{Binding IsMouseOver, ElementName=CloseButton}" Value="True">
+                  <Setter Property="Fill" Value="{DynamicResource BrushDisconnectHoverIcon}" />
+                </DataTrigger>
+              </Style.Triggers>
+            </Style>
+          </Path.Style>
+        </Path>
+      </Border>
       <Border x:Name="DisconnectButton" Width="24" Height="22" Cursor="Hand" Visibility="Collapsed"
               CornerRadius="{DynamicResource IconButtonCorner}"
               BorderThickness="{DynamicResource IconButtonEdgeThickness}">

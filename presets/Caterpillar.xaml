@@ -111,6 +111,9 @@
                 Figures="M0,7h3v2h-3z M3,5h4v6h-4z M7,6h2v1h-2z M7,9h2v1h-2z
                          M11,5h3v6h-3z M14,7h2v2h-2z
                          M9,3h1v1h-1z M10,2h1v1h-1z M9,12h1v1h-1z M10,13h1v1h-1z" />
+  <PathGeometry x:Key="IconClose"
+                Figures="M3,3h2v2h-2z M5,5h2v2h-2z M7,7h2v2h-2z M9,9h2v2h-2z M11,11h2v2h-2z
+                         M11,3h2v2h-2z M9,5h2v2h-2z M5,9h2v2h-2z M3,11h2v2h-2z" />
   <PathGeometry x:Key="IconKill"
                 Figures="M5,3h6v1h-6z M3,4h10v1h-10z M2,5h12v2h-12z
                          M2,7h2v2h-2z M6,7h4v2h-4z M12,7h2v2h-2z
