@@ -60,8 +60,9 @@ row of its title and when it closed, "closed 17:11". A click on it, or on its Re
 triangle, opens a new terminal in its folder running `claude --resume` with its id; the new
 window's row takes the closed row's place. A row's buttons, shown in the time's place while the
 pointer is on the row, are Close, which closes the window and keeps the row to resume, and Kill, a
-skull, which asks, then closes the window and takes the session off the card. On a closed row Kill
-only takes it off. The closed rows are kept in
+skull, which asks, then closes the window and takes the session off the card. "Ask before Kill",
+on by default under Settings, skips the question when switched off, here and for a session on
+another machine. On a closed row Kill only takes it off. The closed rows are kept in
 `state\closed.json` across restarts of the card, and the sessions open now in `state\open.json`,
 so a session that ends while the card is not running, at a shutdown say, is a closed row when the
 card next starts. Writing `resume <session id>` or `forget <session id>` into `state\closed.flag`

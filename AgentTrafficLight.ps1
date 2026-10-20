@@ -1043,10 +1043,12 @@ function Set-Fade {
 function Stop-KeptSession {
     param($Kept)
     $where = Get-KeptPlaceLong -Place $Kept.Place
-    $answer = [System.Windows.MessageBox]::Show($window,
-        "Kill the session $($Kept.Name) on $where?`n`nClaude stops there, and anything it is doing stops with it. Any window showing it closes.",
-        'Kill session', 'YesNo', 'Warning')
-    if ($answer -ne 'Yes') { return }
+    if ($script:settings.AskBeforeKill) {
+        $answer = [System.Windows.MessageBox]::Show($window,
+            "Kill the session $($Kept.Name) on $where?`n`nClaude stops there, and anything it is doing stops with it. Any window showing it closes.",
+            'Kill session', 'YesNo', 'Warning')
+        if ($answer -ne 'Yes') { return }
+    }
     $script:keptEnding["$($Kept.Place)|$($Kept.Name)"] = Get-Date
     Invoke-AtKeptPlace -Place $Kept.Place -Command ('office-sessions --end ' + $Kept.Name)
     $poll = $script:keptSources[$Kept.Place]
@@ -1245,10 +1247,12 @@ function Stop-LocalSession {
     }
     $info = Get-RowLocal -Element $Element
     if ($null -eq $info) { return }
-    $answer = [System.Windows.MessageBox]::Show($window,
-        "Kill this session?`n`nIts window closes, Claude stops, and anything it is doing stops with it. It leaves the card; Claude's own /resume can still find it.",
-        'Kill session', 'YesNo', 'Warning')
-    if ($answer -ne 'Yes') { return }
+    if ($script:settings.AskBeforeKill) {
+        $answer = [System.Windows.MessageBox]::Show($window,
+            "Kill this session?`n`nIts window closes, Claude stops, and anything it is doing stops with it. It leaves the card; Claude's own /resume can still find it.",
+            'Kill session', 'YesNo', 'Warning')
+        if ($answer -ne 'Yes') { return }
+    }
     $script:forgetSessions[[string]$info.SessionId] = $true
     [TlNative]::Close([IntPtr]$Element.Tag) | Out-Null
 }
@@ -1952,10 +1956,13 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 #
 # ShowOthersSessions shows the kept sessions other people started on a shared
 # machine, such as the build PC, with their owner's name in front. On by default.
+#
+# AskBeforeKill asks before a row's Kill stops a session, here or elsewhere. On
+# by default; off, Kill stops it at once.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
-                      ShowOthersSessions = $true
+                      ShowOthersSessions = $true; AskBeforeKill = $true
                       DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @() }
 
 function Read-Settings {
@@ -1966,6 +1973,7 @@ function Read-Settings {
         if ($null -ne $saved.ShowUsage5h) { $script:settings.ShowUsage5h = [bool]$saved.ShowUsage5h }
         if ($null -ne $saved.ShowUsageWeek) { $script:settings.ShowUsageWeek = [bool]$saved.ShowUsageWeek }
         if ($null -ne $saved.ShowOthersSessions) { $script:settings.ShowOthersSessions = [bool]$saved.ShowOthersSessions }
+        if ($null -ne $saved.AskBeforeKill) { $script:settings.AskBeforeKill = [bool]$saved.AskBeforeKill }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.HiddenLaunchRepos) { $script:settings.HiddenLaunchRepos = @($saved.HiddenLaunchRepos | ForEach-Object { [string]$_ }) }
@@ -1990,6 +1998,7 @@ function Save-Settings {
             ShowUsage5h      = $script:settings.ShowUsage5h
             ShowUsageWeek    = $script:settings.ShowUsageWeek
             ShowOthersSessions = $script:settings.ShowOthersSessions
+            AskBeforeKill    = $script:settings.AskBeforeKill
             DefaultSound     = $script:settings.DefaultSound
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
@@ -5109,6 +5118,18 @@ function Show-SettingsMenu {
         } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
     })
     [void]$settingsItem.Items.Add($othersItem)
+
+    $askKillItem = New-CardMenuItem -Header 'Ask before Kill'
+    $askKillItem.IsCheckable = $true
+    $askKillItem.IsChecked = [bool]$script:settings.AskBeforeKill
+    $askKillItem.Add_Click({
+        param($sender, $e)
+        try {
+            $script:settings.AskBeforeKill = [bool]$sender.IsChecked
+            Save-Settings
+        } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+    })
+    [void]$settingsItem.Items.Add($askKillItem)
 
     # The subscription's limits along the card's bottom, each on its own.
     foreach ($bar in @(@{ Header = 'Show 5-hour limit'; Key = 'ShowUsage5h' },
