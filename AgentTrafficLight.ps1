@@ -938,7 +938,14 @@ function Use-SessionSlot {
         $Rec.WorkSince = $old.WorkSince
         $Rec.FinishedAt = $old.FinishedAt
         $Rec.Top = $old.Top
-        if ($old.Top -ge 0) { [System.Windows.Controls.Canvas]::SetTop($Rec.Element, $old.Top) }
+        if ($old.Top -ge 0) {
+            # A finished slide keeps holding the row where it ended, over any
+            # SetTop, and the layout then sees the row already in its slot. A
+            # window row that slid in before its session resolved stayed drawn
+            # there, over the next group, with its real slot left empty.
+            $Rec.Element.BeginAnimation([System.Windows.Controls.Canvas]::TopProperty, $null)
+            [System.Windows.Controls.Canvas]::SetTop($Rec.Element, $old.Top)
+        }
         $oldKey = [string][int64]$old.Handle
         $at = $script:userOrder.IndexOf($oldKey)
         if ($at -ge 0) {
