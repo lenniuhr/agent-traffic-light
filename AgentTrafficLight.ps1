@@ -2993,6 +2993,8 @@ function New-Row {
         HelperMark  = $element.FindName('HelperMark')
         HelperRing  = $element.FindName('HelperRing')
         HelperCount = $element.FindName('HelperCount')
+        ShellGlyph  = $element.FindName('ShellGlyph')
+        TimerGlyph  = $element.FindName('TimerGlyph')
         # Helper agents the session has running now.
         Helpers   = 0
         State     = ''
@@ -3440,10 +3442,13 @@ function Set-RowLook {
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
     # The helpers' ring takes the ring colour on the working glass, like the
-    # small ring, and the timer's colour on a filled row; the number inside
-    # takes the label's, to be read at a glance.
+    # small ring, and the timer's colour on a filled row. The number inside,
+    # and the prompt or clock standing in for it, take the ring's colour too,
+    # so ring and contents read as one mark.
     $Rec.HelperRing.Stroke = $(if ($Rec.State -eq 'Working' -or $Rec.State -eq 'OwnWork') { $brush.Ring } else { $Rec.TimerText.Foreground })
-    $Rec.HelperCount.Foreground = $Rec.LabelText.Foreground
+    $Rec.HelperCount.Foreground = $Rec.HelperRing.Stroke
+    $Rec.ShellGlyph.Stroke = $Rec.HelperRing.Stroke
+    $Rec.TimerGlyph.Stroke = $Rec.HelperRing.Stroke
     # The detail takes the label's colour, not the timer's. On a blocked row it
     # carries Marshal's question, the one line there meant to be read rather
     # than glanced at, and the timer's pulled-back amber measured about 2.6 to 1
@@ -3805,7 +3810,8 @@ function Update-Needs {
 # The larger ring turns only while Claude itself works. While it waits on its
 # helpers, its background commands or its timer the ring closes and stands
 # still, so motion on the card still means only that Claude is busy. The number
-# counts helpers only: Claude marks that commands run, not how many.
+# counts helpers only: Claude marks that commands run, not how many, so without
+# helpers the ring holds a prompt for commands or clock hands for a timer.
 $script:ringOpen = [System.Windows.Media.Geometry]::Parse('M 8,1 A 7,7 0 1 1 1,8')
 $script:ringOpen.Freeze()
 $script:ringClosed = New-Object System.Windows.Media.EllipseGeometry ((New-Object System.Windows.Point 8, 8), 7, 7)
@@ -3824,6 +3830,12 @@ function Update-HelperMarks {
         if ($rec.HelperMark.Visibility -ne $mark) { $rec.HelperMark.Visibility = $mark }
         $count = $(if ($helpers) { [string]$rec.Helpers } else { '' })
         if ($rec.HelperCount.Text -ne $count) { $rec.HelperCount.Text = $count }
+        # Helpers win: with any running, the number shows and no symbol does.
+        $waitsOn = $(if ($helpers -or $rec.State -ne 'OwnWork') { '' } else { [string]$rec.WaitsOn })
+        $shellMark = $(if ($waitsOn -eq 'shell') { 'Visible' } else { 'Collapsed' })
+        if ($rec.ShellGlyph.Visibility -ne $shellMark) { $rec.ShellGlyph.Visibility = $shellMark }
+        $timerMark = $(if ($waitsOn -eq 'timer') { 'Visible' } else { 'Collapsed' })
+        if ($rec.TimerGlyph.Visibility -ne $timerMark) { $rec.TimerGlyph.Visibility = $timerMark }
         $spin = $(if (-not $helpers -and $rec.State -eq 'Working') { 'Visible' } else { 'Collapsed' })
         if ($rec.Spinner.Visibility -ne $spin) { $rec.Spinner.Visibility = $spin }
         if ($helpers -and $rec.Dot.Visibility -ne 'Collapsed') { $rec.Dot.Visibility = 'Collapsed' }
@@ -4792,12 +4804,15 @@ function Update-Card {
     # row amber. The timer counts until a little after it is due, by when the
     # session has woken. With WaitOnOwnWork off, green means only that the
     # turn is over.
+    # WaitsOn says what for, to draw in the ring when no helper runs.
     $wakeNow = Get-Date
     foreach ($rec in $ordered) {
-        if (-not $script:settings.WaitOnOwnWork) { break }
+        $rec.WaitsOn = ''
+        if (-not $script:settings.WaitOnOwnWork) { continue }
         if ($rec.PendingState -ne 'Waiting') { continue }
         $timer = ($null -ne $rec.WakeAt -and $wakeNow -lt $rec.WakeAt.AddSeconds($wakeGraceSec))
         $shell = ($rec.SessionStatus -eq 'shell')
+        if ($shell) { $rec.WaitsOn = 'shell' } elseif ($timer) { $rec.WaitsOn = 'timer' }
         if ($rec.Helpers -gt 0 -or $shell -or $timer) { $rec.PendingState = 'OwnWork' }
     }
 

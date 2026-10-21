@@ -15,7 +15,7 @@ repository" on, under the repository the session is really working in:
 | Row | Meaning |
 | --- | --- |
 | Dark row, turning ring | Working. The time on the right counts up. |
-| Dark row, closed ring standing still | Waiting on its own work, not on you: its turn is over, but helper agents or background commands it started still run, or it set itself a timer to check back. The number inside counts the helpers; commands or a timer alone leave the ring empty. The time keeps counting, and the row turns green once nothing is left. "Green only once helpers and commands end" under Settings, on by default, turns this off, and green then means only that the turn is over. |
+| Dark row, closed ring standing still | Waiting on its own work, not on you: its turn is over, but helper agents or background commands it started still run, or it set itself a timer to check back. The number inside counts the helpers; without helpers the ring holds a prompt `>_` for background commands, or clock hands for a timer. The time keeps counting, and the row turns green once nothing is left. "Green only once helpers and commands end" under Settings, on by default, turns this off, and green then means only that the turn is over. |
 | Green row | Finished and waiting for you. The time on the right is when it stopped. |
 | Amber row, pulsing | Blocked on you: a permission prompt or a question. |
 | Dark row, dimmed label, no ring, no dot | Watching: only the Marshal session, between rounds, with nothing for you. The time on the right is when its last round ended. |
