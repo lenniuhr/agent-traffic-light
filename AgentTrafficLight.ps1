@@ -1725,6 +1725,45 @@ function Update-HelperCount {
     return $count
 }
 
+# When a session that set itself a timer, with Claude's ScheduleWakeup, wakes
+# again, or $null when it has none. Read from its own records in its transcript,
+# not from the copies of earlier turns Claude also writes there, and only from
+# what was added since the last sweep. The last call counts: a stop clears the
+# timer, and the delay is held to the minute-to-hour range Claude itself holds
+# it to. Background commands need no reading: Claude marks its session file
+# "shell" while its turn is over and one still runs.
+$wakeTail = 4194304   # bytes read from the end of a transcript the first time it is seen
+$wakeGraceSec = 30    # how long past its time a timer still counts, for the session to wake
+$script:wakeState = @{}
+
+function Update-WakeAt {
+    param([string]$SessionId, [string]$MainPath)
+    $file = New-Object System.IO.FileInfo $MainPath
+    if (-not $file.Exists) { return $null }
+    $state = $script:wakeState[$SessionId]
+    if ($null -eq $state) {
+        $state = @{ Offset = [Math]::Max([long]0, $file.Length - $wakeTail); WakeAt = $null }
+        $script:wakeState[$SessionId] = $state
+    }
+    if ($file.Length -lt $state.Offset) { $state.Offset = [long]0 }
+    if ($file.Length -eq $state.Offset) { return $state.WakeAt }
+    $chunk = Read-TranscriptLines -Path $MainPath -Start ([Math]::Max($state.Offset, $file.Length - $wakeTail))
+    $state.Offset = $chunk.Next
+    $calls = [regex]::Matches($chunk.Text, '(?m)^.*"isSidechain":false.*"type":"tool_use","id":"[^"]*","name":"ScheduleWakeup","input":\{[^}]*\}.*$')
+    if ($calls.Count -gt 0) {
+        $line = $calls[$calls.Count - 1].Value
+        $call = [regex]::Match($line, '"name":"ScheduleWakeup","input":\{[^}]*\}').Value
+        $delay = [regex]::Match($call, '"delaySeconds":(\d+)')
+        $stamp = [regex]::Match($line, '"timestamp":"([^"]+)"')
+        $state.WakeAt = $null
+        if ($delay.Success -and $stamp.Success -and -not $call.Contains('"stop":true')) {
+            $seconds = [Math]::Min(3600, [Math]::Max(60, [int]$delay.Groups[1].Value))
+            $state.WakeAt = ([DateTimeOffset]::Parse($stamp.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)).LocalDateTime.AddSeconds($seconds)
+        }
+    }
+    return $state.WakeAt
+}
+
 # Model and context come from the session's own transcript, which is the only
 # place either is recorded. These files reach several megabytes over a day, so
 # only the tail is read, and only when the file has actually changed. The
@@ -1847,6 +1886,10 @@ function Sync-SessionExtras {
         try {
             $info.Helpers = Update-HelperCount -SessionId $info.SessionId -MainPath $path -StartedAt $info.StartedAt
         } catch { Write-ErrorLog -Where 'helpers' -Problem $_ }
+        $info.WakeAt = $null
+        try {
+            $info.WakeAt = Update-WakeAt -SessionId $info.SessionId -MainPath $path
+        } catch { Write-ErrorLog -Where 'wakeup' -Problem $_ }
 
         # Every sweep, not only when the session's own transcript changed: its
         # helpers write to files of their own. Only with GroupByRepo on; off,
@@ -1973,10 +2016,15 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 # KeepClosedWindows keeps a session of this PC whose window is closed as a
 # closed row to resume. On by default; off, only a row's Close keeps one, and a
 # window closed any other way takes its session off the card.
+#
+# WaitOnOwnWork keeps a session whose turn is over off green while helpers or
+# background commands it started still run, or a timer it set has yet to wake
+# it: it waits on its own work, not on you. On by default; off, green means
+# only that its turn is over.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
-                      ShowOthersSessions = $true; AskBeforeKill = $true; KeepClosedWindows = $true
+                      ShowOthersSessions = $true; AskBeforeKill = $true; KeepClosedWindows = $true; WaitOnOwnWork = $true
                       DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @() }
 
 function Read-Settings {
@@ -1989,6 +2037,7 @@ function Read-Settings {
         if ($null -ne $saved.ShowOthersSessions) { $script:settings.ShowOthersSessions = [bool]$saved.ShowOthersSessions }
         if ($null -ne $saved.AskBeforeKill) { $script:settings.AskBeforeKill = [bool]$saved.AskBeforeKill }
         if ($null -ne $saved.KeepClosedWindows) { $script:settings.KeepClosedWindows = [bool]$saved.KeepClosedWindows }
+        if ($null -ne $saved.WaitOnOwnWork) { $script:settings.WaitOnOwnWork = [bool]$saved.WaitOnOwnWork }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.HiddenLaunchRepos) { $script:settings.HiddenLaunchRepos = @($saved.HiddenLaunchRepos | ForEach-Object { [string]$_ }) }
@@ -2015,6 +2064,7 @@ function Save-Settings {
             ShowOthersSessions = $script:settings.ShowOthersSessions
             AskBeforeKill    = $script:settings.AskBeforeKill
             KeepClosedWindows = $script:settings.KeepClosedWindows
+            WaitOnOwnWork    = $script:settings.WaitOnOwnWork
             DefaultSound     = $script:settings.DefaultSound
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
@@ -2697,7 +2747,7 @@ function Import-Preset {
     # split out of the blocked one, follow them in a preset that does not set
     # them itself, so it looks as it did before the split.
     foreach ($pair in @(@('FontHeader', 'FontText'), @('FontTimer', 'FontText'), @('FontCaption', 'FontClock'),
-                        @('BrushWarning', 'BrushBlocked'))) {
+                        @('BrushWarning', 'BrushBlocked'), @('BrushRing', 'BrushTextDim'))) {
         if (-not $dict.Contains($pair[0]) -and $dict.Contains($pair[1])) { $dict[$pair[0]] = $dict[$pair[1]] }
     }
     return $dict
@@ -2785,7 +2835,8 @@ function Read-StyleValues {
         DotOnBlock     = $window.FindResource('BrushDotOnBlock')
         Text           = $window.FindResource('BrushText')
         TextDim        = $window.FindResource('BrushTextDim')
-        TextOnWait     = $window.FindResource('BrushTextOnWait')
+        Ring           = $window.FindResource('BrushRing')
+        TextOnWait    = $window.FindResource('BrushTextOnWait')
         TextOnBlock    = $window.FindResource('BrushTextOnBlock')
         TimerOnWait    = $window.FindResource('BrushTimerOnWait')
         TimerOnBlock   = $window.FindResource('BrushTimerOnBlock')
@@ -3292,9 +3343,14 @@ function Set-RowState {
     # The row's sound and its blue dot are not decided here but in Update-Needs,
     # after every row is applied, so that they survive the row being rebuilt.
 
-    if ($State -eq 'Working') {
-        $Rec.WorkSince = Get-WholeSecond -At $now
-        $Rec.FinishedAt = $null
+    # Waiting on its own helpers or timer is still the same piece of work, so
+    # going between that and Working keeps the clock running from where it was.
+    $busy = @('Working', 'OwnWork')
+    if ($busy -contains $State) {
+        if (-not ($busy -contains $Rec.State -and $null -ne $Rec.WorkSince)) {
+            $Rec.WorkSince = Get-WholeSecond -At $now
+            $Rec.FinishedAt = $null
+        }
     } elseif ($null -ne $Rec.WorkSince) {
         # Left the working state, so note the clock time it stopped. Guarded on
         # WorkSince so that Waiting turning into Blocked, or back, keeps the
@@ -3329,6 +3385,18 @@ function Set-RowLook {
             # The only thing that moves on a calm card. Every ring turns with
             # the one shared rotation, so all of them are in step.
             $Rec.Spinner.Visibility   = 'Visible'
+            $Rec.Bg.Opacity           = 1.0
+        }
+        # Its turn is over, but it waits on helpers it started or on a timer it
+        # set, not on you: the working row, with no small ring, since Claude
+        # itself is not working. Update-HelperMarks shows the larger ring
+        # standing still in its place. It turns green once nothing is left.
+        'OwnWork' {
+            Start-FillAnimation -Rec $Rec -To $brush.RowBase.Color
+            $Rec.Bg.BorderBrush       = $brush.RowEdge
+            $Rec.LabelText.Foreground = $brush.Text
+            $Rec.TimerText.Foreground = $brush.TextDim
+            $Rec.Spinner.Visibility   = 'Collapsed'
             $Rec.Bg.Opacity           = 1.0
         }
         'Waiting' {
@@ -3371,9 +3439,10 @@ function Set-RowLook {
     # The note takes the timer's colour, which each state already picks to read
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
-    # The helpers' ring takes the timer's colour, like the small ring on a
-    # working row; the number inside takes the label's, to be read at a glance.
-    $Rec.HelperRing.Stroke = $Rec.TimerText.Foreground
+    # The helpers' ring takes the ring colour on the working glass, like the
+    # small ring, and the timer's colour on a filled row; the number inside
+    # takes the label's, to be read at a glance.
+    $Rec.HelperRing.Stroke = $(if ($Rec.State -eq 'Working' -or $Rec.State -eq 'OwnWork') { $brush.Ring } else { $Rec.TimerText.Foreground })
     $Rec.HelperCount.Foreground = $Rec.LabelText.Foreground
     # The detail takes the label's colour, not the timer's. On a blocked row it
     # carries Marshal's question, the one line there meant to be read rather
@@ -3732,11 +3801,26 @@ function Update-Needs {
 # a finished one: its helpers are still busy, so the session is too. The
 # dot's need is kept and shows again once the helpers end. Without helpers the
 # small ring shows on a working row only, as before.
+#
+# The larger ring turns only while Claude itself works. While it waits on its
+# helpers, its background commands or its timer the ring closes and stands
+# still, so motion on the card still means only that Claude is busy. The number
+# counts helpers only: Claude marks that commands run, not how many.
+$script:ringOpen = [System.Windows.Media.Geometry]::Parse('M 8,1 A 7,7 0 1 1 1,8')
+$script:ringOpen.Freeze()
+$script:ringClosed = New-Object System.Windows.Media.EllipseGeometry ((New-Object System.Windows.Point 8, 8), 7, 7)
+$script:ringClosed.Freeze()
+
 function Update-HelperMarks {
     param($Ordered)
     foreach ($rec in $Ordered) {
         $helpers = ($rec.Helpers -gt 0)
-        $mark = $(if ($helpers) { 'Visible' } else { 'Collapsed' })
+        $turning = ($rec.State -eq 'Working')
+        $turn = $(if ($turning) { $script:spinTurn } else { [System.Windows.Media.Transform]::Identity })
+        if (-not [object]::ReferenceEquals($rec.HelperRing.RenderTransform, $turn)) { $rec.HelperRing.RenderTransform = $turn }
+        $shape = $(if ($turning) { $script:ringOpen } else { $script:ringClosed })
+        if (-not [object]::ReferenceEquals($rec.HelperRing.Data, $shape)) { $rec.HelperRing.Data = $shape }
+        $mark = $(if ($helpers -or $rec.State -eq 'OwnWork') { 'Visible' } else { 'Collapsed' })
         if ($rec.HelperMark.Visibility -ne $mark) { $rec.HelperMark.Visibility = $mark }
         $count = $(if ($helpers) { [string]$rec.Helpers } else { '' })
         if ($rec.HelperCount.Text -ne $count) { $rec.HelperCount.Text = $count }
@@ -4590,6 +4674,7 @@ function Update-Card {
         $key = [string][int64]$rec.Handle
         $rec.RemoteNote = ''
         $rec.Helpers = 0
+        $rec.WakeAt = $null
         if ($script:sessionByHwnd.ContainsKey($key)) {
             $info = $script:sessionByHwnd[$key]
             $rec.SessionId = $info.SessionId
@@ -4602,6 +4687,7 @@ function Update-Card {
             if ($info.ContainsKey('Model'))  { $rec.Model  = $info.Model }
             if ($info.ContainsKey('Prompt')) { $rec.Prompt = $info.Prompt }
             if ($info.ContainsKey('Helpers')) { $rec.Helpers = $info.Helpers }
+            if ($info.ContainsKey('WakeAt')) { $rec.WakeAt = $info.WakeAt }
             # How the row looks, for a closed row should its Claude end
             # between two polls and the row be gone by then.
             if ($info.Remote -ne 'In' -and $info.SessionId -and $rec.Label) {
@@ -4700,6 +4786,21 @@ function Update-Card {
         $rec.RoundAt       = $look.RoundAt
     }
 
+    # A finished turn whose session still has helpers or background commands
+    # running, or a timer set to wake it, waits on its own work rather than on
+    # you. Decided after the blocked rows, so a question for you still turns its
+    # row amber. The timer counts until a little after it is due, by when the
+    # session has woken. With WaitOnOwnWork off, green means only that the
+    # turn is over.
+    $wakeNow = Get-Date
+    foreach ($rec in $ordered) {
+        if (-not $script:settings.WaitOnOwnWork) { break }
+        if ($rec.PendingState -ne 'Waiting') { continue }
+        $timer = ($null -ne $rec.WakeAt -and $wakeNow -lt $rec.WakeAt.AddSeconds($wakeGraceSec))
+        $shell = ($rec.SessionStatus -eq 'shell')
+        if ($rec.Helpers -gt 0 -or $shell -or $timer) { $rec.PendingState = 'OwnWork' }
+    }
+
     foreach ($rec in $ordered) {
         Set-RowState -Rec $rec -State $rec.PendingState -Label $rec.PendingLabel -Detail $rec.PendingDetail
     }
@@ -4761,7 +4862,7 @@ function Update-Card {
     Update-HelperMarks -Ordered $ordered
 
     # The helpers' ring turns too, on a finished row as much as a working one.
-    Set-Spin -On (@($ordered | Where-Object { $_.State -eq 'Working' -or $_.Helpers -gt 0 }).Count -gt 0)
+    Set-Spin -On (@($ordered | Where-Object { $_.State -eq 'Working' }).Count -gt 0)
     Update-Layout
     Update-Timers
 
@@ -5166,6 +5267,18 @@ function Show-SettingsMenu {
         } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
     })
     [void]$settingsItem.Items.Add($keepClosedItem)
+
+    $ownWorkItem = New-CardMenuItem -Header 'Green only once helpers and commands end'
+    $ownWorkItem.IsCheckable = $true
+    $ownWorkItem.IsChecked = [bool]$script:settings.WaitOnOwnWork
+    $ownWorkItem.Add_Click({
+        param($sender, $e)
+        try {
+            $script:settings.WaitOnOwnWork = [bool]$sender.IsChecked
+            Save-Settings
+        } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+    })
+    [void]$settingsItem.Items.Add($ownWorkItem)
 
     # The subscription's limits along the card's bottom, each on its own.
     foreach ($bar in @(@{ Header = 'Show 5-hour limit'; Key = 'ShowUsage5h' },

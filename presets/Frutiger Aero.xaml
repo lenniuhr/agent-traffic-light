@@ -22,6 +22,8 @@
 
   <SolidColorBrush x:Key="BrushText"        Color="#072642" />
   <SolidColorBrush x:Key="BrushTextDim"     Color="#24506F" />
+  <!-- The rings in the working blue, not the navy of the dim text. -->
+  <SolidColorBrush x:Key="BrushRing"        Color="#0E8CF0" />
 
   <SolidColorBrush x:Key="BrushWorking"     Color="#0E8CF0" />
   <SolidColorBrush x:Key="BrushWaiting"     Color="#E848C82E" />

@@ -15,6 +15,7 @@ repository" on, under the repository the session is really working in:
 | Row | Meaning |
 | --- | --- |
 | Dark row, turning ring | Working. The time on the right counts up. |
+| Dark row, closed ring standing still | Waiting on its own work, not on you: its turn is over, but helper agents or background commands it started still run, or it set itself a timer to check back. The number inside counts the helpers; commands or a timer alone leave the ring empty. The time keeps counting, and the row turns green once nothing is left. "Green only once helpers and commands end" under Settings, on by default, turns this off, and green then means only that the turn is over. |
 | Green row | Finished and waiting for you. The time on the right is when it stopped. |
 | Amber row, pulsing | Blocked on you: a permission prompt or a question. |
 | Dark row, dimmed label, no ring, no dot | Watching: only the Marshal session, between rounds, with nothing for you. The time on the right is when its last round ended. |
@@ -111,10 +112,15 @@ inside a larger checkout starts the new session at the checkout's top, as its se
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
 
-A session with helper agents running shows a larger turning ring with their number inside, helpers
-of helpers included, in place of the small ring. It shows on a row of any colour, in place of the
-blue dot on a green row whose background helpers still run, and the dot comes back when the last
-one ends. A helper counts until its meta file in the session's `subagents` folder says it
+A session with helper agents running shows a larger ring with their number inside, helpers of
+helpers included, in place of the small ring. It turns while the session itself works, and closes
+and stands still once the session's turn is over and only its helpers run: that row stays dark
+instead of turning green, plays no sound and shows no dot until the last helper ends. On an amber
+row it shows in place of the dot. Commands a session started in the background keep it dark the same way, for
+as long as Claude marks its session file `shell`, which it does while its turn is over and one of
+them still runs. A command that never ends, such as a dev server, keeps its session dark. A session that set itself a timer with Claude's
+`ScheduleWakeup` waits the same way, with the ring empty, until shortly after the timer is due; a
+later call that stops the timer ends it. A helper counts until its meta file in the session's `subagents` folder says it
 finished, or its own transcript ends on Claude's "Request interrupted by user" note, which is how
 a stopped helper drops off at once. One untouched for half an hour, or left over from before a
 resumed session started again, no longer counts. A remote session's count comes from its place, which adds it to its list

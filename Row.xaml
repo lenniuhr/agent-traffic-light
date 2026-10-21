@@ -85,9 +85,9 @@
              Fill="{DynamicResource BrushWorking}" />
 
     <!-- A working session gets a turning ring instead: three quarters of a
-         circle, the usual sign for "busy, leave it", in the plain text colour so
-         it never competes with the blue dot. The script turns every ring with
-         one shared rotation, so they all move in step. -->
+         circle, the usual sign for "busy, leave it", in the ring colour, which
+         is the dim text colour unless the style picks its own. The script turns
+         every ring with one shared rotation, so they all move in step. -->
     <Path x:Name="Spinner"
           Grid.Column="1"
           Width="10" Height="10"
@@ -95,7 +95,7 @@
           VerticalAlignment="Center"
           Margin="3,0,0,0"
           RenderTransformOrigin="0.5,0.5"
-          Stroke="{DynamicResource BrushTextDim}"
+          Stroke="{DynamicResource BrushRing}"
           StrokeThickness="1.6"
           StrokeStartLineCap="Round"
           StrokeEndLineCap="Round"

@@ -14,6 +14,9 @@
   <SolidColorBrush x:Key="BrushCardInner"   Color="#1AFFFFFF" />
   <SolidColorBrush x:Key="BrushText"        Color="#E8EBEF" />
   <SolidColorBrush x:Key="BrushTextDim"     Color="#8B94A1" />
+  <!-- The working ring and the helpers' ring. A preset that leaves it out
+       gets its own dim text colour, as every ring had before. -->
+  <SolidColorBrush x:Key="BrushRing"        Color="#8B94A1" />
 
   <!-- Row states. Blue is the calm one on purpose: it has the lowest salience
        of the three, so a card full of working sessions stays quiet.
