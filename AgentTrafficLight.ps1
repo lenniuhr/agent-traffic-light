@@ -1123,6 +1123,7 @@ $script:closedSessions = @{}   # session id -> entry
 $script:closedByKey = @{}      # row key -> entry
 $script:nextClosedKey = [int64]-2000000000000
 $script:forgetSessions = @{}   # session id -> $true for a session killed here, which leaves no closed row, until its Claude has stopped
+$script:keepSessions = @{}     # session id -> $true for a session its row's Close is closing, kept whatever KeepClosedWindows says
 $script:localSeen = @{}        # session id -> how its row last looked: Cwd, Label, Workspace, Model, Prompt
 $script:openSaved = ''         # open.json as last written
 $script:openAtStart = $null    # the sessions open when the card last ran, until the first sweep
@@ -1237,9 +1238,11 @@ function Get-RowLocal {
 }
 
 # Close: the session's window closes, which ends its Claude, and its row turns
-# into a closed row to resume later.
+# into a closed row to resume later, even with KeepClosedWindows off.
 function Close-LocalSession {
     param($Element)
+    $info = Get-RowLocal -Element $Element
+    if ($null -ne $info) { $script:keepSessions[[string]$info.SessionId] = $true }
     [TlNative]::Close([IntPtr]$Element.Tag) | Out-Null
 }
 
@@ -1966,10 +1969,14 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 #
 # AskBeforeKill asks before a row's Kill stops a session, here or elsewhere. On
 # by default; off, Kill stops it at once.
+#
+# KeepClosedWindows keeps a session of this PC whose window is closed as a
+# closed row to resume. On by default; off, only a row's Close keeps one, and a
+# window closed any other way takes its session off the card.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
-                      ShowOthersSessions = $true; AskBeforeKill = $true
+                      ShowOthersSessions = $true; AskBeforeKill = $true; KeepClosedWindows = $true
                       DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @() }
 
 function Read-Settings {
@@ -1981,6 +1988,7 @@ function Read-Settings {
         if ($null -ne $saved.ShowUsageWeek) { $script:settings.ShowUsageWeek = [bool]$saved.ShowUsageWeek }
         if ($null -ne $saved.ShowOthersSessions) { $script:settings.ShowOthersSessions = [bool]$saved.ShowOthersSessions }
         if ($null -ne $saved.AskBeforeKill) { $script:settings.AskBeforeKill = [bool]$saved.AskBeforeKill }
+        if ($null -ne $saved.KeepClosedWindows) { $script:settings.KeepClosedWindows = [bool]$saved.KeepClosedWindows }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.HiddenLaunchRepos) { $script:settings.HiddenLaunchRepos = @($saved.HiddenLaunchRepos | ForEach-Object { [string]$_ }) }
@@ -2006,6 +2014,7 @@ function Save-Settings {
             ShowUsageWeek    = $script:settings.ShowUsageWeek
             ShowOthersSessions = $script:settings.ShowOthersSessions
             AskBeforeKill    = $script:settings.AskBeforeKill
+            KeepClosedWindows = $script:settings.KeepClosedWindows
             DefaultSound     = $script:settings.DefaultSound
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
@@ -4429,10 +4438,18 @@ function Update-Card {
             $script:knownHandles.Remove($h)
             $closedKey = [string][int64]$h
             # A session of this PC turns into a closed row on this same poll, in
-            # its row's place, so the row never vanishes.
+            # its row's place, so the row never vanishes. With KeepClosedWindows
+            # off, a window closed other than by its row's Close leaves the card
+            # as a Kill would.
             $closedInfo = $script:sessionByHwnd[$closedKey]
             if ($null -ne $closedInfo -and $closedInfo.Remote -ne 'In') {
-                Add-ClosedSession -Info $closedInfo -Rec $rows[$closedKey]
+                $closedSid = [string]$closedInfo.SessionId
+                if ($script:settings.KeepClosedWindows -or $script:keepSessions.ContainsKey($closedSid)) {
+                    Add-ClosedSession -Info $closedInfo -Rec $rows[$closedKey]
+                } elseif ($closedSid) {
+                    $script:forgetSessions[$closedSid] = $true
+                }
+                $script:keepSessions.Remove($closedSid)
             }
             if ($script:outgoingByHwnd.ContainsKey($closedKey)) {
                 $closedHost = $script:outgoingByHwnd[$closedKey]
@@ -5137,6 +5154,18 @@ function Show-SettingsMenu {
         } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
     })
     [void]$settingsItem.Items.Add($askKillItem)
+
+    $keepClosedItem = New-CardMenuItem -Header 'Keep closed windows to resume'
+    $keepClosedItem.IsCheckable = $true
+    $keepClosedItem.IsChecked = [bool]$script:settings.KeepClosedWindows
+    $keepClosedItem.Add_Click({
+        param($sender, $e)
+        try {
+            $script:settings.KeepClosedWindows = [bool]$sender.IsChecked
+            Save-Settings
+        } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+    })
+    [void]$settingsItem.Items.Add($keepClosedItem)
 
     # The subscription's limits along the card's bottom, each on its own.
     foreach ($bar in @(@{ Header = 'Show 5-hour limit'; Key = 'ShowUsage5h' },
