@@ -1392,11 +1392,19 @@ function Sync-SessionMap {
 
     # A session of this PC whose Claude has ended since the last sweep, with
     # its window still open or not, becomes a closed row. A window closing is
-    # caught sooner, on the poll that finds it gone (Update-Card).
+    # caught sooner, on the poll that finds it gone (Update-Card). Its Claude
+    # outlives the window by about 400 ms, so a sweep in between keeps the
+    # window's session until that poll; dropped here, the poll found no session
+    # behind the window and its row's Close kept nothing.
     if (-not $Probe) {
         foreach ($key in @($script:sessionByHwnd.Keys)) {
             $old = $script:sessionByHwnd[$key]
-            if ($old.Remote -eq 'In' -or $claudeParents.ContainsKey($old.Pid)) { continue }
+            if ($old.Remote -eq 'In') { continue }
+            if ($claudeParents.ContainsKey($old.Pid)) {
+                if (-not $map.ContainsKey($key) -and $script:knownHandles.Contains([IntPtr][int64]$key) -and
+                    -not [TlNative]::IsWindow([IntPtr][int64]$key)) { $map[$key] = $old }
+                continue
+            }
             Add-ClosedSession -Info $old -Rec $rows[$key]
         }
 
