@@ -90,7 +90,8 @@ On a machine several people use, such as the build PC, the list holds everyone's
 owner's first name in front of the ones others started. "Show other people's sessions", on by
 default under Settings, hides those when switched off: the card then asks with
 `office-sessions --list --mine`. A place whose `office-sessions` predates `--mine` lists everything
-either way.
+either way. Asked with `--folders`, a place adds the Windows folder each session works in as a last
+field, after the helpers, for the row menu's "New session in" below.
 
 Along the card's bottom, two bars show how much of the Claude subscription's limits is used: the
 five-hour window and the week, each with the time it resets. The card reads the login Claude Code
@@ -138,11 +139,23 @@ subagents finishing inside it never trigger it, and different sessions can have 
 Marshal round in between does not count as a new need, so an open question sounds once, not every
 round. The choice belongs to the terminal window and goes away when the window closes.
 
+The menu also offers "New session in", naming the folder the row's session works in. For a session
+of this PC, open or closed, it opens a new terminal in that folder, as "New session" does. For a
+session on another machine it opens a terminal here running `claude-in` there, over ssh or through
+WSL, which starts Claude in that machine's copy of the folder in a tmux session named as the row's
+is, without its number. A remote row offers it only when its place lists folders.
+
 A session left on Default plays the default sound, picked under "Default sound" in the card's
 settings and Off until one is. Changing the default changes it for every session on Default,
 including those already open; a session with Off or a sound of its own keeps it.
 
 The three bars left of the session clock open the card's settings, saved in `state\settings.json`.
+
+The eye left of the clock hides every faded row, the closed sessions and those running elsewhere
+with no window here, so only the sessions with a window show; a click on it again shows them in
+their places. It is struck through while they are hidden, and its tooltip says how many are. The
+choice is kept as `HideFadedRows` in `state\settings.json`. The tray still takes the colour of a
+hidden row.
 
 Under Style the settings pick the card's look, applied on the spot: Classic, the card as described
 here; Terminal, square, flat and monospaced, with denser rows drawn as boxes in the state's colour; or
