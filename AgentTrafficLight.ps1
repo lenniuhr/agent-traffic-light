@@ -682,11 +682,12 @@ function Get-OutgoingWindows {
 # as jonathan@office, or "wsl" or "wsl:Ubuntu" for this PC's own WSL. Each place is asked for
 # its list with "office-sessions --list" every few seconds, in a process of its
 # own so the card never waits on the network. A line of that list is
-#   name|window|state|claude session id|title|helpers
+#   name|window|state|claude session id|title|helpers|folder
 # where window is "remote", "local" or "" for no window anywhere, state is
 # "working", "waiting", or from a place new enough "shell" for a session
-# waiting on a background command, and helpers is how many helper agents the
-# session has running, from a place new enough.
+# waiting on a background command, helpers is how many helper agents the
+# session has running, and folder the Windows folder it works in, both from a
+# place new enough.
 #
 # A session with no window gets a row of its own, keyed by a large negative
 # number so it can collide with neither a window handle nor an incoming row's
@@ -781,10 +782,11 @@ function Start-KeptPoll {
         # the poll runs into its time limit, and the place shows as "Cannot reach it".
         $psi.Arguments = '-n -o BatchMode=yes -o ConnectTimeout=5 ' + $Place + ' office-sessions --list'
     }
-    # --helpers adds each session's running helper agents. --mine leaves out the
-    # sessions other people started there. A place too old to know either
-    # ignores it.
-    $psi.Arguments += ' --helpers'
+    # --helpers adds each session's running helper agents, and --folders the
+    # folder each works in, where the row's menu starts a new session. --mine
+    # leaves out the sessions other people started there. A place too old to
+    # know any of them ignores it.
+    $psi.Arguments += ' --helpers --folders'
     if (-not $script:settings.ShowOthersSessions) { $psi.Arguments += ' --mine' }
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
@@ -802,11 +804,16 @@ function ConvertFrom-KeptList {
         $parts = $line.TrimEnd("`r").Split('|', 5)
         if ($parts.Count -lt 5 -or -not $parts[0]) { continue }
         # Asked with --helpers, a place adds how many helper agents each
-        # session has running as a last field, after the title. A place too old
-        # to know it leaves the title last and its sessions at 0.
+        # session has running as a last field, after the title, and asked with
+        # --folders the folder the session works in after that. A place too old
+        # to know either leaves the title last, its sessions at 0 and with no
+        # folder.
         $title = $parts[4]
         $helpers = 0
-        if ($title -match '^(.*)\|(\d+)$') { $title = $matches[1]; $helpers = [int]$matches[2] }
+        $folder = ''
+        if ($title -match '^(.*)\|(\d+)\|([^|]*)$') {
+            $title = $matches[1]; $helpers = [int]$matches[2]; $folder = $matches[3]
+        } elseif ($title -match '^(.*)\|(\d+)$') { $title = $matches[1]; $helpers = [int]$matches[2] }
         # A place new enough says "shell" for a session whose turn is over while
         # a command it started in the background still runs, as Claude marks its
         # session file; its row then waits on its own work, as one here does.
@@ -814,7 +821,7 @@ function ConvertFrom-KeptList {
             Place = $Place; Name = $parts[0]; Window = $parts[1]
             State = $(if ($parts[2] -eq 'working') { 'Working' } else { 'Waiting' })
             Shell = ($parts[2] -eq 'shell')
-            SessionId = $parts[3]; Title = $title; Helpers = $helpers
+            SessionId = $parts[3]; Title = $title; Helpers = $helpers; Folder = $folder
         })
     }
     return $list
@@ -1104,6 +1111,60 @@ function Open-KeptSession {
     if (-not $Kept.Problem) { $script:keptOpening["$($Kept.Place)|$($Kept.Name)"] = Get-Date }
     $poll = $script:keptSources[$Kept.Place]
     if ($null -ne $poll) { $poll.NextAt = (Get-Date).AddSeconds(2) }
+}
+
+# A new session at a place, in a folder there, in a terminal here: claude-in
+# starts Claude in a tmux session named as $Name is, without its number, the
+# way the shell's own shortcuts start one, so it keeps running when this
+# window closes. Over ssh the far end's shell reads the folder, so it is
+# quoted for that shell; through WSL nothing does, so it is quoted for wsl.exe.
+function Start-KeptSession {
+    param([string]$Place, [string]$Name, [string]$Folder)
+    $base = $Name -replace '-\d+$', ''
+    if (Test-WslPlace -Place $Place) {
+        $command = @('wsl.exe') + @((Get-WslPrefix -Place $Place).Trim() -split ' ') + @('claude-in', $base, ('"' + $Folder + '"'))
+    } else {
+        $command = @('ssh.exe', '-t', $Place, 'claude-in', $base, ("'" + $Folder.Replace("'", "'\''") + "'"))
+    }
+    try {
+        $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
+        if ($wt) {
+            Start-Process -FilePath $wt.Source -ArgumentList (@('-w', 'new') + $command)
+        } else {
+            Start-Process -FilePath $command[0] -ArgumentList @($command | Select-Object -Skip 1)
+        }
+    } catch {
+        Write-ErrorLog -Where 'launch' -Problem $_
+        Show-TrayNote -Text ("Could not open a session on " + (Get-KeptPlaceLong -Place $Place))
+        return
+    }
+    $poll = $script:keptSources[$Place]
+    if ($null -ne $poll) { $poll.NextAt = (Get-Date).AddSeconds(2) }
+}
+
+# Where a row's "New session in this folder" starts one, or $null for a row
+# with no folder to offer: a session of this PC, running or closed, in its
+# folder here; a session elsewhere in its folder there, as its place last
+# listed it, with Place and Name to start it through.
+function Get-RowNewTarget {
+    param($Element)
+    $key = [string][int64]$Element.Tag
+    $closed = Get-RowClosed -Element $Element
+    if ($null -ne $closed) {
+        if ($closed.Cwd) { return @{ Folder = $closed.Cwd } }
+        return $null
+    }
+    $info = $script:sessionByHwnd[$key]
+    if ($null -ne $info -and $info.Cwd) { return @{ Folder = $info.Cwd } }
+    $kept = $script:keptByKey[$key]
+    if ($null -eq $kept -and $script:outgoingByHwnd.ContainsKey($key) -and $rows.ContainsKey($key)) {
+        $rec = $rows[$key]
+        $kept = Get-OutgoingKept -HostName $script:outgoingByHwnd[$key] -TmuxName $rec.TmuxName -Label $rec.Label
+    }
+    if ($null -ne $kept -and -not $kept.Problem -and $kept.Folder) {
+        return @{ Folder = $kept.Folder; Place = $kept.Place; Name = $kept.Name }
+    }
+    return $null
 }
 
 # ---------------------------------------------------------------------------
@@ -3584,7 +3645,19 @@ function Show-RowMenu {
             Stop-LocalSession -Element $Row
         } | Out-Null
     }
-    if ($null -ne $reopen -or $null -ne $kept -or $null -ne $closed -or $null -ne $local) {
+    # A new session in the folder this one works in: here for a session of this
+    # PC, on its own machine for one elsewhere.
+    $newAt = Get-RowNewTarget -Element $Element
+    if ($null -ne $newAt) {
+        $newHeader = 'New session in ' + (Split-Path -Leaf $newAt.Folder)
+        if ($newAt.Place) { $newHeader += ' on ' + (Get-KeptPlaceLong -Place $newAt.Place) }
+        Add-CardMenuAction -Parent $menu -Header $newHeader -Arg $newAt -Where 'launch' -Action {
+            param($At)
+            if ($At.Place) { Start-KeptSession -Place $At.Place -Name $At.Name -Folder $At.Folder }
+            else { Start-ClaudeSession -Folder $At.Folder }
+        } | Out-Null
+    }
+    if ($null -ne $reopen -or $null -ne $kept -or $null -ne $closed -or $null -ne $local -or $null -ne $newAt) {
         [void]$menu.Items.Add((New-CardMenuSeparator))
     }
 

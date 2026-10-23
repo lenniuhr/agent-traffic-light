@@ -90,7 +90,8 @@ On a machine several people use, such as the build PC, the list holds everyone's
 owner's first name in front of the ones others started. "Show other people's sessions", on by
 default under Settings, hides those when switched off: the card then asks with
 `office-sessions --list --mine`. A place whose `office-sessions` predates `--mine` lists everything
-either way.
+either way. Asked with `--folders`, a place adds the Windows folder each session works in as a last
+field, after the helpers, for the row menu's "New session in" below.
 
 Along the card's bottom, two bars show how much of the Claude subscription's limits is used: the
 five-hour window and the week, each with the time it resets. The card reads the login Claude Code
@@ -137,6 +138,12 @@ and over while it waits, across restarts of the card. It follows that session's 
 subagents finishing inside it never trigger it, and different sessions can have different sounds. A
 Marshal round in between does not count as a new need, so an open question sounds once, not every
 round. The choice belongs to the terminal window and goes away when the window closes.
+
+The menu also offers "New session in", naming the folder the row's session works in. For a session
+of this PC, open or closed, it opens a new terminal in that folder, as "New session" does. For a
+session on another machine it opens a terminal here running `claude-in` there, over ssh or through
+WSL, which starts Claude in that machine's copy of the folder in a tmux session named as the row's
+is, without its number. A remote row offers it only when its place lists folders.
 
 A session left on Default plays the default sound, picked under "Default sound" in the card's
 settings and Off until one is. Changing the default changes it for every session on Default,
