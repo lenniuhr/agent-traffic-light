@@ -683,8 +683,10 @@ function Get-OutgoingWindows {
 # its list with "office-sessions --list" every few seconds, in a process of its
 # own so the card never waits on the network. A line of that list is
 #   name|window|state|claude session id|title|helpers
-# where window is "remote", "local" or "" for no window anywhere, and helpers
-# is how many helper agents the session has running, from a place new enough.
+# where window is "remote", "local" or "" for no window anywhere, state is
+# "working", "waiting", or from a place new enough "shell" for a session
+# waiting on a background command, and helpers is how many helper agents the
+# session has running, from a place new enough.
 #
 # A session with no window gets a row of its own, keyed by a large negative
 # number so it can collide with neither a window handle nor an incoming row's
@@ -805,9 +807,13 @@ function ConvertFrom-KeptList {
         $title = $parts[4]
         $helpers = 0
         if ($title -match '^(.*)\|(\d+)$') { $title = $matches[1]; $helpers = [int]$matches[2] }
+        # A place new enough says "shell" for a session whose turn is over while
+        # a command it started in the background still runs, as Claude marks its
+        # session file; its row then waits on its own work, as one here does.
         [void]$list.Add(@{
             Place = $Place; Name = $parts[0]; Window = $parts[1]
             State = $(if ($parts[2] -eq 'working') { 'Working' } else { 'Waiting' })
+            Shell = ($parts[2] -eq 'shell')
             SessionId = $parts[3]; Title = $title; Helpers = $helpers
         })
     }
@@ -971,10 +977,10 @@ function Test-KeptTitle {
     return $false
 }
 
-# The helper agents running in the kept session a window here shows, as its
-# place last listed them: the session its title names, or else the one session
-# there whose title is the window's. 0 when neither is found.
-function Get-OutgoingHelpers {
+# The kept session a window here shows, as its place last listed it, for its
+# helper agents and background commands: the session its title names, or else
+# the one session there whose title is the window's. $null when neither is found.
+function Get-OutgoingKept {
     param([string]$HostName, [string]$TmuxName, [string]$Label)
     foreach ($place in @($script:keptSources.Keys)) {
         if ((Get-KeptPlaceName -Place $place) -ne $HostName) { continue }
@@ -984,9 +990,9 @@ function Get-OutgoingHelpers {
         } else {
             $found = @($sessions | Where-Object { $_.Window -eq 'remote' -and $_.Title -eq $Label })
         }
-        if ($found.Count -eq 1) { return [int]$found[0].Helpers }
+        if ($found.Count -eq 1) { return $found[0] }
     }
-    return 0
+    return $null
 }
 
 # The kept session a row's click should open, or $null: one of the rows above,
@@ -1423,8 +1429,19 @@ function Sync-SessionMap {
             }
             $script:openAtStart = $null
         }
+        # A session on the card whose Claude has ended unseen by both endings
+        # above, its window and its session gone between two sweeps, becomes a
+        # closed row here; dropped, it left the card with nothing to resume. A
+        # session whose Claude still runs under a new id, after /clear, is not
+        # closed.
         foreach ($sid in @($script:localSeen.Keys)) {
-            if (-not $liveIds.ContainsKey($sid)) { $script:localSeen.Remove($sid) }
+            if ($liveIds.ContainsKey($sid)) { continue }
+            $gone = $script:localSeen[$sid]
+            if ($gone.Pid -gt 0 -and -not $claudeParents.ContainsKey([int]$gone.Pid) -and
+                ($script:settings.KeepClosedWindows -or $script:keepSessions.ContainsKey($sid))) {
+                Add-ClosedSession -Info @{ SessionId = $sid; Cwd = $gone.Cwd; Workspace = $gone.Workspace } -Rec $null
+            }
+            $script:localSeen.Remove($sid)
         }
         # A killed session's Claude has stopped and both its endings are seen:
         # the one above, and its window's, which came first or finds no session
@@ -4712,7 +4729,7 @@ function Update-Card {
             # between two polls and the row be gone by then.
             if ($info.Remote -ne 'In' -and $info.SessionId -and $rec.Label) {
                 $script:localSeen[[string]$info.SessionId] = @{ Cwd = [string]$info.Cwd; Label = $rec.Label; Workspace = $rec.Workspace
-                                                                Model = $rec.Model; Prompt = $rec.Prompt }
+                                                                Model = $rec.Model; Prompt = $rec.Prompt; Pid = [int]$info.Pid }
             }
             if ($info.Remote -eq 'In') {
                 # Started from somewhere else. When it runs in tmux here, say
@@ -4735,6 +4752,7 @@ function Update-Card {
             $placeName = Get-KeptPlaceName -Place $kept.Place
             $rec.Workspace = $placeName
             $rec.Helpers = [int]$kept.Helpers
+            $rec.SessionStatus = $(if ($kept.Shell) { 'shell' } else { '' })
             if ($kept.Problem -eq 'signin') {
                 $rec.RemoteNote = 'Tailscale wants you to sign in again'
             } elseif ($kept.Problem) {
@@ -4770,7 +4788,9 @@ function Update-Card {
             } else {
                 $rec.RemoteNote = 'connected' + $listSep + 'ends when closed'
             }
-            $rec.Helpers = Get-OutgoingHelpers -HostName $rec.Workspace -TmuxName $rec.TmuxName -Label $rec.PendingLabel
+            $outKept = Get-OutgoingKept -HostName $rec.Workspace -TmuxName $rec.TmuxName -Label $rec.PendingLabel
+            $rec.Helpers = $(if ($null -ne $outKept) { [int]$outKept.Helpers } else { 0 })
+            $rec.SessionStatus = $(if ($null -ne $outKept -and $outKept.Shell) { 'shell' } else { '' })
         } elseif ($rec.OutHost) {
             # Its ssh has ended but the window still shows a session title, so
             # it is no longer filed under the host it left.
@@ -5581,8 +5601,11 @@ function Start-ClaudeSession {
         return
     }
     try { Reset-LaunchEnvironment } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
-    $claude = @('-NoExit', '-Command', 'claude', '--permission-mode', 'auto')
-    # A closed session is resumed by its id, which the resumed session keeps.
+    # A closed session is resumed by its id, which the resumed session keeps,
+    # and with permissions bypassed: in auto mode it stopped short of work it
+    # did before it closed, and had to be restarted to go on.
+    $mode = $(if ($Resume) { 'bypassPermissions' } else { 'auto' })
+    $claude = @('-NoExit', '-Command', 'claude', '--permission-mode', $mode)
     if ($Resume) { $claude += @('--resume', $Resume) }
     try {
         $wt = Get-Command wt.exe -ErrorAction SilentlyContinue

@@ -58,8 +58,9 @@ from the session's own busy or idle and its label from the session's task title.
 
 A session of this PC stays on the card when its terminal closes or its Claude ends, as a slim faded
 row of its title and when it closed, "closed 17:11". A click on it, or on its Resume button, a play
-triangle, opens a new terminal in its folder running `claude --resume` with its id; the new
-window's row takes the closed row's place. A row's buttons, shown in the time's place while the
+triangle, opens a new terminal in its folder running `claude --resume` with its id, with
+permissions bypassed (`--permission-mode bypassPermissions`); the new window's row takes the closed
+row's place. A row's buttons, shown in the time's place while the
 pointer is on the row, are Close, which closes the window and keeps the row to resume, and Kill, a
 skull, which asks, then closes the window and takes the session off the card. "Ask before Kill",
 on by default under Settings, skips the question when switched off, here and for a session on
@@ -124,7 +125,9 @@ later call that stops the timer ends it. A helper counts until its meta file in 
 finished, or its own transcript ends on Claude's "Request interrupted by user" note, which is how
 a stopped helper drops off at once. One untouched for half an hour, or left over from before a
 resumed session started again, no longer counts. A remote session's count comes from its place, which adds it to its list
-when asked with `office-sessions --list --helpers`; a place without that shows no count.
+when asked with `office-sessions --list --helpers`; a place without that shows no count. Its
+background commands come from there too: a place new enough gives such a session the state `shell`
+in its list, read from the session's file there, and one too old shows it green.
 
 Right-click a session's row for its menu: Bring to front, Maximize window (or Put window back), and
 Sound, which opens a list on hover: Default, naming the default sound, then Off and every sound, with
