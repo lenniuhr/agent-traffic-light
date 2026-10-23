@@ -151,6 +151,12 @@ including those already open; a session with Off or a sound of its own keeps it.
 
 The three bars left of the session clock open the card's settings, saved in `state\settings.json`.
 
+The eye left of the clock hides every faded row, the closed sessions and those running elsewhere
+with no window here, so only the sessions with a window show; a click on it again shows them in
+their places. It is struck through while they are hidden, and its tooltip says how many are. The
+choice is kept as `HideFadedRows` in `state\settings.json`. The tray still takes the colour of a
+hidden row.
+
 Under Style the settings pick the card's look, applied on the spot: Classic, the card as described
 here; Terminal, square, flat and monospaced, with denser rows drawn as boxes in the state's colour; or
 Phosphor, a glowing green monochrome screen where, with one colour to work with, a row gets louder

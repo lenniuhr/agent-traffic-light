@@ -2107,10 +2107,15 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 # background commands it started still run, or a timer it set has yet to wake
 # it: it waits on its own work, not on you. On by default; off, green means
 # only that its turn is over.
+#
+# HideFadedRows leaves the faded rows off the card: closed sessions, and
+# sessions elsewhere with no window here. Switched by the eye left of the
+# clock. Off by default.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
                       ShowOthersSessions = $true; AskBeforeKill = $true; KeepClosedWindows = $true; WaitOnOwnWork = $true
+                      HideFadedRows = $false
                       DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @() }
 
 function Read-Settings {
@@ -2124,6 +2129,7 @@ function Read-Settings {
         if ($null -ne $saved.AskBeforeKill) { $script:settings.AskBeforeKill = [bool]$saved.AskBeforeKill }
         if ($null -ne $saved.KeepClosedWindows) { $script:settings.KeepClosedWindows = [bool]$saved.KeepClosedWindows }
         if ($null -ne $saved.WaitOnOwnWork) { $script:settings.WaitOnOwnWork = [bool]$saved.WaitOnOwnWork }
+        if ($null -ne $saved.HideFadedRows) { $script:settings.HideFadedRows = [bool]$saved.HideFadedRows }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.HiddenLaunchRepos) { $script:settings.HiddenLaunchRepos = @($saved.HiddenLaunchRepos | ForEach-Object { [string]$_ }) }
@@ -2151,6 +2157,7 @@ function Save-Settings {
             AskBeforeKill    = $script:settings.AskBeforeKill
             KeepClosedWindows = $script:settings.KeepClosedWindows
             WaitOnOwnWork    = $script:settings.WaitOnOwnWork
+            HideFadedRows    = $script:settings.HideFadedRows
             DefaultSound     = $script:settings.DefaultSound
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
@@ -2890,7 +2897,27 @@ $workClock     = $window.FindName('WorkClock')
 $workClockText = $window.FindName('WorkClockText')
 $workClockSub  = $window.FindName('WorkClockSub')
 $menuButton    = $window.FindName('MenuButton')
+$eyeButton     = $window.FindName('EyeButton')
+$eyeGlyph      = $window.FindName('EyeGlyph')
 $usagePanel    = $window.FindName('UsagePanel')
+
+# The eye left of the clock, in a 16 by 16 box: open while every row shows,
+# struck through while the faded rows are hidden, with how many in its tooltip.
+$eyeOpen   = [System.Windows.Media.Geometry]::Parse('M1.5,8 C3.5,4 12.5,4 14.5,8 C12.5,12 3.5,12 1.5,8 Z M10.2,8 A2.2,2.2 0 1 1 5.8,8 A2.2,2.2 0 1 1 10.2,8 Z')
+$eyeStruck = [System.Windows.Media.Geometry]::Parse('M1.5,8 C3.5,4 12.5,4 14.5,8 C12.5,12 3.5,12 1.5,8 Z M10.2,8 A2.2,2.2 0 1 1 5.8,8 A2.2,2.2 0 1 1 10.2,8 Z M2.5,13.5 L13.5,2.5')
+function Update-EyeButton {
+    param([int]$Hidden)
+    if ($script:settings.HideFadedRows) {
+        $data = $eyeStruck
+        $tip = 'Show closed and not connected sessions'
+        if ($Hidden -gt 0) { $tip += " ($Hidden hidden)" }
+    } else {
+        $data = $eyeOpen
+        $tip = 'Hide closed and not connected sessions'
+    }
+    if (-not [object]::ReferenceEquals($eyeGlyph.Data, $data)) { $eyeGlyph.Data = $data }
+    if ([string]$eyeButton.ToolTip -ne $tip) { $eyeButton.ToolTip = $tip }
+}
 $usageBars = @(
     @{ Setting = 'ShowUsage5h'; Field = 'five_hour'; Row = $window.FindName('Usage5h')
        Used = $window.FindName('Usage5hUsed'); Left = $window.FindName('Usage5hLeft'); Fill = $window.FindName('Usage5hFill')
@@ -4309,9 +4336,10 @@ function Complete-RowDrag {
 
 function Write-LayoutDump {
     $lines = New-Object System.Collections.ArrayList
-    [void]$lines.Add(('{0:o}  drag={1}  order={2}  preset={3}  pitch={4}  height={5}  live={6}  rows={7}  warn={8}' -f (Get-Date), ($null -ne $script:drag),
+    [void]$lines.Add(('{0:o}  drag={1}  order={2}  preset={3}  pitch={4}  height={5}  live={6}  rows={7}  warn={8}  hide={9} hidden={10}' -f (Get-Date), ($null -ne $script:drag),
         ($script:userOrder -join ','), $script:preset, ($script:rowHeight + $rowGap), $window.Height,
-        $script:liveSessionCount, $rows.Count, $warnText.Visibility))
+        $script:liveSessionCount, $rows.Count, $warnText.Visibility, $script:settings.HideFadedRows,
+        @($rows.Values | Where-Object { $_.Element.Visibility -ne 'Visible' }).Count))
     [void]$lines.Add(('usage  panel={0}  opacity={1}  {2}' -f $usagePanel.Visibility, $usagePanel.Opacity,
         (($usageBars | ForEach-Object { '{0}={1} {2} "{3}" "{4}"' -f $_.Field, $_.Row.Visibility, $_.Used.Width, $_.Pct.Text, $_.Reset.Text }) -join '  ')))
     foreach ($name in @($script:groupOrder.Keys)) {
@@ -4327,13 +4355,14 @@ function Write-LayoutDump {
         }
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
-            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} close={15} buttons={16} tmux={12} helpers={14}' -f
+            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} close={15} buttons={16} tmux={12} helpers={14} waits={17} new={18}' -f
                 $rec.Top, [Math]::Round($drawn, 1),
                 [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$rec.StartedAt).LocalDateTime,
                 $rec.Seq, [int64]$rec.Handle, $script:orderIndex[[string][int64]$rec.Handle], $rec.Label,
                 $rec.State, $rec.Detail, [Math]::Round($rec.Element.Opacity, 2), $rec.ClickAction,
                 $rec.KillButton.Visibility, $rec.TmuxName, $rec.DisconnectButton.Visibility, $rec.Helpers,
-                $rec.CloseButton.Visibility, $rec.RowButtons.Tag))
+                $rec.CloseButton.Visibility, $rec.RowButtons.Tag, $rec.WaitsOn,
+                $(Get-RowNewTarget -Element $rec.Element | ForEach-Object { $_.Folder + $(if ($_.Place) { ' at ' + $_.Place + ' as ' + $_.Name }) })))
         }
     }
     Set-Content -Path (Join-Path $stateDir 'dump.txt') -Value $lines -Encoding UTF8
@@ -5058,7 +5087,16 @@ function Get-RowPitch {
 }
 
 function Update-Layout {
-    $ordered = @($rows.Values)
+    # With HideFadedRows on, a faded row, one whose click resumes or reconnects
+    # it, is left off the card: hidden, not removed, so the eye brings it back
+    # in its place.
+    $all = @($rows.Values)
+    $ordered = @($all | Where-Object { -not ($script:settings.HideFadedRows -and $_.ClickAction) })
+    foreach ($rec in $all) {
+        $vis = $(if ($script:settings.HideFadedRows -and $rec.ClickAction) { 'Collapsed' } else { 'Visible' })
+        if ($rec.Element.Visibility -ne $vis) { $rec.Element.Visibility = $vis }
+    }
+    Update-EyeButton -Hidden ($all.Count - $ordered.Count)
 
     # Stable geography beats sorting attention to the top. At six rows a filled
     # row is found instantly anyway, and rows that never move let you learn
@@ -5215,7 +5253,8 @@ function Update-Layout {
         $script:headerPool[$i].Element.Visibility = 'Collapsed'
     }
 
-    $count = @($ordered).Count
+    # Hidden rows count as shown: the warning is about sessions with no row.
+    $count = $all.Count
     $liveFiles = $script:liveSessionCount
     if (Test-ShowWarning -Live $liveFiles -Shown $count -Now (Get-Date)) {
         # One session per window is load-bearing: if two ever share a window as
@@ -5231,7 +5270,7 @@ function Update-Layout {
     # left behind rather than recomputing from counts, which would have to know
     # about headers and group spacing all over again.
     $contentHeight = $y
-    if ($count -gt 0 -or $unityList.Count -gt 0) {
+    if ($ordered.Count -gt 0 -or $unityList.Count -gt 0) {
         $contentHeight -= $rowGap
         # Only if the final group actually added one; an unresolved group at the
         # bottom does not.
@@ -5800,6 +5839,21 @@ $menuButton.Add_MouseLeftButtonDown({
 $menuButton.Add_MouseLeftButtonUp({
     param($sender, $e)
     try { Show-SettingsMenu } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
+    $e.Handled = $true
+})
+
+# The eye too, which hides or shows the faded rows at once.
+$eyeButton.Add_MouseLeftButtonDown({
+    param($sender, $e)
+    $e.Handled = $true
+})
+$eyeButton.Add_MouseLeftButtonUp({
+    param($sender, $e)
+    try {
+        $script:settings.HideFadedRows = -not $script:settings.HideFadedRows
+        Save-Settings
+        Update-Layout
+    } catch { Write-ErrorLog -Where 'eye' -Problem $_ }
     $e.Handled = $true
 })
 
