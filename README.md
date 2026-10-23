@@ -58,8 +58,9 @@ from the session's own busy or idle and its label from the session's task title.
 
 A session of this PC stays on the card when its terminal closes or its Claude ends, as a slim faded
 row of its title and when it closed, "closed 17:11". A click on it, or on its Resume button, a play
-triangle, opens a new terminal in its folder running `claude --resume` with its id; the new
-window's row takes the closed row's place. A row's buttons, shown in the time's place while the
+triangle, opens a new terminal in its folder running `claude --resume` with its id, with
+permissions bypassed (`--permission-mode bypassPermissions`); the new window's row takes the closed
+row's place. A row's buttons, shown in the time's place while the
 pointer is on the row, are Close, which closes the window and keeps the row to resume, and Kill, a
 skull, which asks, then closes the window and takes the session off the card. "Ask before Kill",
 on by default under Settings, skips the question when switched off, here and for a session on

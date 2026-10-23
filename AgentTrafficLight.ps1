@@ -5601,8 +5601,11 @@ function Start-ClaudeSession {
         return
     }
     try { Reset-LaunchEnvironment } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
-    $claude = @('-NoExit', '-Command', 'claude', '--permission-mode', 'auto')
-    # A closed session is resumed by its id, which the resumed session keeps.
+    # A closed session is resumed by its id, which the resumed session keeps,
+    # and with permissions bypassed: in auto mode it stopped short of work it
+    # did before it closed, and had to be restarted to go on.
+    $mode = $(if ($Resume) { 'bypassPermissions' } else { 'auto' })
+    $claude = @('-NoExit', '-Command', 'claude', '--permission-mode', $mode)
     if ($Resume) { $claude += @('--resume', $Resume) }
     try {
         $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
