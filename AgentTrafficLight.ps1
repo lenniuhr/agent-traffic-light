@@ -1429,8 +1429,19 @@ function Sync-SessionMap {
             }
             $script:openAtStart = $null
         }
+        # A session on the card whose Claude has ended unseen by both endings
+        # above, its window and its session gone between two sweeps, becomes a
+        # closed row here; dropped, it left the card with nothing to resume. A
+        # session whose Claude still runs under a new id, after /clear, is not
+        # closed.
         foreach ($sid in @($script:localSeen.Keys)) {
-            if (-not $liveIds.ContainsKey($sid)) { $script:localSeen.Remove($sid) }
+            if ($liveIds.ContainsKey($sid)) { continue }
+            $gone = $script:localSeen[$sid]
+            if ($gone.Pid -gt 0 -and -not $claudeParents.ContainsKey([int]$gone.Pid) -and
+                ($script:settings.KeepClosedWindows -or $script:keepSessions.ContainsKey($sid))) {
+                Add-ClosedSession -Info @{ SessionId = $sid; Cwd = $gone.Cwd; Workspace = $gone.Workspace } -Rec $null
+            }
+            $script:localSeen.Remove($sid)
         }
         # A killed session's Claude has stopped and both its endings are seen:
         # the one above, and its window's, which came first or finds no session
@@ -4718,7 +4729,7 @@ function Update-Card {
             # between two polls and the row be gone by then.
             if ($info.Remote -ne 'In' -and $info.SessionId -and $rec.Label) {
                 $script:localSeen[[string]$info.SessionId] = @{ Cwd = [string]$info.Cwd; Label = $rec.Label; Workspace = $rec.Workspace
-                                                                Model = $rec.Model; Prompt = $rec.Prompt }
+                                                                Model = $rec.Model; Prompt = $rec.Prompt; Pid = [int]$info.Pid }
             }
             if ($info.Remote -eq 'In') {
                 # Started from somewhere else. When it runs in tmux here, say
