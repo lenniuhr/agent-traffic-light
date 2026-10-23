@@ -124,7 +124,9 @@ later call that stops the timer ends it. A helper counts until its meta file in 
 finished, or its own transcript ends on Claude's "Request interrupted by user" note, which is how
 a stopped helper drops off at once. One untouched for half an hour, or left over from before a
 resumed session started again, no longer counts. A remote session's count comes from its place, which adds it to its list
-when asked with `office-sessions --list --helpers`; a place without that shows no count.
+when asked with `office-sessions --list --helpers`; a place without that shows no count. Its
+background commands come from there too: a place new enough gives such a session the state `shell`
+in its list, read from the session's file there, and one too old shows it green.
 
 Right-click a session's row for its menu: Bring to front, Maximize window (or Put window back), and
 Sound, which opens a list on hover: Default, naming the default sound, then Off and every sound, with
