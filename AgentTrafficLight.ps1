@@ -1195,6 +1195,15 @@ $script:localSeen = @{}        # session id -> how its row last looked: Cwd, Lab
 $script:openSaved = ''         # open.json as last written
 $script:openAtStart = $null    # the sessions open when the card last ran, until the first sweep
 
+# Every row's Close and Kill, and what became of each session whose window or
+# Claude ended, go to state/closing.log, so a session that left the card when it
+# should have stayed can be traced afterwards.
+$closingLog = Join-Path $stateDir 'closing.log'
+function Write-ClosingLog {
+    param([string]$Text)
+    try { Add-Content -Path $closingLog -Value ('{0} {1}' -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss.fff'), $Text) -Encoding UTF8 } catch { }
+}
+
 function Save-ClosedSessions {
     $list = @($script:closedSessions.Values | ForEach-Object {
         [pscustomobject]@{ SessionId = $_.SessionId; Cwd = $_.Cwd; Label = $_.Label; Workspace = $_.Workspace
@@ -1252,9 +1261,9 @@ function Read-ClosedSessions {
 function Add-ClosedSession {
     param($Info, $Rec)
     $sid = [string]$Info.SessionId
-    if (-not $sid) { return }
-    if ($script:forgetSessions.ContainsKey($sid)) { return }
-    if ($script:closedSessions.ContainsKey($sid)) { return }
+    if (-not $sid) { Write-ClosingLog 'closed row: none, no session id'; return }
+    if ($script:forgetSessions.ContainsKey($sid)) { Write-ClosingLog "closed row: none for $sid, marked to drop"; return }
+    if ($script:closedSessions.ContainsKey($sid)) { Write-ClosingLog "closed row: $sid has one already"; return }
     $look = $script:localSeen[$sid]
     if ($null -ne $Rec -and $Rec.Label) {
         $look = @{ Label = $Rec.Label; Workspace = $Rec.Workspace; Model = $Rec.Model; Prompt = $Rec.Prompt }
@@ -1268,6 +1277,7 @@ function Add-ClosedSession {
     $script:closedSessions[$sid] = $entry
     $script:closedByKey[$entry.Key] = $entry
     Save-ClosedSessions
+    Write-ClosingLog "closed row: added $sid '$($entry.Label)'"
 }
 
 function Remove-ClosedSession {
@@ -1310,6 +1320,7 @@ function Close-LocalSession {
     param($Element)
     $info = Get-RowLocal -Element $Element
     if ($null -ne $info) { $script:keepSessions[[string]$info.SessionId] = $true }
+    Write-ClosingLog ("Close clicked: window {0}, session {1}" -f [int64]$Element.Tag, $(if ($null -ne $info) { $info.SessionId } else { 'none found, nothing kept' }))
     [TlNative]::Close([IntPtr]$Element.Tag) | Out-Null
 }
 
@@ -1319,17 +1330,19 @@ function Stop-LocalSession {
     param($Element)
     $closed = Get-RowClosed -Element $Element
     if ($null -ne $closed) {
+        Write-ClosingLog "Kill clicked on closed row: $($closed.SessionId)"
         Remove-ClosedSession -SessionId $closed.SessionId
         return
     }
     $info = Get-RowLocal -Element $Element
-    if ($null -eq $info) { return }
+    if ($null -eq $info) { Write-ClosingLog ("Kill clicked: window {0}, no session found, nothing done" -f [int64]$Element.Tag); return }
     if ($script:settings.AskBeforeKill) {
         $answer = [System.Windows.MessageBox]::Show($window,
             "Kill this session?`n`nIts window closes, Claude stops, and anything it is doing stops with it. It leaves the card; Claude's own /resume can still find it.",
             'Kill session', 'YesNo', 'Warning')
         if ($answer -ne 'Yes') { return }
     }
+    Write-ClosingLog ("Kill clicked: window {0}, session {1}" -f [int64]$Element.Tag, $info.SessionId)
     $script:forgetSessions[[string]$info.SessionId] = $true
     [TlNative]::Close([IntPtr]$Element.Tag) | Out-Null
 }
@@ -1470,8 +1483,12 @@ function Sync-SessionMap {
             if ($claudeParents.ContainsKey($old.Pid)) {
                 if (-not $map.ContainsKey($key) -and $script:knownHandles.Contains([IntPtr][int64]$key) -and
                     -not [TlNative]::IsWindow([IntPtr][int64]$key)) { $map[$key] = $old }
+                elseif (-not $map.ContainsKey($key) -and -not ($map.Values | Where-Object { $_.SessionId -eq $old.SessionId })) {
+                    Write-ClosingLog "sweep: lost which window shows $($old.SessionId), its Claude still runs"
+                }
                 continue
             }
+            Write-ClosingLog "sweep: Claude of $($old.SessionId) ended, window $key"
             Add-ClosedSession -Info $old -Rec $rows[$key]
         }
 
@@ -4677,11 +4694,15 @@ function Update-Card {
             if ($null -ne $closedInfo -and $closedInfo.Remote -ne 'In') {
                 $closedSid = [string]$closedInfo.SessionId
                 if ($script:settings.KeepClosedWindows -or $script:keepSessions.ContainsKey($closedSid)) {
+                    Write-ClosingLog "poll: window $closedKey gone, keeping $closedSid"
                     Add-ClosedSession -Info $closedInfo -Rec $rows[$closedKey]
                 } elseif ($closedSid) {
+                    Write-ClosingLog "poll: window $closedKey gone, dropping $closedSid (not closed by its row)"
                     $script:forgetSessions[$closedSid] = $true
                 }
                 $script:keepSessions.Remove($closedSid)
+            } elseif ($null -eq $closedInfo -and $rows.ContainsKey($closedKey) -and -not $script:outgoingByHwnd.ContainsKey($closedKey)) {
+                Write-ClosingLog "poll: window $closedKey gone, no session known behind it"
             }
             if ($script:outgoingByHwnd.ContainsKey($closedKey)) {
                 $closedHost = $script:outgoingByHwnd[$closedKey]
