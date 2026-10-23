@@ -2901,10 +2901,10 @@ $eyeButton     = $window.FindName('EyeButton')
 $eyeGlyph      = $window.FindName('EyeGlyph')
 $usagePanel    = $window.FindName('UsagePanel')
 
-# The eye left of the clock, in a 16 by 16 box: open while every row shows,
+# The eye left of the clock, in a 20 by 20 box: open while every row shows,
 # struck through while the faded rows are hidden, with how many in its tooltip.
-$eyeOpen   = [System.Windows.Media.Geometry]::Parse('M1.5,8 C3.5,4 12.5,4 14.5,8 C12.5,12 3.5,12 1.5,8 Z M10.2,8 A2.2,2.2 0 1 1 5.8,8 A2.2,2.2 0 1 1 10.2,8 Z')
-$eyeStruck = [System.Windows.Media.Geometry]::Parse('M1.5,8 C3.5,4 12.5,4 14.5,8 C12.5,12 3.5,12 1.5,8 Z M10.2,8 A2.2,2.2 0 1 1 5.8,8 A2.2,2.2 0 1 1 10.2,8 Z M2.5,13.5 L13.5,2.5')
+$eyeOpen   = [System.Windows.Media.Geometry]::Parse('M2,10 C4.5,5 15.5,5 18,10 C15.5,15 4.5,15 2,10 Z M12.8,10 A2.8,2.8 0 1 1 7.2,10 A2.8,2.8 0 1 1 12.8,10 Z')
+$eyeStruck = [System.Windows.Media.Geometry]::Parse('M2,10 C4.5,5 15.5,5 18,10 C15.5,15 4.5,15 2,10 Z M12.8,10 A2.8,2.8 0 1 1 7.2,10 A2.8,2.8 0 1 1 12.8,10 Z M3,17 L17,3')
 function Update-EyeButton {
     param([int]$Hidden)
     if ($script:settings.HideFadedRows) {
@@ -2996,6 +2996,15 @@ function Read-StyleValues {
     $script:ctxBarWidth  = $rowWidth - 30
     $window.Width = $script:cardWidth + 2 * $shadowMargin
     $rowCanvas.Margin = New-Object System.Windows.Thickness($script:cardPadding, $script:cardPadding, $script:cardPadding, 0)
+    # The eye sits on the middle of the clock's digits, not of its line: each
+    # preset's clock face puts its digits at its own height within the line.
+    $clockFace = New-Object System.Windows.Media.Typeface($window.FindResource('FontClock'),
+        [System.Windows.FontStyles]::Normal, $window.FindResource('ClockWeight'), [System.Windows.FontStretches]::Condensed)
+    $clockLine = New-Object System.Windows.Media.FormattedText('0:00:00', [Globalization.CultureInfo]::InvariantCulture,
+        [System.Windows.FlowDirection]::LeftToRight, $clockFace, [double]$window.FindResource('SizeClock'),
+        [System.Windows.Media.Brushes]::Black)
+    $ink = $clockLine.BuildGeometry((New-Object System.Windows.Point(0, 0))).Bounds
+    $eyeButton.RenderTransform = New-Object System.Windows.Media.TranslateTransform(0, ($ink.Top + $ink.Height / 2 - $clockLine.Height / 2))
 }
 
 Read-StyleValues
