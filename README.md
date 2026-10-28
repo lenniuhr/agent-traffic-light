@@ -58,9 +58,8 @@ from the session's own busy or idle and its label from the session's task title.
 
 A session of this PC stays on the card when its terminal closes or its Claude ends, as a slim faded
 row of its title and when it closed, "closed 17:11". A click on it, or on its Resume button, a play
-triangle, opens a new terminal in its folder running `claude --resume` with its id, with
-permissions bypassed (`--permission-mode bypassPermissions`); the new window's row takes the closed
-row's place. A row's buttons, shown in the time's place while the
+triangle, opens a new terminal in its folder running `claude --resume` with its id; the
+new window's row takes the closed row's place. A row's buttons, shown in the time's place while the
 pointer is on the row, are Close, which closes the window and keeps the row to resume, and Kill, a
 skull, which asks, then closes the window and takes the session off the card. "Ask before Kill",
 on by default under Settings, skips the question when switched off, here and for a session on
@@ -103,7 +102,8 @@ New sessions start from the card. "New session" in the tray icon's menu, which i
 card is hidden, and first in the card's own menu, lists the repos Claude ran in over the last two
 weeks, most used first, at most five: found in `~/.claude/projects`, with folders outside any repo,
 gone or older left out. Each opens a new Windows Terminal window in that repo running
-`claude --permission-mode auto`. "Hide from this list" leaves one out for good; it is kept as
+`claude`. Neither a new nor a resumed session is given a permission mode: Claude starts in the
+`permissions.defaultMode` of your own Claude settings. "Hide from this list" leaves one out for good; it is kept as
 `HiddenLaunchRepos` in `state\settings.json`, and taken out of there to bring it back. Pointing at a
 repo's heading also shows a "+" right after its name, in the name's own style, which opens a
 session in that folder. With "Group by working repository" on it opens the session in the folder
