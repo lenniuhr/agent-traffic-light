@@ -215,20 +215,19 @@
          instead of running underneath it. It makes way for the row's buttons
          along with the time, since they fill the time's column right up to it;
          by opacity, because the script sets its visibility. -->
-    <!-- The sound note, then the name of the Bedrock setup the session runs
-         on. Nothing for the subscription, so a card without Bedrock looks as
-         it always did. -->
+    <!-- A cloud when the session runs on a Bedrock setup, its name in the
+         tooltip, then the sound note. Nothing for the subscription, so a card
+         without Bedrock looks as it always did. The cloud sits in a Border
+         with a clear background so the whole box, not only the shape, shows
+         the tooltip. -->
     <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-    <TextBlock x:Name="SoundMark"
-               VerticalAlignment="Center"
-               Margin="6,0,0,0"
-               FontFamily="Segoe UI Symbol"
-               FontSize="12"
-               Foreground="{DynamicResource BrushTextDim}"
-               Visibility="Collapsed"
-               Text="&#x266A;">
-      <TextBlock.Style>
-        <Style TargetType="TextBlock">
+    <Border x:Name="ProviderTag"
+            VerticalAlignment="Center"
+            Margin="6,0,0,0"
+            Background="Transparent"
+            Visibility="Collapsed">
+      <Border.Style>
+        <Style TargetType="Border">
           <Style.Triggers>
             <MultiDataTrigger>
               <MultiDataTrigger.Conditions>
@@ -239,16 +238,21 @@
             </MultiDataTrigger>
           </Style.Triggers>
         </Style>
-      </TextBlock.Style>
-    </TextBlock>
-    <TextBlock x:Name="ProviderTag"
+      </Border.Style>
+      <Path x:Name="ProviderIcon"
+            Width="16" Height="16" Stretch="None"
+            SnapsToDevicePixels="True"
+            Data="{DynamicResource IconBedrock}"
+            Fill="{DynamicResource BrushTextDim}" />
+    </Border>
+    <TextBlock x:Name="SoundMark"
                VerticalAlignment="Center"
                Margin="6,0,0,0"
-               FontFamily="{DynamicResource FontText}"
-               FontSize="{DynamicResource SizeDetail}"
+               FontFamily="Segoe UI Symbol"
+               FontSize="12"
                Foreground="{DynamicResource BrushTextDim}"
                Visibility="Collapsed"
-               Text="">
+               Text="&#x266A;">
       <TextBlock.Style>
         <Style TargetType="TextBlock">
           <Style.Triggers>

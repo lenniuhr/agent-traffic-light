@@ -129,9 +129,10 @@ plain `claude` goes to Bedrock, so the list adds "Bedrock (your settings)" for t
 "Subscription" starts Claude with `--settings state\subscription-settings.json`, which turns Bedrock
 off for that one session.
 
-A row running on a Bedrock setup carries the setup's name after its label, read from its Claude's
-command line, so a session started from a shell with `--settings` is tagged too. A closed row keeps
-the tag. To move a running session, Close its row, choose the other setup under Settings, and
+A row running on a Bedrock setup carries a small cloud left of its sound note, with the setup's name
+in its tooltip. The setup is read from its Claude's command line, so a session started from a shell
+with `--settings` is marked too. A closed row keeps the cloud. A preset may draw its own as
+`IconBedrock`, a PathGeometry in a 16 by 16 box. To move a running session, Close its row, choose the other setup under Settings, and
 Resume it: the conversation goes on where it was. The first turn after such a move cannot use the
 prompt cache the other setup built, so on a long session it bills the whole conversation at full
 input price.

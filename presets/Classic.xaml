@@ -324,6 +324,13 @@
                          M8.6,7.4 A1.7,1.8 0 1 0 12,7.4 A1.7,1.8 0 1 0 8.6,7.4 Z
                          M8,9.4 L7.1,11 H8.9 Z
                          M6.9,12.6 H7.5 V14.5 H6.9 Z M8.5,12.6 H9.1 V14.5 H8.5 Z" />
+  <!-- The mark on a row whose session runs on a Bedrock setup: a cloud, filled,
+       in the same 16 by 16 box. Its colour follows the row's time. -->
+  <PathGeometry x:Key="IconBedrock" FillRule="Nonzero"
+                Figures="M4.5,8 A4,4 0 1 0 12.5,8 A4,4 0 1 0 4.5,8 Z
+                         M2,10.5 A2.8,2.8 0 1 0 7.6,10.5 A2.8,2.8 0 1 0 2,10.5 Z
+                         M9,10.6 A2.6,2.6 0 1 0 14.2,10.6 A2.6,2.6 0 1 0 9,10.6 Z
+                         M4.8,10.5 V13.25 H11.6 V10.5 Z" />
   <SolidColorBrush x:Key="BrushIconButton"           Color="#8B94A1" />
   <SolidColorBrush x:Key="BrushIconButtonBg"         Color="Transparent" />
   <SolidColorBrush x:Key="BrushIconButtonEdge"       Color="Transparent" />

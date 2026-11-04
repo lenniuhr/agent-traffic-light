@@ -3466,6 +3466,7 @@ function New-Row {
         TimerColumn = $element.FindName('TimerColumn')
         SoundMark = $element.FindName('SoundMark')
         ProviderTag = $element.FindName('ProviderTag')
+        ProviderIcon = $element.FindName('ProviderIcon')
         Spinner   = $element.FindName('Spinner')
         HelperMark  = $element.FindName('HelperMark')
         HelperRing  = $element.FindName('HelperRing')
@@ -3919,7 +3920,7 @@ function Set-RowLook {
     # The note takes the timer's colour, which each state already picks to read
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
-    $Rec.ProviderTag.Foreground = $Rec.TimerText.Foreground
+    $Rec.ProviderIcon.Fill = $Rec.TimerText.Foreground
     # The helpers' ring takes the ring colour on the working glass, like the
     # small ring, and the timer's colour on a filled row. The number inside,
     # and the prompt or clock standing in for it, take the ring's colour too,
@@ -5601,9 +5602,9 @@ function Update-Layout {
                 $rec.Stripe.ToolTip = $null
             }
 
-            # The Bedrock setup the session runs on; nothing for the subscription.
+            # A cloud for a Bedrock setup, named in its tooltip; nothing for the
+            # subscription.
             if ($rec.Provider) {
-                $rec.ProviderTag.Text = $rec.Provider
                 $rec.ProviderTag.ToolTip = 'Runs on Bedrock: ' + $rec.Provider
                 $rec.ProviderTag.Visibility = 'Visible'
             } else {
