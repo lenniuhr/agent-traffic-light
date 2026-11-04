@@ -215,8 +215,11 @@
          instead of running underneath it. It makes way for the row's buttons
          along with the time, since they fill the time's column right up to it;
          by opacity, because the script sets its visibility. -->
+    <!-- The sound note, then the name of the Bedrock setup the session runs
+         on. Nothing for the subscription, so a card without Bedrock looks as
+         it always did. -->
+    <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
     <TextBlock x:Name="SoundMark"
-               Grid.Column="3"
                VerticalAlignment="Center"
                Margin="6,0,0,0"
                FontFamily="Segoe UI Symbol"
@@ -238,6 +241,29 @@
         </Style>
       </TextBlock.Style>
     </TextBlock>
+    <TextBlock x:Name="ProviderTag"
+               VerticalAlignment="Center"
+               Margin="6,0,0,0"
+               FontFamily="{DynamicResource FontText}"
+               FontSize="{DynamicResource SizeDetail}"
+               Foreground="{DynamicResource BrushTextDim}"
+               Visibility="Collapsed"
+               Text="">
+      <TextBlock.Style>
+        <Style TargetType="TextBlock">
+          <Style.Triggers>
+            <MultiDataTrigger>
+              <MultiDataTrigger.Conditions>
+                <Condition Binding="{Binding IsMouseOver, ElementName=RowBg}" Value="True" />
+                <Condition Binding="{Binding Tag, ElementName=RowButtons}" Value="on" />
+              </MultiDataTrigger.Conditions>
+              <Setter Property="Opacity" Value="0" />
+            </MultiDataTrigger>
+          </Style.Triggers>
+        </Style>
+      </TextBlock.Style>
+    </TextBlock>
+    </StackPanel>
 
     <!-- The time makes way for the row's buttons while the pointer is on a row
          that has any, so the buttons take no room of their own. -->

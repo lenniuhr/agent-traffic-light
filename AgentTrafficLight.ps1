@@ -20,6 +20,19 @@ param(
     # With -Probe -Launch: read this folder in place of ~/.claude/projects, so
     # the list can be checked against a made-up one.
     [string]$ProjectsDir = '',
+    # With -Probe: print the Bedrock setups found in ~/.claude, every settings
+    # file left out and why, and whether Bedrock is already the default here.
+    [switch]$Providers,
+    # With -Probe -Providers: read this folder in place of ~/.claude, and the
+    # environment of this process in place of a fresh login's, so a made-up
+    # folder can be checked. Nothing is read from or saved to the settings.
+    [string]$ClaudeDir = '',
+    # With -Probe -Providers: print only the setup this claude command line
+    # runs on, as a row's tag would name it.
+    [string]$CommandLine = '',
+    # With -CommandLine: the folder that Claude runs in, which a relative
+    # --settings path is read against.
+    [string]$SessionCwd = '',
     # Set by the card on the copy of itself it hands over to; see below.
     [switch]$Detached
 )
@@ -1207,7 +1220,8 @@ function Write-ClosingLog {
 function Save-ClosedSessions {
     $list = @($script:closedSessions.Values | ForEach-Object {
         [pscustomobject]@{ SessionId = $_.SessionId; Cwd = $_.Cwd; Label = $_.Label; Workspace = $_.Workspace
-                           Model = $_.Model; Prompt = $_.Prompt; ClosedAt = $_.ClosedAt; Key = $_.Key } })
+                           Model = $_.Model; Prompt = $_.Prompt; ClosedAt = $_.ClosedAt; Key = $_.Key
+                           Provider = $_.Provider } })
     try {
         Set-Content -Path $closedFile -Value (ConvertTo-Json -InputObject $list -Depth 3) -Encoding UTF8
     } catch { Write-ErrorLog -Where 'closed' -Problem $_ }
@@ -1216,7 +1230,7 @@ function Save-ClosedSessions {
 function Save-OpenSessions {
     $list = @($script:localSeen.Keys | Sort-Object | ForEach-Object {
         $s = $script:localSeen[$_]
-        [pscustomobject]@{ SessionId = $_; Cwd = $s.Cwd; Label = $s.Label; Workspace = $s.Workspace; Model = $s.Model; Prompt = $s.Prompt } })
+        [pscustomobject]@{ SessionId = $_; Cwd = $s.Cwd; Label = $s.Label; Workspace = $s.Workspace; Model = $s.Model; Prompt = $s.Prompt; Provider = $s.Provider } })
     $text = ConvertTo-Json -InputObject $list -Depth 3
     if ($text -eq $script:openSaved) { return }
     try {
@@ -1234,7 +1248,8 @@ function Read-ClosedSessions {
             $script:openAtStart = @(foreach ($e in @($open)) {
                 if (-not $e.SessionId) { continue }
                 @{ SessionId = [string]$e.SessionId; Cwd = [string]$e.Cwd; Label = [string]$e.Label
-                   Workspace = [string]$e.Workspace; Model = [string]$e.Model; Prompt = [int]$e.Prompt } })
+                   Workspace = [string]$e.Workspace; Model = [string]$e.Model; Prompt = [int]$e.Prompt
+                   Provider = [string]$e.Provider } })
         } catch { Write-ErrorLog -Where 'closed' -Problem $_ }
     }
     if (-not (Test-Path $closedFile)) { return }
@@ -1244,6 +1259,7 @@ function Read-ClosedSessions {
             if (-not $e.SessionId -or -not $e.Key) { continue }
             $entry = @{ SessionId = [string]$e.SessionId; Cwd = [string]$e.Cwd; Label = [string]$e.Label
                         Workspace = [string]$e.Workspace; Model = [string]$e.Model; Prompt = [int]$e.Prompt
+                        Provider = [string]$e.Provider
                         ClosedAt = [string]$e.ClosedAt; Key = [string]$e.Key; Resuming = $null }
             $script:closedSessions[$entry.SessionId] = $entry
             $script:closedByKey[$entry.Key] = $entry
@@ -1266,12 +1282,12 @@ function Add-ClosedSession {
     if ($script:closedSessions.ContainsKey($sid)) { Write-ClosingLog "closed row: $sid has one already"; return }
     $look = $script:localSeen[$sid]
     if ($null -ne $Rec -and $Rec.Label) {
-        $look = @{ Label = $Rec.Label; Workspace = $Rec.Workspace; Model = $Rec.Model; Prompt = $Rec.Prompt }
+        $look = @{ Label = $Rec.Label; Workspace = $Rec.Workspace; Model = $Rec.Model; Prompt = $Rec.Prompt; Provider = $Rec.Provider }
     }
     $script:localSeen.Remove($sid)
-    if ($null -eq $look) { $look = @{ Label = (Split-Path -Leaf ([string]$Info.Cwd)); Workspace = $Info.Workspace; Model = ''; Prompt = 0 } }
+    if ($null -eq $look) { $look = @{ Label = (Split-Path -Leaf ([string]$Info.Cwd)); Workspace = $Info.Workspace; Model = ''; Prompt = 0; Provider = '' } }
     $entry = @{ SessionId = $sid; Cwd = [string]$Info.Cwd; Label = [string]$look.Label; Workspace = [string]$look.Workspace
-                Model = [string]$look.Model; Prompt = [int]$look.Prompt; ClosedAt = (Get-Date).ToString('o')
+                Model = [string]$look.Model; Prompt = [int]$look.Prompt; Provider = [string]$look.Provider; ClosedAt = (Get-Date).ToString('o')
                 Key = [string]$script:nextClosedKey; Resuming = $null }
     $script:nextClosedKey--
     $script:closedSessions[$sid] = $entry
@@ -1872,8 +1888,13 @@ function Update-WakeAt {
 # only the tail is read, and only when the file has actually changed. The
 # repository the session works in comes from Update-WorkRepo.
 function Sync-SessionExtras {
+    $running = @{}
     foreach ($key in @($script:sessionByHwnd.Keys)) {
         $info = $script:sessionByHwnd[$key]
+        if ($info.Pid) {
+            $info.Provider = Get-SessionProvider -ProcessId ([int]$info.Pid) -Cwd ([string]$info.Cwd)
+            $running[[int]$info.Pid] = $true
+        }
 
         $path = $script:transcriptPaths[$info.SessionId]
         if (-not $path) {
@@ -2023,6 +2044,9 @@ function Sync-SessionExtras {
     foreach ($id in @($script:helperState.Keys)) {
         if (-not $liveIds.ContainsKey($id)) { $script:helperState.Remove($id) }
     }
+    foreach ($id in @($script:providerByPid.Keys)) {
+        if (-not $running.ContainsKey($id)) { $script:providerByPid.Remove($id) }
+    }
 }
 
 # ---------------------------------------------------------------------------
@@ -2128,12 +2152,21 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 # HideFadedRows leaves the faded rows off the card: closed sessions, and
 # sessions elsewhere with no window here. Switched by the eye left of the
 # clock. Off by default.
+#
+# Providers lists the Bedrock setups sessions can start on, each a Name shown
+# in the menus and the File, a Claude settings file that turns Bedrock on. It
+# is missing until the card first finds one in ~/.claude, and renamed or
+# trimmed only by editing this file. DefaultProvider names the one New session
+# and Resume start on. Missing or unknown, they start as plain claude did
+# before the card knew setups: on Bedrock (your settings) where Bedrock is
+# already the default here, else on the subscription.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
                       ShowOthersSessions = $true; AskBeforeKill = $true; KeepClosedWindows = $true; WaitOnOwnWork = $true
                       HideFadedRows = $false
-                      DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @() }
+                      DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @()
+                      Providers = $null; DefaultProvider = '' }
 
 function Read-Settings {
     try {
@@ -2150,6 +2183,11 @@ function Read-Settings {
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.HiddenLaunchRepos) { $script:settings.HiddenLaunchRepos = @($saved.HiddenLaunchRepos | ForEach-Object { [string]$_ }) }
+        if ($null -ne $saved.Providers) {
+            $script:settings.Providers = @(foreach ($p in @($saved.Providers)) {
+                if ($p.Name -and $p.File) { @{ Name = [string]$p.Name; File = [string]$p.File } } })
+        }
+        if ($saved.DefaultProvider) { $script:settings.DefaultProvider = [string]$saved.DefaultProvider }
         if ($null -ne $saved.Sounds) {
             foreach ($entry in $saved.Sounds.PSObject.Properties) {
                 $script:settings.Sounds[[string]$entry.Name] = [string]$entry.Value
@@ -2165,7 +2203,7 @@ function Read-Settings {
 
 function Save-Settings {
     try {
-        [pscustomobject]@{
+        $out = [pscustomobject]@{
             ShowUnityEditors = $script:settings.ShowUnityEditors
             GroupByRepo      = $script:settings.GroupByRepo
             ShowUsage5h      = $script:settings.ShowUsage5h
@@ -2180,7 +2218,14 @@ function Save-Settings {
             Sounds           = [pscustomobject]$script:settings.Sounds
             CpuLimits        = [pscustomobject]$script:settings.CpuLimits
             HiddenLaunchRepos = @($script:settings.HiddenLaunchRepos)
-        } | ConvertTo-Json -Depth 4 | Set-Content -Path $settingsFile -Encoding UTF8
+            DefaultProvider  = $script:settings.DefaultProvider
+        }
+        # Missing until a setup is found, so a machine without Bedrock keeps
+        # looking at every start and never writes an empty list.
+        if ($null -ne $script:settings.Providers) {
+            $out | Add-Member -NotePropertyName Providers -NotePropertyValue @($script:settings.Providers | ForEach-Object { [pscustomobject]@{ Name = $_.Name; File = $_.File } })
+        }
+        $out | ConvertTo-Json -Depth 4 | Set-Content -Path $settingsFile -Encoding UTF8
     } catch { Write-ErrorLog -Where 'settings' -Problem $_ }
 }
 
@@ -2701,10 +2746,298 @@ function Get-LaunchMenuRepos {
 }
 
 # ---------------------------------------------------------------------------
+# Bedrock setups: what sessions start on
+#
+# A setup is a Claude settings file that turns Bedrock on, as
+# ~/.claude/bedrock-settings.json might. A session starts on it when claude is
+# given --settings with that file, which Claude lays over the user's own
+# settings. The card never reads the AWS details inside; it only needs to know
+# the file turns Bedrock on. So nothing about one machine's AWS setup is in
+# here, and the list itself lives in state\settings.json, per machine.
+# ---------------------------------------------------------------------------
+$claudeHome = Join-Path $env:USERPROFILE '.claude'
+# Settings files are a few hundred bytes. ~/.claude also holds caches of
+# megabytes, which are left unread rather than parsed at every start.
+$setupMaxBytes = 262144
+$subscriptionName = 'Subscription'
+$yourSettingsName = 'Bedrock (your settings)'
+# Given with --settings to start on the subscription where Bedrock is already
+# the default: a flag's settings outrank the user's own.
+$subscriptionFile = Join-Path $stateDir 'subscription-settings.json'
+
+function Test-BedrockOn {
+    param([string]$Value)
+    return ($Value -eq '1' -or $Value -ieq 'true')
+}
+
+# The env block of a settings file, empty when it has none. Throws when the
+# file cannot be read or is no JSON object.
+function Read-SettingsEnv {
+    param([string]$Path)
+    $parsed = [System.IO.File]::ReadAllText($Path) | ConvertFrom-Json
+    if ($null -eq $parsed -or $parsed -isnot [System.Management.Automation.PSCustomObject]) { throw "not a JSON object: $Path" }
+    $envBlock = @{}
+    if ($null -ne $parsed.env) {
+        foreach ($p in $parsed.env.PSObject.Properties) { $envBlock[[string]$p.Name] = [string]$p.Value }
+    }
+    return $envBlock
+}
+
+# A file's own name without the word settings, which most of them carry:
+# bedrock-settings.json is "bedrock", settings-aws.json is "aws".
+function Get-SetupName {
+    param([string]$File)
+    $base = [System.IO.Path]::GetFileNameWithoutExtension($File)
+    $name = $base -ireplace '-settings-', '-' -ireplace '^settings-', '' -ireplace '-settings$', ''
+    if (-not $name) { $name = $base }
+    return $name
+}
+
+# The settings files directly in a folder that turn Bedrock on, and every other
+# one with why it was left out, both in file name order. settings.json is the
+# user's own settings, not a setup; Test-BedrockDefault looks at it.
+function Find-BedrockFiles {
+    param([string]$Dir)
+    $found = New-Object System.Collections.ArrayList
+    $skipped = New-Object System.Collections.ArrayList
+    # Claude's own files start with a dot, among them the login, which there is
+    # no reason to open.
+    $files = @(Get-ChildItem -LiteralPath $Dir -Filter '*.json' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -ieq '.json' -and -not $_.Name.StartsWith('.') })
+    # Ordinal, so bedrock-x sorts before bedrock_x on every machine, whatever
+    # its language.
+    $names = [string[]]@($files | ForEach-Object { $_.Name })
+    [Array]::Sort($names, [StringComparer]::OrdinalIgnoreCase)
+    foreach ($name in $names) {
+        $f = @($files | Where-Object { $_.Name -eq $name })[0]
+        $why = ''
+        if ($f.Name -ieq 'settings.json') { $why = 'main settings' }
+        elseif ($f.Length -gt $setupMaxBytes) { $why = 'too large' }
+        else {
+            try {
+                $envBlock = Read-SettingsEnv -Path $f.FullName
+                if (-not (Test-BedrockOn $envBlock['CLAUDE_CODE_USE_BEDROCK'])) { $why = 'not bedrock' }
+            } catch { $why = 'unreadable' }
+        }
+        if ($why) { [void]$skipped.Add(@{ File = $f.Name; Why = $why }) }
+        else { [void]$found.Add(@{ Name = (Get-SetupName -File $f.Name); File = $f.FullName }) }
+    }
+    return @{ Found = @($found); Skipped = @($skipped) }
+}
+
+# Whether plain claude already goes to Bedrock here, and why: 'settings' when
+# the user's own settings turn it on, 'environment' when their Windows
+# variables do, '' when neither.
+function Test-BedrockDefault {
+    param([string]$Dir, [hashtable]$Environment)
+    $main = Join-Path $Dir 'settings.json'
+    try {
+        if ((Test-Path -LiteralPath $main) -and (Test-BedrockOn (Read-SettingsEnv -Path $main)['CLAUDE_CODE_USE_BEDROCK'])) { return 'settings' }
+    } catch { }
+    if ($null -ne $Environment -and (Test-BedrockOn ([string]$Environment['CLAUDE_CODE_USE_BEDROCK']))) { return 'environment' }
+    return ''
+}
+
+# The environment Windows gives a fresh login of this user: the machine's and
+# the user's variables, with PATH joined from both, and nothing any process
+# set on its way. Windows builds it itself, so it is exactly what a terminal
+# opened from the Start menu gets.
+function Get-LoginEnvironment {
+    if (-not ('TlLoginEnv' -as [type])) {
+        Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Security.Principal;
+public static class TlLoginEnv {
+    [DllImport("userenv.dll", SetLastError = true)]
+    static extern bool CreateEnvironmentBlock(out IntPtr block, IntPtr token, bool inherit);
+    [DllImport("userenv.dll", SetLastError = true)]
+    static extern bool DestroyEnvironmentBlock(IntPtr block);
+    public static Dictionary<string, string> Get() {
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        IntPtr block;
+        using (var id = WindowsIdentity.GetCurrent()) {
+            if (!CreateEnvironmentBlock(out block, id.Token, false)) throw new System.ComponentModel.Win32Exception();
+        }
+        try {
+            IntPtr p = block;
+            while (true) {
+                string entry = Marshal.PtrToStringUni(p);
+                if (string.IsNullOrEmpty(entry)) break;
+                int eq = entry.IndexOf('=', 1);
+                if (eq > 0 && entry[0] != '=') result[entry.Substring(0, eq)] = entry.Substring(eq + 1);
+                p = new IntPtr(p.ToInt64() + (entry.Length + 1) * 2);
+            }
+        } finally { DestroyEnvironmentBlock(block); }
+        return result;
+    }
+}
+'@
+    }
+    return [TlLoginEnv]::Get()
+}
+
+# Bedrock already the default, as a fresh login here would start Claude. Kept
+# for a minute, since menus and the sweep ask in bursts and it changes rarely.
+$script:bedrockDefaultCache = $null
+function Get-BedrockDefault {
+    $cache = $script:bedrockDefaultCache
+    if ($null -eq $cache -or ((Get-Date) - $cache.At).TotalSeconds -ge 60) {
+        $value = ''
+        try { $value = Test-BedrockDefault -Dir $claudeHome -Environment (Get-LoginEnvironment) }
+        catch { Write-ErrorLog -Where 'providers' -Problem $_ }
+        $cache = @{ At = Get-Date; Value = $value }
+        $script:bedrockDefaultCache = $cache
+    }
+    return $cache.Value
+}
+
+# Every setup a session can start on: the subscription first, then Claude's
+# own settings where they already go to Bedrock, then the listed files.
+function Get-Providers {
+    param([string]$BedrockDefault = (Get-BedrockDefault), [array]$Saved = @($script:settings.Providers))
+    $list = New-Object System.Collections.ArrayList
+    [void]$list.Add(@{ Name = $subscriptionName; File = ''; Kind = 'Subscription'; Missing = $false })
+    if ($BedrockDefault) { [void]$list.Add(@{ Name = $yourSettingsName; File = ''; Kind = 'YourSettings'; Missing = $false }) }
+    foreach ($p in @($Saved)) {
+        if ($null -eq $p) { continue }
+        [void]$list.Add(@{ Name = [string]$p.Name; File = [string]$p.File; Kind = 'File'
+                           Missing = -not [System.IO.File]::Exists([string]$p.File) })
+    }
+    return @($list)
+}
+
+function Get-DefaultProvider {
+    param([array]$List = @(Get-Providers))
+    $hit = @($List | Where-Object { $_.Name -ieq [string]$script:settings.DefaultProvider })
+    if ($hit.Count -gt 0) { return $hit[0] }
+    # Nothing chosen yet: as plain claude would start, so updating the card
+    # changes nothing on a machine already on Bedrock.
+    $own = @($List | Where-Object { $_.Kind -eq 'YourSettings' })
+    if ($own.Count -gt 0) { return $own[0] }
+    return $List[0]
+}
+
+# Adds the found files not listed yet, each under a name no other setup has,
+# and saves. Returns how many it added.
+function Add-FoundSetups {
+    param([array]$Found)
+    $listed = @($script:settings.Providers | Where-Object { $null -ne $_ })
+    $added = 0
+    foreach ($f in @($Found)) {
+        if ($null -eq $f) { continue }
+        if (@($listed | Where-Object { $_.File -ieq $f.File }).Count -gt 0) { continue }
+        $taken = @(Get-Providers -Saved $listed | ForEach-Object { $_.Name })
+        $name = $f.Name
+        $n = 2
+        while (@($taken | Where-Object { $_ -ieq $name }).Count -gt 0) { $name = '{0} {1}' -f $f.Name, $n; $n++ }
+        $listed += @{ Name = $name; File = $f.File }
+        $added++
+    }
+    if ($added -gt 0) {
+        $script:settings.Providers = $listed
+        Save-Settings
+    }
+    return $added
+}
+
+# At start, while no setup has been found yet: look once more, so a machine
+# that sets up Bedrock after the card's first run picks it up then.
+function Initialize-Providers {
+    if ($null -ne $script:settings.Providers) { return }
+    try {
+        $found = @((Find-BedrockFiles -Dir $claudeHome).Found)
+        if ($found.Count -gt 0) { [void](Add-FoundSetups -Found $found) }
+    } catch { Write-ErrorLog -Where 'providers' -Problem $_ }
+}
+
+# The file a claude command line gives with --settings, or ''. PowerShell puts
+# a path with a space in double quotes; one typed by hand may use single.
+function Get-SettingsArgument {
+    param([string]$CommandLine)
+    $m = [regex]::Match($CommandLine, '(?:^|\s)--settings(?:=|\s+)(?:"([^"]*)"|''(.*?)''(?=\s|$)|(\S+))')
+    if (-not $m.Success) { return '' }
+    foreach ($g in 1, 2, 3) { if ($m.Groups[$g].Success) { return $m.Groups[$g].Value } }
+    return ''
+}
+
+# The setup a claude command line runs on, by the name the menus use, or ''
+# for the subscription. A file the list does not hold is named after itself,
+# so a session started by hand from a shell is tagged all the same.
+function Resolve-ProviderName {
+    param([string]$CommandLine, [array]$List, [string]$BedrockDefault, [string]$Cwd = '')
+    $value = Get-SettingsArgument -CommandLine $CommandLine
+    if ($value) {
+        # Claude reads a relative path against the folder it runs in, and a
+        # shell may hand it ~ unexpanded.
+        $full = $value
+        if ($full -match '^~([\\/]|$)') { $full = $env:USERPROFILE + $full.Substring(1) }
+        elseif ($Cwd -and -not [System.IO.Path]::IsPathRooted($full)) { $full = Join-Path $Cwd $full }
+        try { $full = [System.IO.Path]::GetFullPath($full) } catch { }
+        if ($full -ieq [System.IO.Path]::GetFullPath($subscriptionFile)) { return '' }
+        foreach ($p in @($List)) {
+            if ($p.Kind -ne 'File') { continue }
+            $listed = $p.File
+            try { $listed = [System.IO.Path]::GetFullPath($p.File) } catch { }
+            if ($listed -ieq $full) { return $p.Name }
+        }
+        try {
+            $envBlock = Read-SettingsEnv -Path $full
+            # A file that says either way decides; one that does not leaves
+            # the user's own settings to.
+            if ($envBlock.ContainsKey('CLAUDE_CODE_USE_BEDROCK')) {
+                if (Test-BedrockOn $envBlock['CLAUDE_CODE_USE_BEDROCK']) { return (Get-SetupName -File $full) }
+                return ''
+            }
+        } catch { }
+    }
+    if ($BedrockDefault) { return $yourSettingsName }
+    return ''
+}
+
+# The setup a running Claude is on, read from its command line once: that
+# comes from WMI, far too slow for every sweep.
+$script:providerByPid = @{}
+function Get-SessionProvider {
+    param([int]$ProcessId, [string]$Cwd = '')
+    if ($script:providerByPid.ContainsKey($ProcessId)) { return $script:providerByPid[$ProcessId] }
+    $name = ''
+    try {
+        $line = [string](Get-CimInstance Win32_Process -Filter "ProcessId=$ProcessId" -ErrorAction Stop).CommandLine
+        $default = Get-BedrockDefault
+        $name = Resolve-ProviderName -CommandLine $line -List (Get-Providers -BedrockDefault $default) -BedrockDefault $default -Cwd $Cwd
+    } catch { Write-ErrorLog -Where 'providers' -Problem $_ }
+    $script:providerByPid[$ProcessId] = $name
+    return $name
+}
+
+# ---------------------------------------------------------------------------
 # Stage 1: console probe. Kept in the shipping script so the parsing can always
 # be checked against reality without the UI in the way.
 # ---------------------------------------------------------------------------
 if ($Probe) {
+    if ($Providers) {
+        $dir = $(if ($ClaudeDir) { $ClaudeDir } else { $claudeHome })
+        $environment = $(if ($ClaudeDir) { [hashtable][Environment]::GetEnvironmentVariables('Process') } else { Get-LoginEnvironment })
+        $list = Find-BedrockFiles -Dir $dir
+        if ($CommandLine) {
+            $default = Test-BedrockDefault -Dir $dir -Environment $environment
+            $name = Resolve-ProviderName -CommandLine $CommandLine -List (Get-Providers -BedrockDefault $default -Saved $list.Found) -BedrockDefault $default -Cwd $SessionCwd
+            Write-Output ('  provider: {0}' -f $(if ($name) { $name } else { 'subscription' }))
+            return
+        }
+        # Written to the output, not the host, so a check script can capture it.
+        foreach ($f in $list.Found) { Write-Output ('  setup  {0,-24}  {1}' -f $f.Name, $f.File) }
+        foreach ($s in $list.Skipped) { Write-Output ('  skip   {0,-14}  {1}' -f $s.Why, $s.File) }
+        $default = Test-BedrockDefault -Dir $dir -Environment $environment
+        Write-Output ('  bedrock default: {0}' -f $(if ($default) { $default } else { 'none' }))
+        # A made-up folder comes with no saved choice; this machine's own does.
+        if ($ClaudeDir) { $script:settings.DefaultProvider = '' }
+        $saved = $(if ($ClaudeDir) { $list.Found } else { @($script:settings.Providers) })
+        Write-Output ('  new sessions on: {0}' -f (Get-DefaultProvider -List (Get-Providers -BedrockDefault $default -Saved $saved)).Name)
+        return
+    }
     if ($Launch) {
         $dir = $(if ($ProjectsDir) { $ProjectsDir } else { $claudeProjects })
         $list = Get-LaunchRepos -ProjectsDir $dir -Hidden @($script:settings.HiddenLaunchRepos)
@@ -2766,6 +3099,10 @@ if (-not $createdNew) {
     exit 0
 }
 if (Test-Path $showFlag) { Remove-Item $showFlag -Force -ErrorAction SilentlyContinue }
+
+# Only the one card looks for Bedrock setups, and never a probe, which must
+# leave the settings as they are.
+Initialize-Providers
 
 # Per-monitor v2 before any window exists. All three monitors here run at 100%
 # today so this changes nothing now, but the PowerShell host declares itself DPI
@@ -3128,6 +3465,7 @@ function New-Row {
         CtxFill   = $element.FindName('CtxFill')
         TimerColumn = $element.FindName('TimerColumn')
         SoundMark = $element.FindName('SoundMark')
+        ProviderTag = $element.FindName('ProviderTag')
         Spinner   = $element.FindName('Spinner')
         HelperMark  = $element.FindName('HelperMark')
         HelperRing  = $element.FindName('HelperRing')
@@ -3161,6 +3499,7 @@ function New-Row {
         Workspace = ''
         StartedAt = [double]0
         Model     = ''
+        Provider  = ''
         Prompt    = 0
         # The second line of a remote row, and for an outgoing one the host it
         # connects to. Empty on a row driven from this desktop.
@@ -3580,6 +3919,7 @@ function Set-RowLook {
     # The note takes the timer's colour, which each state already picks to read
     # on its own fill.
     $Rec.SoundMark.Foreground = $Rec.TimerText.Foreground
+    $Rec.ProviderTag.Foreground = $Rec.TimerText.Foreground
     # The helpers' ring takes the ring colour on the working glass, like the
     # small ring, and the timer's colour on a filled row. The number inside,
     # and the prompt or clock standing in for it, take the ring's colour too,
@@ -4368,6 +4708,15 @@ function Write-LayoutDump {
         @($rows.Values | Where-Object { $_.Element.Visibility -ne 'Visible' }).Count))
     [void]$lines.Add(('usage  panel={0}  opacity={1}  {2}' -f $usagePanel.Visibility, $usagePanel.Opacity,
         (($usageBars | ForEach-Object { '{0}={1} {2} "{3}" "{4}"' -f $_.Field, $_.Row.Visibility, $_.Used.Width, $_.Pct.Text, $_.Reset.Text }) -join '  ')))
+    $providerItems = @()
+    $providerMenu = New-ProviderMenu
+    if ($null -ne $providerMenu) {
+        $providerItems = @(foreach ($i in $providerMenu.Items) {
+            if ($i -is [System.Windows.Controls.Separator]) { '---'; continue }
+            $(if ($i.IsChecked) { '[x]' }) + $(if (-not $i.IsEnabled) { '[off]' }) + [string]$i.Header
+        })
+    }
+    [void]$lines.Add(('providers  default={0}  menu={1}' -f (Get-DefaultProvider).Name, ($providerItems -join '|')))
     foreach ($name in @($script:groupOrder.Keys)) {
         # The "+" and how far it sits from the end of the name, which it follows.
         $header = $script:groupNew[$name]
@@ -4381,14 +4730,15 @@ function Write-LayoutDump {
         }
         foreach ($rec in @($script:groupOrder[$name])) {
             $drawn = [System.Windows.Controls.Canvas]::GetTop($rec.Element)
-            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} close={15} buttons={16} tmux={12} helpers={14} waits={17} new={18}' -f
+            [void]$lines.Add(('  top={0,-6} drawn={1,-6} started={2:HH:mm:ss} seq={3,-3} hwnd={4,-9} idx={5,-4} {6}  [{7}] {8}  opacity={9} click={10} kill={11} disconnect={13} close={15} buttons={16} tmux={12} helpers={14} waits={17} new={18} provider={19} tag={20}' -f
                 $rec.Top, [Math]::Round($drawn, 1),
                 [DateTimeOffset]::FromUnixTimeMilliseconds([int64]$rec.StartedAt).LocalDateTime,
                 $rec.Seq, [int64]$rec.Handle, $script:orderIndex[[string][int64]$rec.Handle], $rec.Label,
                 $rec.State, $rec.Detail, [Math]::Round($rec.Element.Opacity, 2), $rec.ClickAction,
                 $rec.KillButton.Visibility, $rec.TmuxName, $rec.DisconnectButton.Visibility, $rec.Helpers,
                 $rec.CloseButton.Visibility, $rec.RowButtons.Tag, $rec.WaitsOn,
-                $(Get-RowNewTarget -Element $rec.Element | ForEach-Object { $_.Folder + $(if ($_.Place) { ' at ' + $_.Place + ' as ' + $_.Name }) })))
+                $(Get-RowNewTarget -Element $rec.Element | ForEach-Object { $_.Folder + $(if ($_.Place) { ' at ' + $_.Place + ' as ' + $_.Name }) }),
+                $rec.Provider, $rec.ProviderTag.Visibility))
         }
     }
     Set-Content -Path (Join-Path $stateDir 'dump.txt') -Value $lines -Encoding UTF8
@@ -4655,6 +5005,18 @@ function Update-Card {
         try { Set-Preset -Name $name } catch { Write-ErrorLog -Where 'style' -Problem $_ }
     }
 
+    # Write "use <setup name>" or "find" into state/provider.flag and this poll
+    # does what the same entry under Settings, New sessions on, does.
+    $providerFlag = Join-Path $stateDir 'provider.flag'
+    if (Test-Path $providerFlag) {
+        $text = ([string](Get-Content $providerFlag -Raw)).Trim()
+        Remove-Item $providerFlag -Force -ErrorAction SilentlyContinue
+        try {
+            if ($text -eq 'find') { [void](Invoke-FindSetups) }
+            elseif ($text -match '^use (.+)$') { Set-DefaultProvider -Name $matches[1] }
+        } catch { Write-ErrorLog -Where 'providers' -Problem $_ }
+    }
+
     # Write "resume <session id>" or "forget <session id>" into
     # state/closed.flag and this poll does to that closed row what a click on
     # it, or its Kill, does, so a check can drive closed rows without clicking.
@@ -4805,6 +5167,7 @@ function Update-Card {
             $closedRec.SoundMark.Visibility = 'Collapsed'
             $closedRec.TimerColumn.Width = [System.Windows.GridLength]::Auto
         }
+        $rows[$key].Provider = [string]$entry.Provider
         $rows[$key].Resuming = ($null -ne $entry.Resuming -and ((Get-Date) - $entry.Resuming).TotalSeconds -lt 20)
         $rows[$key].PendingState = 'Watching'
         $rows[$key].PendingLabel = $entry.Label
@@ -4854,6 +5217,7 @@ function Update-Card {
             $rec.SessionStatus   = $info.Status
             $rec.StatusUpdatedAt = $info.StatusUpdatedAt
             if ($info.ContainsKey('Model'))  { $rec.Model  = $info.Model }
+            if ($info.ContainsKey('Provider')) { $rec.Provider = [string]$info.Provider }
             if ($info.ContainsKey('Prompt')) { $rec.Prompt = $info.Prompt }
             if ($info.ContainsKey('Helpers')) { $rec.Helpers = $info.Helpers }
             if ($info.ContainsKey('WakeAt')) { $rec.WakeAt = $info.WakeAt }
@@ -4861,7 +5225,8 @@ function Update-Card {
             # between two polls and the row be gone by then.
             if ($info.Remote -ne 'In' -and $info.SessionId -and $rec.Label) {
                 $script:localSeen[[string]$info.SessionId] = @{ Cwd = [string]$info.Cwd; Label = $rec.Label; Workspace = $rec.Workspace
-                                                                Model = $rec.Model; Prompt = $rec.Prompt; Pid = [int]$info.Pid }
+                                                                Model = $rec.Model; Prompt = $rec.Prompt; Pid = [int]$info.Pid
+                                                                Provider = $rec.Provider }
             }
             if ($info.Remote -eq 'In') {
                 # Started from somewhere else. When it runs in tmux here, say
@@ -5236,6 +5601,15 @@ function Update-Layout {
                 $rec.Stripe.ToolTip = $null
             }
 
+            # The Bedrock setup the session runs on; nothing for the subscription.
+            if ($rec.Provider) {
+                $rec.ProviderTag.Text = $rec.Provider
+                $rec.ProviderTag.ToolTip = 'Runs on Bedrock: ' + $rec.Provider
+                $rec.ProviderTag.Visibility = 'Visible'
+            } else {
+                $rec.ProviderTag.Visibility = 'Collapsed'
+            }
+
             $limit = $script:contextWindow
             $fraction = 0.0
             if ($limit -gt 0) { $fraction = [Math]::Min(1.0, $rec.Prompt / $limit) }
@@ -5375,6 +5749,44 @@ function New-LaunchMenu {
 }
 
 # The card's own menu, behind the three bars left of the session clock.
+# What New session and Resume start on, chosen under Settings.
+function Set-DefaultProvider {
+    param([string]$Name)
+    $script:settings.DefaultProvider = $Name
+    Save-Settings
+}
+
+# Looks in ~/.claude again for setups not listed yet, and says what it found.
+function Invoke-FindSetups {
+    $added = 0
+    try { $added = Add-FoundSetups -Found @((Find-BedrockFiles -Dir $claudeHome).Found) }
+    catch { Write-ErrorLog -Where 'providers' -Problem $_ }
+    Show-TrayNote -Text $(if ($added -eq 1) { 'Found 1 new Bedrock setting' } elseif ($added -gt 1) { "Found $added new Bedrock settings" } else { 'No new Bedrock settings' })
+    return $added
+}
+
+# "New sessions on", or $null where only the subscription is there: a card
+# without Bedrock shows nothing new.
+function New-ProviderMenu {
+    $all = @(Get-Providers)
+    if ($all.Count -le 1) { return $null }
+    $default = Get-DefaultProvider
+    $parent = New-CardMenuItem -Header 'New sessions on'
+    foreach ($p in $all) {
+        $header = ConvertTo-MenuHeader -Text $p.Name
+        if ($p.Missing) { $header += ' (file missing)' }
+        $item = Add-CardMenuAction -Parent $parent -Header $header -Arg $p.Name -Where 'providers' -Action {
+            param($Name)
+            Set-DefaultProvider -Name $Name
+        }
+        $item.IsChecked = ($p.Name -eq $default.Name)
+        $item.IsEnabled = -not $p.Missing
+    }
+    [void]$parent.Items.Add((New-CardMenuSeparator))
+    [void](Add-CardMenuAction -Parent $parent -Header 'Find Bedrock settings' -Where 'providers' -Action { [void](Invoke-FindSetups) })
+    return $parent
+}
+
 function Show-SettingsMenu {
     $menu = New-CardMenu
     [void]$menu.Items.Add((New-LaunchMenu))
@@ -5383,6 +5795,13 @@ function Show-SettingsMenu {
     # The switches in a submenu of their own, so the menu itself stays short
     # and New session stands out at its top.
     $settingsItem = New-CardMenuItem -Header 'Settings'
+
+    $providerMenu = $null
+    try { $providerMenu = New-ProviderMenu } catch { Write-ErrorLog -Where 'providers' -Problem $_ }
+    if ($null -ne $providerMenu) {
+        [void]$settingsItem.Items.Add($providerMenu)
+        [void]$settingsItem.Items.Add((New-CardMenuSeparator))
+    }
 
     $unityItem = New-CardMenuItem -Header 'Show Unity editors'
     $unityItem.IsCheckable = $true
@@ -5676,46 +6095,6 @@ function Request-QuickSweeps {
     $sweepTimer.Interval = [TimeSpan]::FromMilliseconds(750)
 }
 
-# The environment Windows gives a fresh login of this user: the machine's and
-# the user's variables, with PATH joined from both, and nothing any process
-# set on its way. Windows builds it itself, so it is exactly what a terminal
-# opened from the Start menu gets.
-function Get-LoginEnvironment {
-    if (-not ('TlLoginEnv' -as [type])) {
-        Add-Type -TypeDefinition @'
-using System;
-using System.Collections.Generic;
-using System.Runtime.InteropServices;
-using System.Security.Principal;
-public static class TlLoginEnv {
-    [DllImport("userenv.dll", SetLastError = true)]
-    static extern bool CreateEnvironmentBlock(out IntPtr block, IntPtr token, bool inherit);
-    [DllImport("userenv.dll", SetLastError = true)]
-    static extern bool DestroyEnvironmentBlock(IntPtr block);
-    public static Dictionary<string, string> Get() {
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        IntPtr block;
-        using (var id = WindowsIdentity.GetCurrent()) {
-            if (!CreateEnvironmentBlock(out block, id.Token, false)) throw new System.ComponentModel.Win32Exception();
-        }
-        try {
-            IntPtr p = block;
-            while (true) {
-                string entry = Marshal.PtrToStringUni(p);
-                if (string.IsNullOrEmpty(entry)) break;
-                int eq = entry.IndexOf('=', 1);
-                if (eq > 0 && entry[0] != '=') result[entry.Substring(0, eq)] = entry.Substring(eq + 1);
-                p = new IntPtr(p.ToInt64() + (entry.Length + 1) * 2);
-            }
-        } finally { DestroyEnvironmentBlock(block); }
-        return result;
-    }
-}
-'@
-    }
-    return [TlLoginEnv]::Get()
-}
-
 # A card started from a shell that is not a fresh login's, as one a Claude
 # session runs commands in when it restarts the card, carries that shell's
 # variables, and every session the card starts would inherit them: Claude's
@@ -5731,28 +6110,61 @@ function Reset-LaunchEnvironment {
     foreach ($name in @($fresh.Keys)) { [Environment]::SetEnvironmentVariable($name, $fresh[$name], 'Process') }
 }
 
+# What a launch on a setup adds to the claude command, and whether Bedrock
+# must be switched off in the environment it inherits. The command reaches
+# powershell -Command as text, so a path is put in single quotes, each one
+# inside doubled.
+function Get-ProviderLaunch {
+    param([hashtable]$Provider, [string]$BedrockDefault)
+    $quote = { param([string]$Path) "'" + $Path.Replace("'", "''") + "'" }
+    switch ($Provider.Kind) {
+        'File' { return @{ Args = @('--settings', (& $quote $Provider.File)); ClearBedrock = $false } }
+        'Subscription' {
+            if ($BedrockDefault) { return @{ Args = @('--settings', (& $quote $subscriptionFile)); ClearBedrock = $true } }
+        }
+    }
+    return @{ Args = @(); ClearBedrock = $false }
+}
+
 # A new Claude session in a folder, in a terminal window of its own: never a
 # tab, since the card follows one session per window. -NoExit leaves a prompt
 # in the folder when Claude ends, as typing claude there would.
 function Start-ClaudeSession {
-    param([string]$Folder, [string]$Resume = '')
+    param([string]$Folder, [string]$Resume = '', [hashtable]$Provider = $null)
     $name = Split-Path -Leaf $Folder
     if (-not [System.IO.Directory]::Exists($Folder)) {
         $script:launchCache = $null
         Show-TrayNote -Text "$name no longer exists"
         return
     }
+    if ($null -eq $Provider) { $Provider = Get-DefaultProvider }
+    if ($Provider.Missing) {
+        Write-ErrorLog -Where 'providers' -Problem ("{0}: settings file not found: {1}" -f $Provider.Name, $Provider.File)
+        Show-TrayNote -Text ("{0}: settings file not found" -f $Provider.Name)
+        return
+    }
+    $launch = Get-ProviderLaunch -Provider $Provider -BedrockDefault (Get-BedrockDefault)
     try { Reset-LaunchEnvironment } catch { Write-ErrorLog -Where 'launch' -Problem $_ }
+    if ($launch.ClearBedrock) {
+        [Environment]::SetEnvironmentVariable('CLAUDE_CODE_USE_BEDROCK', $null, 'Process')
+        if (-not [System.IO.File]::Exists($subscriptionFile)) {
+            try { [System.IO.File]::WriteAllText($subscriptionFile, '{"env":{"CLAUDE_CODE_USE_BEDROCK":"0"}}') }
+            catch { Write-ErrorLog -Where 'providers' -Problem $_ }
+        }
+    }
     # A closed session is resumed by its id, which the resumed session keeps.
     # No permission mode is given: Claude starts in the defaultMode of the
     # user's own settings, new and resumed alike.
     $claude = @('-NoExit', '-Command', 'claude')
     if ($Resume) { $claude += @('--resume', $Resume) }
+    $claude += @($launch.Args)
     try {
         $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
         if ($wt) {
             # Start-Process joins the arguments with spaces and quotes nothing.
-            Start-Process -FilePath $wt.Source -ArgumentList (@('-w', 'new', '-d', ('"' + $Folder + '"'), 'powershell') + $claude)
+            # Windows Terminal reads a bare ; as the start of another command.
+            $viaWt = @($claude | ForEach-Object { $_ -replace ';', '\;' })
+            Start-Process -FilePath $wt.Source -ArgumentList (@('-w', 'new', '-d', ('"' + $Folder + '"'), 'powershell') + $viaWt)
         } else {
             Start-Process -FilePath 'powershell.exe' -WorkingDirectory $Folder -ArgumentList $claude
         }

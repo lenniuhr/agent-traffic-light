@@ -111,6 +111,35 @@ the heading's sessions were started in, the one most of them used, so a heading 
 inside a larger checkout starts the new session at the checkout's top, as its sessions were.
 `-Probe -Launch` prints the list and why each other folder was left out.
 
+Sessions can run on the Claude subscription or on Amazon Bedrock. A Bedrock setup is a Claude
+settings file that turns Bedrock on, such as `~/.claude/bedrock-settings.json` holding
+`"env": { "CLAUDE_CODE_USE_BEDROCK": "1", "AWS_PROFILE": ..., "AWS_REGION": ... }`. The card finds
+these files in `~/.claude` by itself, at every start until it has found one, and names each after
+its file without the word `settings`. Under Settings, "New sessions on" then lists the subscription
+and every setup, with a tick on the one New session, the "+" on a heading and Resume start on. A
+session on a setup is started as `claude --settings <file>`, which lays that file over your own
+settings; the card never reads the AWS details inside. "Find Bedrock settings" there looks again
+for files added since. The list is kept per machine as `Providers` in `state\settings.json`, and
+the choice as `DefaultProvider`; a setup is renamed or removed by editing that file. A setup whose
+file has gone shows as "(file missing)", and starting a session on it is refused with a note. A
+machine with no setup sees none of this.
+
+Where your own Claude settings or your Windows environment already set `CLAUDE_CODE_USE_BEDROCK`,
+plain `claude` goes to Bedrock, so the list adds "Bedrock (your settings)" for that, and
+"Subscription" starts Claude with `--settings state\subscription-settings.json`, which turns Bedrock
+off for that one session.
+
+A row running on a Bedrock setup carries the setup's name after its label, read from its Claude's
+command line, so a session started from a shell with `--settings` is tagged too. A closed row keeps
+the tag. To move a running session, Close its row, choose the other setup under Settings, and
+Resume it: the conversation goes on where it was. The first turn after such a move cannot use the
+prompt cache the other setup built, so on a long session it bills the whole conversation at full
+input price.
+
+`-Probe -Providers` prints the setups found, every other settings file left out and why, and whether
+Bedrock is already the default here. Writing `use <setup name>` or `find` into `state\provider.flag`
+does what the same entry under Settings does, for checks.
+
 Each row also shows the model in the coloured stripe on its left, and a thin bar along its bottom
 showing how much of the context window is in use. The bar turns amber past 80 %.
 
