@@ -2127,6 +2127,10 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 # entry follows DefaultSound, which is Off until one is picked; nothing is copied
 # from it, so changing it changes every window that follows it.
 #
+# KeySound is the one sound every session plays when it asks for a touch of a
+# YubiKey, whatever its own sound, Off included, so a key request is told apart
+# from any other need by ear. '' is no sound.
+#
 # CpuLimits maps a Unity project folder, in lower case, to the CPU limit its
 # editor's row picked, 0 being No limit picked on purpose. A project with no
 # entry follows the default for its kind of editor.
@@ -2165,7 +2169,8 @@ $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
                       ShowOthersSessions = $true; AskBeforeKill = $true; KeepClosedWindows = $true; WaitOnOwnWork = $true
                       HideFadedRows = $false
-                      DefaultSound = ''; Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @()
+                      DefaultSound = ''; KeySound = 'Windows Proximity Notification'
+                      Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @()
                       Providers = $null; DefaultProvider = '' }
 
 function Read-Settings {
@@ -2181,6 +2186,7 @@ function Read-Settings {
         if ($null -ne $saved.WaitOnOwnWork) { $script:settings.WaitOnOwnWork = [bool]$saved.WaitOnOwnWork }
         if ($null -ne $saved.HideFadedRows) { $script:settings.HideFadedRows = [bool]$saved.HideFadedRows }
         if ($null -ne $saved.DefaultSound) { $script:settings.DefaultSound = [string]$saved.DefaultSound }
+        if ($null -ne $saved.KeySound) { $script:settings.KeySound = [string]$saved.KeySound }
         if ($saved.Preset) { $script:settings.Preset = [string]$saved.Preset }
         if ($null -ne $saved.HiddenLaunchRepos) { $script:settings.HiddenLaunchRepos = @($saved.HiddenLaunchRepos | ForEach-Object { [string]$_ }) }
         if ($null -ne $saved.Providers) {
@@ -2214,6 +2220,7 @@ function Save-Settings {
             WaitOnOwnWork    = $script:settings.WaitOnOwnWork
             HideFadedRows    = $script:settings.HideFadedRows
             DefaultSound     = $script:settings.DefaultSound
+            KeySound         = $script:settings.KeySound
             Preset           = $script:settings.Preset
             Sounds           = [pscustomobject]$script:settings.Sounds
             CpuLimits        = [pscustomobject]$script:settings.CpuLimits
@@ -4161,6 +4168,22 @@ function New-DefaultSoundMenu {
     return $sound
 }
 
+# The YubiKey sound entry of the card's menu: the one sound every session plays
+# when it asks for a touch of the key, built like Default sound.
+function New-KeySoundMenu {
+    $sound = New-CardMenuItem -Header 'YubiKey sound'
+    foreach ($choice in @('') + @($soundChoices)) {
+        $item = Add-CardMenuAction -Parent $sound -Header (Get-SoundName $choice) -Arg $choice -Where 'settings' -Action {
+            param($Sound)
+            $script:settings.KeySound = $Sound
+            Save-Settings
+            Invoke-Sound -Name $Sound
+        }
+        $item.IsChecked = ($choice -eq $script:settings.KeySound)
+    }
+    return $sound
+}
+
 # Lays a preset over Classic and repaints the card with it. Rows are not
 # rebuilt: what the templates bind follows by itself, and what the script set
 # in code is set again. Loaded first, so a preset that fails to load leaves the
@@ -4255,6 +4278,8 @@ function Switch-RowMaximized {
 # already waiting, but does show their dots, since the card cannot know which
 # of them were handled before it started.
 $script:needWatch = @{}
+# The session ids asking for a YubiKey touch on this poll, set by Resolve-BlockedRows.
+$script:keyAsks = @{}
 
 function Update-Needs {
     param($Ordered)
@@ -4282,7 +4307,10 @@ function Update-Needs {
 
             if ($null -ne $watch.DueAt -and $now -ge $watch.DueAt) {
                 $watch.DueAt = $null
-                Invoke-Sound -Name (Get-RowSound -Key $key)
+                # A request for a YubiKey touch has one sound of its own for
+                # every session, so it is known by ear from any other need.
+                if ($script:keyAsks.ContainsKey([string]$rec.SessionId)) { Invoke-Sound -Name $script:settings.KeySound }
+                else { Invoke-Sound -Name (Get-RowSound -Key $key) }
             }
         }
 
@@ -4777,6 +4805,7 @@ function Resolve-BlockedRows {
 
     # Only the markers folder: sweeping all of state/ once deleted the saved
     # row order along with the stale markers.
+    $script:keyAsks = @{}
     $files = @(Get-ChildItem (Join-Path $stateDir 'markers') -Filter '*.json' -ErrorAction SilentlyContinue)
     if ($files.Count -eq 0) { return @() }
 
@@ -4796,7 +4825,10 @@ function Resolve-BlockedRows {
         }
         $id = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
         $hit = $Ordered | Where-Object { $_.SessionId -eq $id } | Select-Object -First 1
-        if ($hit) { $blocked += $hit }
+        if ($hit) {
+            $blocked += $hit
+            $script:keyAsks[[string]$id] = $true
+        }
     }
     $files = $rest
     if ($files.Count -eq 0) { return $blocked }
@@ -5926,6 +5958,7 @@ function Show-SettingsMenu {
 
     [void]$menu.Items.Add($settingsItem)
     [void]$menu.Items.Add((New-DefaultSoundMenu))
+    [void]$menu.Items.Add((New-KeySoundMenu))
     [void]$menu.Items.Add((New-StyleMenu))
 
     $menu.PlacementTarget = $menuButton
