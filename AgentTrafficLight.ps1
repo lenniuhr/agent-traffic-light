@@ -631,14 +631,16 @@ function Show-DesktopApp {
     $appPath = ''
     for ($i = 0; $i -lt 8 -and $p -gt 0; $i++) {
         $proc = Get-Process -Id $p -ErrorAction SilentlyContinue
-        if ($null -eq $proc) { break }
+        # Above the app is what started it, Explorer as a rule, whose own
+        # window must not be taken for the app's.
+        if ($null -eq $proc -or $proc.ProcessName -ine 'claude') { break }
         if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {
             [TlNative]::Focus($proc.MainWindowHandle) | Out-Null
             return
         }
         # The session's own Claude runs from the app's data folder; the app
         # itself is the Claude.exe furthest up.
-        if ($i -gt 0 -and $proc.ProcessName -ieq 'claude' -and $proc.Path) { $appPath = $proc.Path }
+        if ($i -gt 0 -and $proc.Path) { $appPath = $proc.Path }
         $cim = Get-CimInstance Win32_Process -Filter "ProcessId=$p" -ErrorAction SilentlyContinue
         if ($null -eq $cim) { break }
         $p = [int]$cim.ParentProcessId
