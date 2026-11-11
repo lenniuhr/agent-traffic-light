@@ -107,11 +107,11 @@ if ($current) {
             })
         }
         $existing = @()
-        if ($settings.hooks.PSObject.Properties.Name.Contains($pair.Event)) {
+        if (@($settings.hooks.PSObject.Properties.Name) -contains $pair.Event) {
             $existing = @($settings.hooks.($pair.Event) | Where-Object { -not (Test-OurEntry $_) })
         }
         $combined = @($existing) + @($entry)
-        if ($settings.hooks.PSObject.Properties.Name.Contains($pair.Event)) {
+        if (@($settings.hooks.PSObject.Properties.Name) -contains $pair.Event) {
             $settings.hooks.($pair.Event) = $combined
         } else {
             $settings.hooks | Add-Member -MemberType NoteProperty -Name $pair.Event -Value $combined

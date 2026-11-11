@@ -324,7 +324,9 @@ Errors from the hidden card are logged to `state\error.log`.
   the card stops finding windows. `-Probe` is the quickest way to check.
 - **Context is an estimate.** It is taken from the last reported token usage and measured against a
   fixed 1M-token window.
-- Sessions inside the Claude desktop app are not shown, because they have no terminal window.
+- **Sessions of the Claude desktop app have no terminal window.** They show under "Claude
+  desktop", with their state from the session file's busy or idle. A click brings the app forward,
+  but it cannot open that conversation.
 - A topmost window cannot draw over the Windows security prompt or over exclusive-fullscreen apps.
 
 ## Uninstall

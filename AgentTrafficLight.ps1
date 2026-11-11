@@ -620,6 +620,24 @@ function Get-IncomingVia {
     return ''
 }
 
+# The window of the Claude desktop app that runs a session, found by walking up
+# from the session's Claude to the first process that owns a main window.
+# IntPtr.Zero when none is found, such as with the app closed to the tray. Only
+# a click asks, so the slow lookups here do not matter.
+function Get-DesktopWindow {
+    param([int]$ProcessId)
+    $p = $ProcessId
+    for ($i = 0; $i -lt 6 -and $p -gt 0; $i++) {
+        $proc = Get-Process -Id $p -ErrorAction SilentlyContinue
+        if ($null -eq $proc) { break }
+        if ($proc.MainWindowHandle -ne [IntPtr]::Zero) { return $proc.MainWindowHandle }
+        $cim = Get-CimInstance Win32_Process -Filter "ProcessId=$p" -ErrorAction SilentlyContinue
+        if ($null -eq $cim) { break }
+        $p = [int]$cim.ParentProcessId
+    }
+    return [IntPtr]::Zero
+}
+
 # The host an ssh command line connects to, without its user@. Options that
 # take a value are skipped with their value, so "-p 2222 -i key office-pc"
 # gives office-pc. Read once per ssh process: the command line comes from WMI,
@@ -1168,6 +1186,8 @@ function Get-RowNewTarget {
         return $null
     }
     $info = $script:sessionByHwnd[$key]
+    # The desktop app's scratch folder is no place for a new session.
+    if ($null -ne $info -and $info.Via -eq 'desktop') { return $null }
     if ($null -ne $info -and $info.Cwd) { return @{ Folder = $info.Cwd } }
     $kept = $script:keptByKey[$key]
     if ($null -eq $kept -and $script:outgoingByHwnd.ContainsKey($key) -and $rows.ContainsKey($key)) {
@@ -1397,13 +1417,19 @@ function Sync-SessionMap {
                 $cached = $script:sessionFileCache[$f.FullName]
                 if ($null -eq $cached -or $cached.Mtime -ne $f.LastWriteTimeUtc.Ticks) {
                     $s = Get-Content $f.FullName -Raw | ConvertFrom-Json
+                    # A session of the Claude desktop app works in a scratch
+                    # folder of the app's own, whose name says nothing, so its
+                    # group is the app.
+                    $desktop = ([string]$s.entrypoint -eq 'claude-desktop')
                     $cached = @{
                         Mtime     = $f.LastWriteTimeUtc.Ticks
                         Pid       = [int]$s.pid
                         Kind      = [string]$s.kind
+                        Desktop   = $desktop
+                        Name      = [string]$s.name
                         SessionId = [string]$s.sessionId
                         Cwd       = [string]$s.cwd
-                        Workspace = Split-Path -Leaf ([string]$s.cwd)
+                        Workspace = $(if ($desktop) { 'Claude desktop' } else { Split-Path -Leaf ([string]$s.cwd) })
                         StartedAt = [double]$s.startedAt
                         # busy or idle, and when that last changed. Claude
                         # writes this itself, so it is the one record of when
@@ -1420,6 +1446,18 @@ function Sync-SessionMap {
                 # heartbeated.
                 if (-not $claudeParents.ContainsKey($cached.Pid)) { continue }
                 $live++
+
+                # A session of the Claude desktop app has no terminal window
+                # at all. It is drawn the way an incoming remote session is,
+                # from its session file's busy or idle, keyed by its negated
+                # pid. Left to the pairing below, it could be matched by start
+                # time to some terminal window that is not its own.
+                if ($cached.Desktop) {
+                    $cached.Remote = 'In'
+                    $cached.Via = 'desktop'
+                    $map[[string](-[int64]$cached.Pid)] = $cached
+                    continue
+                }
 
                 $shell = $claudeParents[$cached.Pid]
                 if (-not $shellToWindow.ContainsKey($shell)) {
@@ -1549,7 +1587,10 @@ function Sync-SessionMap {
     $script:sessionByHwnd = $map
     # A window to another machine opening or closing changes which of its
     # sessions have a window, so that machine is asked again straight away.
+    # -Probe sweeps before the card has set the table up, and an empty one
+    # stands for it there.
     $before = $script:outgoingByHwnd
+    if ($null -eq $before) { $before = @{} }
     $script:outgoingByHwnd = Get-OutgoingWindows -Table $table -ShellToWindow $shellToWindow
     foreach ($key in @($script:outgoingByHwnd.Keys)) {
         if (-not $before.ContainsKey($key)) { Request-KeptPoll -HostName $script:outgoingByHwnd[$key] }
@@ -3070,6 +3111,10 @@ if ($Probe) {
                 $found += ('  {0,-10} {1,-8} {2,-28} {3}' -f [int64]$h, $parsed.State, $ws, $parsed.Label)
             }
         }
+        # Sessions of the Claude desktop app have no window to scan.
+        foreach ($info in @($script:sessionByHwnd.Values | Where-Object { $_.Via -eq 'desktop' })) {
+            $found += ('  {0,-10} {1,-8} {2,-28} {3}' -f -$info.Pid, $info.Status, $info.Workspace, $info.Name)
+        }
         $sw.Stop()
         # Uses the count Sync-SessionMap already worked out. Calling
         # Get-LiveSessionCount here instead would add a Get-Process per session
@@ -3640,7 +3685,14 @@ function New-Row {
             # A kept session with no window here: the click opens one.
             try { Open-KeptSession -Kept (Get-RowKept -Element $sender) } catch { Write-ErrorLog -Where 'reopen' -Problem $_ }
         } elseif ($script:pressRow -eq $sender) {
-            [TlNative]::Focus([IntPtr]$sender.Tag) | Out-Null
+            # A session of the Claude desktop app brings the app forward. It
+            # cannot pick the conversation; the app shows the one last open.
+            $clicked = $script:sessionByHwnd[[string][int64]$sender.Tag]
+            if ($null -ne $clicked -and $clicked.Via -eq 'desktop') {
+                try { [TlNative]::Focus((Get-DesktopWindow -ProcessId $clicked.Pid)) | Out-Null } catch { Write-ErrorLog -Where 'desktop' -Problem $_ }
+            } else {
+                [TlNative]::Focus([IntPtr]$sender.Tag) | Out-Null
+            }
             # An incoming remote row has no window to bring forward, which is
             # what normally clears its blue dot, so the click itself counts as
             # having looked.
@@ -5171,7 +5223,9 @@ function Update-Card {
         $info = $script:sessionByHwnd[$key]
         if ($info.Remote -ne 'In') { continue }
         $state = $(if ($info.Status -eq 'busy') { 'Working' } else { 'Waiting' })
-        $label = $(if ($info.Title) { $info.Title } else { 'Session' })
+        # The transcript's title first, then the name in the session file,
+        # which the Claude desktop app sets to the conversation's title.
+        $label = $(if ($info.Title) { $info.Title } elseif ($info.Name) { $info.Name } else { 'Session' })
         if (-not $rows.ContainsKey($key)) {
             $rows[$key] = New-Row -Handle ([IntPtr][int64]$key) -Label $label -State $state
         }
@@ -5285,7 +5339,9 @@ function Update-Card {
                 # Started from somewhere else. When it runs in tmux here, say
                 # where its window is, and whether it has one at all.
                 $kept = $script:keptBySessionId[$info.SessionId]
-                if ($null -eq $kept) {
+                if ($info.Via -eq 'desktop') {
+                    $rec.RemoteNote = 'in the Claude desktop app'
+                } elseif ($null -eq $kept) {
                     $rec.RemoteNote = 'started from another PC'
                 } elseif ($kept.Window -eq 'remote') {
                     $rec.RemoteNote = 'connected from another PC' + $listSep + 'keeps running when closed'
