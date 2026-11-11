@@ -620,22 +620,42 @@ function Get-IncomingVia {
     return ''
 }
 
-# The window of the Claude desktop app that runs a session, found by walking up
-# from the session's Claude to the first process that owns a main window.
-# IntPtr.Zero when none is found, such as with the app closed to the tray. Only
-# a click asks, so the slow lookups here do not matter.
-function Get-DesktopWindow {
+# Brings forward the Claude desktop app that runs a session. Walks up from the
+# session's Claude to the first process that owns a main window and focuses it.
+# With the app closed to the tray no process has one, and the app is started
+# again instead: the running app takes the second start as a request to show
+# its window. Only a click asks, so the slow lookups here do not matter.
+function Show-DesktopApp {
     param([int]$ProcessId)
     $p = $ProcessId
-    for ($i = 0; $i -lt 6 -and $p -gt 0; $i++) {
+    $appPath = ''
+    for ($i = 0; $i -lt 8 -and $p -gt 0; $i++) {
         $proc = Get-Process -Id $p -ErrorAction SilentlyContinue
         if ($null -eq $proc) { break }
-        if ($proc.MainWindowHandle -ne [IntPtr]::Zero) { return $proc.MainWindowHandle }
+        if ($proc.MainWindowHandle -ne [IntPtr]::Zero) {
+            [TlNative]::Focus($proc.MainWindowHandle) | Out-Null
+            return
+        }
+        # The session's own Claude runs from the app's data folder; the app
+        # itself is the Claude.exe furthest up.
+        if ($i -gt 0 -and $proc.ProcessName -ieq 'claude' -and $proc.Path) { $appPath = $proc.Path }
         $cim = Get-CimInstance Win32_Process -Filter "ProcessId=$p" -ErrorAction SilentlyContinue
         if ($null -eq $cim) { break }
         $p = [int]$cim.ParentProcessId
     }
-    return [IntPtr]::Zero
+    if (-not $appPath) { return }
+    # A Store install cannot be started from its WindowsApps folder, only by
+    # its app id, which is the package family and the app's name in it.
+    $package = [regex]::Match($appPath, '\\WindowsApps\\([^_\\]+)_[^\\]*__([^\\]+)\\')
+    if ($package.Success) {
+        $family = $package.Groups[1].Value + '_' + $package.Groups[2].Value
+        $app = Get-StartApps | Where-Object { $_.AppID -like "$family!*" } | Select-Object -First 1
+        if ($null -ne $app) {
+            Start-Process explorer.exe -ArgumentList ('shell:AppsFolder\' + $app.AppID)
+            return
+        }
+    }
+    Start-Process -FilePath $appPath
 }
 
 # The host an ssh command line connects to, without its user@. Options that
@@ -3685,11 +3705,12 @@ function New-Row {
             # A kept session with no window here: the click opens one.
             try { Open-KeptSession -Kept (Get-RowKept -Element $sender) } catch { Write-ErrorLog -Where 'reopen' -Problem $_ }
         } elseif ($script:pressRow -eq $sender) {
-            # A session of the Claude desktop app brings the app forward. It
-            # cannot pick the conversation; the app shows the one last open.
+            # A session of the Claude desktop app brings the app forward, out
+            # of the tray if need be. It cannot pick the conversation; the app
+            # shows the one last open.
             $clicked = $script:sessionByHwnd[[string][int64]$sender.Tag]
             if ($null -ne $clicked -and $clicked.Via -eq 'desktop') {
-                try { [TlNative]::Focus((Get-DesktopWindow -ProcessId $clicked.Pid)) | Out-Null } catch { Write-ErrorLog -Where 'desktop' -Problem $_ }
+                try { Show-DesktopApp -ProcessId $clicked.Pid } catch { Write-ErrorLog -Where 'desktop' -Problem $_ }
             } else {
                 [TlNative]::Focus([IntPtr]$sender.Tag) | Out-Null
             }
