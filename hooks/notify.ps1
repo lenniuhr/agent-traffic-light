@@ -62,6 +62,16 @@ try {
     $safeId = ($sessionId -replace '[^A-Za-z0-9\-]', '')
     $marker = Join-Path $markerDir ($safeId + '.json')
 
+    # A YubiKey marker holds until its "YubiKey done": the question it raises
+    # makes Claude send a permission notification of its own a few seconds
+    # later, which would otherwise overwrite it with a marker the widget drops
+    # because the row reads as working.
+    if ($type -ne 'yubikey' -and (Test-Path $marker)) {
+        $held = $null
+        try { $held = (Get-Content $marker -Raw | ConvertFrom-Json).type } catch { }
+        if ($held -eq 'yubikey') { exit 0 }
+    }
+
     [pscustomobject]@{
         sessionId = $sessionId
         type      = $type
