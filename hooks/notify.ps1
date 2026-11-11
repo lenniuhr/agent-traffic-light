@@ -22,8 +22,24 @@ try {
     # Only the types that mean the session cannot continue without the user.
     # The idle-timeout notification also arrives here and must not turn a row
     # red, because a session that merely finished is amber, not an alarm.
-    $blocking = @('permission_prompt', 'elicitation_dialog', 'agent_needs_input')
+    $blocking = @('permission_prompt', 'elicitation_dialog', 'agent_needs_input', 'yubikey')
     $type = $payload.notification_type
+
+    # The yubikey-touch plugin (draxonfullstack's tools/claude-mods) raises a
+    # notification titled "YubiKey" when a session asks for a touch of the key,
+    # and one titled "YubiKey done" when it is over. Every other plugin
+    # notification is left alone.
+    $markerDir = Join-Path (Split-Path -Parent $PSScriptRoot) 'state\markers'
+    $safeId = ($sessionId -replace '[^A-Za-z0-9\-]', '')
+    if ($type -eq 'plugin_notification') {
+        $title = [string]$payload.title
+        if ($title -eq 'YubiKey') { $type = 'yubikey' }
+        elseif ($title -eq 'YubiKey done') {
+            Remove-Item (Join-Path $markerDir ($safeId + '.json')) -Force -ErrorAction SilentlyContinue
+            exit 0
+        }
+        else { exit 0 }
+    }
 
     if ([string]::IsNullOrWhiteSpace($type)) {
         # Older builds send no type. Fall back to the message text rather than

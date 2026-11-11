@@ -4780,6 +4780,27 @@ function Resolve-BlockedRows {
     $files = @(Get-ChildItem (Join-Path $stateDir 'markers') -Filter '*.json' -ErrorAction SilentlyContinue)
     if ($files.Count -eq 0) { return @() }
 
+    # A YubiKey marker: the session asks for a touch of the key from inside a
+    # tool call, so its title reads as working, not waiting. It turns the row
+    # Blocked anyway, and stays until the "YubiKey done" notification removes
+    # it, or five minutes at most, so a crashed session cannot leave it red.
+    $blocked = @()
+    $rest = @()
+    foreach ($f in $files) {
+        $isKey = $false
+        try { $isKey = ((Get-Content $f.FullName -Raw | ConvertFrom-Json).type -eq 'yubikey') } catch { }
+        if (-not $isKey) { $rest += $f; continue }
+        if ($f.LastWriteTime -lt (Get-Date).AddMinutes(-5)) {
+            Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue
+            continue
+        }
+        $id = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
+        $hit = $Ordered | Where-Object { $_.SessionId -eq $id } | Select-Object -First 1
+        if ($hit) { $blocked += $hit }
+    }
+    $files = $rest
+    if ($files.Count -eq 0) { return $blocked }
+
     # Judged on the state the titles just reported, not on the state currently
     # painted, because this runs before anything is applied.
     $waiting = @($Ordered | Where-Object { $_.PendingState -eq 'Waiting' })
@@ -4789,7 +4810,7 @@ function Resolve-BlockedRows {
     # prompt's marker would sit here until the user typed something.
     if ($waiting.Count -eq 0) {
         foreach ($f in $files) { Remove-Item $f.FullName -Force -ErrorAction SilentlyContinue }
-        return @()
+        return $blocked
     }
 
     # An exact join. The marker file is named after the session id, and every
@@ -4798,7 +4819,6 @@ function Resolve-BlockedRows {
     #
     # This replaced a ladder of console-title matching and time correlation.
     # None of that was ever needed once the window could be resolved properly.
-    $blocked = @()
     foreach ($f in $files) {
         $id = [System.IO.Path]::GetFileNameWithoutExtension($f.Name)
         $hit = $waiting | Where-Object { $_.SessionId -eq $id } | Select-Object -First 1
