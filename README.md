@@ -102,8 +102,9 @@ New sessions start from the card. "New session" in the tray icon's menu, which i
 card is hidden, and first in the card's own menu, lists the repos Claude ran in over the last two
 weeks, most used first, at most five: found in `~/.claude/projects`, with folders outside any repo,
 gone or older left out. Each opens a new Windows Terminal window in that repo running
-`claude`. Neither a new nor a resumed session is given a permission mode: Claude starts in the
-`permissions.defaultMode` of your own Claude settings. "Hide from this list" leaves one out for good; it is kept as
+`claude`. New and resumed sessions start in the permission mode named by `PermissionMode` in
+`state\settings.json` (for example `bypassPermissions`), passed as `--permission-mode`. Empty, the
+default, Claude starts in the `permissions.defaultMode` of your own Claude settings. "Hide from this list" leaves one out for good; it is kept as
 `HiddenLaunchRepos` in `state\settings.json`, and taken out of there to bring it back. Pointing at a
 repo's heading also shows a "+" right after its name, in the name's own style, which opens a
 session in that folder. With "Group by working repository" on it opens the session in the folder
