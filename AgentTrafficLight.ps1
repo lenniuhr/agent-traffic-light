@@ -2164,6 +2164,12 @@ $script:unityCapFailed = @{}   # process ids whose failure is logged already, so
 # and Resume start on. Missing or unknown, they start as plain claude did
 # before the card knew setups: on Bedrock (your settings) where Bedrock is
 # already the default here, else on the subscription.
+#
+# PermissionMode is the permission mode New session and Resume start Claude
+# in, passed as --permission-mode: one of acceptEdits, auto, bypassPermissions,
+# manual, dontAsk or plan. Empty by default, so Claude starts in the
+# permissions.defaultMode of your own Claude settings. Set only by editing this
+# file; a value Claude does not know is ignored.
 # ---------------------------------------------------------------------------
 $settingsFile = Join-Path $stateDir 'settings.json'
 $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5h = $true; ShowUsageWeek = $true
@@ -2171,7 +2177,8 @@ $script:settings = @{ ShowUnityEditors = $true; GroupByRepo = $false; ShowUsage5
                       HideFadedRows = $false
                       DefaultSound = ''; KeySound = 'Windows Proximity Notification'
                       Preset = 'Classic'; Sounds = @{}; CpuLimits = @{}; HiddenLaunchRepos = @()
-                      Providers = $null; DefaultProvider = '' }
+                      Providers = $null; DefaultProvider = ''; PermissionMode = '' }
+$permissionModes = @('acceptEdits', 'auto', 'bypassPermissions', 'manual', 'dontAsk', 'plan')
 
 function Read-Settings {
     try {
@@ -2194,6 +2201,7 @@ function Read-Settings {
                 if ($p.Name -and $p.File) { @{ Name = [string]$p.Name; File = [string]$p.File } } })
         }
         if ($saved.DefaultProvider) { $script:settings.DefaultProvider = [string]$saved.DefaultProvider }
+        if ($saved.PermissionMode -and $permissionModes -ccontains [string]$saved.PermissionMode) { $script:settings.PermissionMode = [string]$saved.PermissionMode }
         if ($null -ne $saved.Sounds) {
             foreach ($entry in $saved.Sounds.PSObject.Properties) {
                 $script:settings.Sounds[[string]$entry.Name] = [string]$entry.Value
@@ -2226,6 +2234,7 @@ function Save-Settings {
             CpuLimits        = [pscustomobject]$script:settings.CpuLimits
             HiddenLaunchRepos = @($script:settings.HiddenLaunchRepos)
             DefaultProvider  = $script:settings.DefaultProvider
+            PermissionMode   = $script:settings.PermissionMode
         }
         # Missing until a setup is found, so a machine without Bedrock keeps
         # looking at every start and never writes an empty list.
@@ -6207,10 +6216,11 @@ function Start-ClaudeSession {
         }
     }
     # A closed session is resumed by its id, which the resumed session keeps.
-    # No permission mode is given: Claude starts in the defaultMode of the
-    # user's own settings, new and resumed alike.
+    # With PermissionMode set, new and resumed sessions start in that mode;
+    # empty, Claude starts in the defaultMode of the user's own settings.
     $claude = @('-NoExit', '-Command', 'claude')
     if ($Resume) { $claude += @('--resume', $Resume) }
+    if ($script:settings.PermissionMode) { $claude += @('--permission-mode', $script:settings.PermissionMode) }
     $claude += @($launch.Args)
     try {
         $wt = Get-Command wt.exe -ErrorAction SilentlyContinue
